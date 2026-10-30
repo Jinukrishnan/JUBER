@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aanawadi (ആനവണ്ടി)
 
-## Getting Started
+A 3D browser game: drive a KSRTC-style bus along a fixed route, pick up and drop
+off many passengers at every stop, and finish the day with Rs. 800 net.
+Inspired by a one-passenger auto-rickshaw game; here the bus carries up to 40.
 
-First, run the development server:
+Built with Next.js (App Router), TypeScript, Tailwind, React Three Fiber and Zustand.
+No backend: the driver profile and records live in `localStorage`.
+
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm test         # unit + integration tests (Vitest)
+npm run build    # production build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Flow: `/` landing -> `/login` driver ticket -> `/play` the game
+(`/play` redirects to `/login` when there is no saved profile).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Controls
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Key | Action |
+|-----|--------|
+| W / S | Throttle · brake / reverse |
+| A / D | Steer |
+| Space | Hand brake |
+| H | Horn |
+| E | Open / close door (stopped inside a stop zone) |
+| C | Camera: chase · high · driver seat |
+| R | Monsoon rain |
+| M | Mute |
+| P / Esc | Pause menu |
 
-## Learn More
+## How a shift works
 
-To learn more about Next.js, take a look at the following resources:
+- You start the day Rs. 250 down (diesel + depot rent) and need to reach Rs. 800 net.
+- The route has 7 stops. Stop inside the yellow zone, press **E**, and passengers
+  board and alight one by one. Fares grow with the stops ridden.
+- Driving past a stop where someone wants to get off costs rating and refunds their fare.
+- The day runs 06:00-20:00 on a clock compressed to 8 real minutes.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tuning
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+All numbers live in `src/game/constants.ts` (capacity, rent, goal, day length,
+boarding speed, patience, spawn rate). The route is data in
+`src/game/data/route-v1.ts`; fares are in `src/game/logic/fares.ts`.
+The app name shown in the UI is `APP_NAME` in the same constants file.
 
-## Deploy on Vercel
+## Layout
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/app/         routes (landing, login, play)
+src/game/        3D scene (Bus, Road, Stops, CameraRig, Weather) + store
+src/game/logic/  pure, unit-tested rules (route, fares, boarding, rating, clock, vehicle)
+src/ui/          HUD, pause menu, day summary, login card, stickers
+src/lib/         localStorage profile
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploy
+
+It is a standard Next.js app with no server dependencies, so it deploys as-is to Vercel:
+
+1. Push the repo to GitHub.
+2. Import it at vercel.com/new (framework is auto-detected).
+3. Deploy. No environment variables are needed.
+
+## Notes
+
+- Desktop keyboard only; touch devices get a "best on desktop" screen.
+- The route and stop names are invented. The bus uses an original livery and badge,
+  not the official KSRTC logo.
