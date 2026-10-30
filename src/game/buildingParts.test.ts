@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Item } from "./Instances";
 import type { BuildingPlacement, GatePlacement, WallPlacement } from "./logic/layout";
 import { gateParts, houseParts, shopParts, wallParts } from "./buildingParts";
+import { overlaps } from "./logic/footprint";
+import { footprintOf } from "./logic/layout";
 
 const base = { x: 300, z: 25, heading: 0.1, width: 10, depth: 7, seed: 4242, compound: 0 };
 const house = (side: 1 | -1 = 1): BuildingPlacement => ({ ...base, kind: "house", side, floors: 1 });
@@ -32,10 +34,15 @@ describe("houseParts", () => {
   it("has exactly four veranda pillars along the road-facing side", () => {
     for (const side of [1, -1] as const) {
       const h = house(side);
-      const pillars = houseParts(h).boxes.filter((i) => i.sx === 0.25 && i.sy > 2.4 && i.sy < 2.8);
+      const pillars = houseParts(h).boxes.filter((i) => i.sx === 0.25 && i.sy > 1.8 && i.sy < 2.2);
       expect(pillars).toHaveLength(4);
       for (const p of pillars) expect(Math.sign(local(h, p).v)).toBe(frontSign(h));
     }
+  });
+
+  it("keeps the pillars below the veranda roof instead of poking through the tiles", () => {
+    const pillars = houseParts(house()).boxes.filter((i) => i.sx === 0.25 && i.sy > 1.8 && i.sy < 2.2);
+    for (const p of pillars) expect(p.y + p.sy / 2).toBeLessThanOrEqual(2.7);
   });
 
   it("has a framed door and two windows on the front", () => {
@@ -64,6 +71,13 @@ describe("shopParts", () => {
     expect(parts.filter((i) => i.color.toLowerCase() === "#444444")).toHaveLength(2);
   });
 
+  it("puts the signboard where the first-floor balcony cannot hide it", () => {
+    const sign = shopParts(shop(3)).sign!;
+    expect(sign.y - sign.sy / 2).toBeGreaterThanOrEqual(2.8); // above the shutters
+    expect(sign.y + sign.sy / 2).toBeLessThanOrEqual(3.6); // below the balcony slab
+    expect(sign.sx / sign.sy).toBeCloseTo(4, 6); // the atlas cells are 4:1, so lettering is not stretched
+  });
+
   it("has shutters, a rooftop water tank and a signboard on the front", () => {
     const b = shop(3);
     const p = shopParts(b);
@@ -90,6 +104,18 @@ describe("every building part", () => {
         expect(Math.abs(l.u)).toBeLessThanOrEqual(b.width / 2 + 1.5);
         expect(Math.abs(l.v)).toBeLessThanOrEqual(b.depth / 2 + 1.5);
         expect(i.y).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+});
+
+describe("every part stands inside the footprint used to keep other things out", () => {
+  it("so nothing else can be placed under a veranda, roof or balcony", () => {
+    for (const b of [house(), house(-1), shop(2), shop(4, -1)]) {
+      const p = b.kind === "house" ? houseParts(b) : shopParts(b);
+      const fp = footprintOf(b);
+      for (const i of [...p.boxes, ...(p.sign ? [p.sign] : [])]) {
+        expect(overlaps({ kind: "circle", x: i.x, z: i.z, r: 0.01 }, fp)).toBe(true);
       }
     }
   });

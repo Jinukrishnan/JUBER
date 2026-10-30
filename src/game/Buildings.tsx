@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { PlaneGeometry } from "three";
+import { PlaneGeometry, type CanvasTexture } from "three";
 import { gateParts, houseParts, shopParts, wallParts } from "./buildingParts";
 import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
 import { SHOP_NAMES, shopNameFor } from "./data/shopnames";
@@ -49,11 +49,20 @@ function signGeometry(index: number): PlaneGeometry {
 
 const isBuilding = (p: Placement): p is BuildingPlacement => p.kind === "house" || p.kind === "shop";
 
-// Houses, shops, compound walls and gates as one instanced box mesh, plus the
-// shop signboards.
-export function Buildings({ placements }: { placements: Placement[] }) {
+export type SignAtlas = { atlas: CanvasTexture; geos: PlaneGeometry[] };
+
+// The signboard atlas and its plane geometries. Build this ONCE (in Scenery) and pass it to
+// every Buildings: making a new one per route slice leaked a GPU texture each time a slice mounted.
+export function useSignAtlas(): SignAtlas {
   const atlas = useCanvasTexture(COLS * CELL_W, ROWS * CELL_H, drawAtlas, SHOP_NAMES.map((n) => n.ml).join(" "));
   const geos = useMemo(() => SHOP_NAMES.map((_, i) => signGeometry(i)), []);
+  return { atlas, geos };
+}
+
+// Houses, shops, compound walls and gates as one instanced box mesh, plus the
+// shop signboards.
+export function Buildings({ placements, signs: pack }: { placements: Placement[]; signs: SignAtlas }) {
+  const { atlas, geos } = pack;
 
   const parts = useMemo(() => {
     const boxes: Item[] = [];

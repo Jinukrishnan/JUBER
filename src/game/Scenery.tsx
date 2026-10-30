@@ -3,7 +3,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import { busPose } from "./busPose";
-import { Buildings } from "./Buildings";
+import { Buildings, useSignAtlas, type SignAtlas } from "./Buildings";
 import { ROUTE_V1 } from "./data/route-v1";
 import { Flowers, Grass, Trees } from "./Foliage";
 import { Instances, type Item } from "./Instances";
@@ -46,9 +46,11 @@ function SceneSlice({
   placements,
   detail,
   isGroundFree,
+  signs,
 }: {
   slice: number;
   placements: Placement[];
+  signs: SignAtlas;
   detail: "full" | "lite";
   isGroundFree: (x: number, z: number, r: number) => boolean;
 }) {
@@ -56,7 +58,7 @@ function SceneSlice({
     <group>
       <Trees placements={placements} detail={detail} />
       <Flowers placements={placements} />
-      <Buildings placements={placements} />
+      <Buildings placements={placements} signs={signs} />
       <Grass slice={slice} detail={detail} isGroundFree={isGroundFree} />
     </group>
   );
@@ -72,6 +74,7 @@ export function Scenery() {
     return new Map([...idx].map(([s, list]) => [s, list.map((i) => layout.placements[i])]));
   }, [layout]);
   const fixed = useMemo(() => buildPoles(), []);
+  const signs = useSignAtlas();
 
   // re-render only when the bus crosses into another slice
   const [busSlice, setBusSlice] = useState(() => sliceOf(busPose.x));
@@ -98,6 +101,7 @@ export function Scenery() {
             placements={list}
             detail={isNear(s, centre) ? "full" : "lite"}
             isGroundFree={layout.isGroundFree}
+            signs={signs}
           />
         );
       })}

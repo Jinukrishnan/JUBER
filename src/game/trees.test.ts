@@ -1,10 +1,27 @@
 import { describe, expect, it } from "vitest";
-import type { TreeKind, TreePlacement } from "./logic/layout";
+import { TREE_RADIUS, type TreeKind, type TreePlacement } from "./logic/layout";
 import { treeParts } from "./trees";
 
 const KINDS: TreeKind[] = ["coconut", "mango", "gulmohar", "banana", "jackfruit"];
 const make = (kind: TreeKind, seed = 12345): TreePlacement => ({ kind, side: 1, x: 100, z: 20, scale: 1, lean: 0.1, seed });
 const count = (p: ReturnType<typeof treeParts>) => p.trunk.length + p.crown.length + p.frond.length + p.blossom.length;
+
+describe("crowns stay inside the footprint used to keep buildings out", () => {
+  it("for every spreading species at every size", () => {
+    for (const kind of ["mango", "gulmohar", "banana", "jackfruit"] as TreeKind[]) {
+      for (const scale of [0.85, 1, 1.25]) {
+        for (const seed of [1, 99, 12345, 777777]) {
+          const p: TreePlacement = { kind, side: 1, x: 100, z: 20, scale, lean: 0.1, seed };
+          const parts = treeParts(p, "full");
+          for (const it of [...parts.crown, ...parts.blossom, ...parts.frond]) {
+            const reach = Math.hypot(it.x - 100, it.z - 20) + Math.max(it.sx, it.sz) / (kind === "banana" ? 2 : 1);
+            expect(reach).toBeLessThanOrEqual(TREE_RADIUS[kind] * scale + 0.01);
+          }
+        }
+      }
+    }
+  });
+});
 
 describe("treeParts", () => {
   it("is the same every time for the same tree", () => {

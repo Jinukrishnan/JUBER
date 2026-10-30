@@ -199,6 +199,21 @@ describe("buildings", () => {
   });
 });
 
+describe("the village is balanced", () => {
+  it("has more houses than shops, with shops kept for the stops", () => {
+    const houses = buildings().filter((b) => b.kind === "house").length;
+    expect(houses).toBeGreaterThanOrEqual(buildings().length - houses);
+  });
+
+  it("leaves room for trees and flowers between the compounds", () => {
+    const species = (k: string) => placements.filter((p) => p.kind === k).length;
+    expect(placements.filter(isFlowers).length).toBeGreaterThanOrEqual(40);
+    expect(species("gulmohar")).toBeGreaterThanOrEqual(12);
+    expect(species("mango")).toBeGreaterThanOrEqual(30);
+    expect(placements.filter(isTree).length).toBeGreaterThanOrEqual(buildings().length * 1.4);
+  });
+});
+
 describe("isGroundFree", () => {
   it("is false where a plant stands and true on open ground", () => {
     const t = placements.filter(isTree)[0];

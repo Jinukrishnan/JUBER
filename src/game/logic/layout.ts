@@ -68,7 +68,7 @@ export const TREE_RADIUS: Record<TreeKind, number> = {
   coconut: 0.8,
   mango: 3.0,
   gulmohar: 3.5,
-  banana: 1.2,
+  banana: 1.8,
   jackfruit: 2.0,
 };
 // A cluster of heads is about a metre across; its centre stands 1.0-1.8 m beyond the verge
@@ -83,8 +83,22 @@ export function footprintOf(p: Placement): Shape {
     case "flowers":
       return { kind: "circle", x: p.x, z: p.z, r: FLOWER_RADIUS };
     case "house":
-    case "shop":
-      return { kind: "rect", x: p.x, z: p.z, w: p.width, d: p.depth, heading: p.heading };
+    case "shop": {
+      // the drawn extent, not just the walls: a house's veranda and roof reach 1.8 m toward the
+      // road, a shop's balcony 1.3 m, and both overhang a little behind and to the sides
+      const front = p.kind === "house" ? 1.8 : 1.3;
+      const back = p.kind === "house" ? 0.7 : 0.2;
+      const side = p.kind === "house" ? 0.6 : 0.2;
+      const shift = (front - back) / 2; // the extent is centred this far toward the road
+      return {
+        kind: "rect",
+        x: p.x + p.side * Math.sin(p.heading) * shift,
+        z: p.z - p.side * Math.cos(p.heading) * shift,
+        w: p.width + 2 * side,
+        d: p.depth + front + back,
+        heading: p.heading,
+      };
+    }
     case "wall":
       return { kind: "rect", x: p.x, z: p.z, w: p.length, d: WALL_THICKNESS, heading: p.heading };
     case "gate":
@@ -133,12 +147,12 @@ function mulberry32(seed: number) {
 
 type Kind = TreeKind | "flowers";
 const WEIGHTS: [Kind, number][] = [
-  ["coconut", 0.34],
+  ["coconut", 0.27],
   ["mango", 0.2],
-  ["gulmohar", 0.1],
-  ["banana", 0.14],
+  ["gulmohar", 0.11],
+  ["banana", 0.12],
   ["jackfruit", 0.08],
-  ["flowers", 0.14],
+  ["flowers", 0.22],
 ];
 const FLOWERS: FlowerKind[] = ["sunflower", "hibiscus", "marigold"];
 const SLOT = 9; // metres between plant slots along the road
@@ -198,9 +212,11 @@ export function layoutScenery(
     for (let slot = first + (side === 1 ? BUILDING_SLOT / 2 : 0); slot <= last; slot += BUILDING_SLOT) {
       const x = slot + (r() - 0.5) * 6;
       // fewer buildings toward the ends of the route
-      if (r() > (nearestEnd(x) < 120 ? 0.3 : 0.8)) continue;
+      const near = nearestStop(x);
+      const buildChance = nearestEnd(x) < 120 ? 0.25 : near <= 60 ? 0.5 : 0.55;
+      if (r() > buildChance) continue;
       // shops gather around the stops, houses fill in between
-      const d = nearestStop(x);
+      const d = near;
       const shopChance = d <= 60 ? 0.85 : d > 120 ? 0.08 : 0.85 - ((d - 60) / 60) * 0.77;
       const shop = r() < shopChance;
       const width = shop ? 8 + r() * 2 : 8 + r() * 3;

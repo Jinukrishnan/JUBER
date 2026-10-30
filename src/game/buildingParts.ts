@@ -39,7 +39,8 @@ export function houseParts(b: BuildingPlacement): BuildingParts {
   out.push(box(0, 0.58, f * (b.depth / 2 + 0.8), b.width, 0.15, 1.6, "#c9c3b4"));
   for (let k = 0; k < 4; k++) {
     const lu = -b.width / 2 + 0.5 + (k * (b.width - 1)) / 3;
-    out.push(box(lu, 0.5 + 1.3, f * (b.depth / 2 + 1.4), 0.25, 2.6, 0.25, "#efe6cf"));
+    // 2.0 m tall so they stop under the veranda roof instead of poking through the tiles
+    out.push(box(lu, 0.65 + 1.0, f * (b.depth / 2 + 1.4), 0.25, 2.0, 0.25, "#efe6cf"));
   }
   // pitched clay-tile roof: two slabs meeting at the ridge, overhanging all round
   const ridge = wallTop + (b.depth / 2) * Math.tan(PITCH);
@@ -70,12 +71,13 @@ export function shopParts(b: BuildingPlacement): BuildingParts {
     out.push(box(0, y + 0.55, f * (b.depth / 2 + 1.25), b.width * 0.8, 0.9, 0.06, "#444444"));
   }
   // ground-floor shutters, roof slab, rooftop water tank
-  out.push(box(0, 0.4 + 1.3, f * (b.depth / 2 + 0.05), b.width * 0.8, 2.4, 0.1, SHUTTERS[b.seed % SHUTTERS.length]));
+  out.push(box(0, 0.4 + 1.2, f * (b.depth / 2 + 0.05), b.width * 0.8, 2.4, 0.1, SHUTTERS[b.seed % SHUTTERS.length]));
   const top = 0.4 + FLOOR_H * b.floors;
   out.push(box(0, top + 0.1, 0, b.width + 0.4, 0.2, b.depth + 0.4, "#9a958a"));
   out.push(box(b.width / 4, top + 0.2 + 0.8, 0, 1.6, 1.6, 1.6, "#3b6fb5"));
-  // the signboard over the shutters; its text is drawn by the renderer
-  const sign = box(0, 0.4 + FLOOR_H + 0.15, f * (b.depth / 2 + 0.1), b.width * 0.7, 0.8, 0.08, "#ffffff");
+  // the signboard sits between the shutters and the first-floor balcony slab, so the
+  // balcony cannot hide it; 4:1 to match the lettering cells in the atlas
+  const sign = box(0, 3.15, f * (b.depth / 2 + 0.1), 2.4, 0.6, 0.08, "#ffffff");
   return { boxes: out, sign };
 }
 

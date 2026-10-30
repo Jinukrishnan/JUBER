@@ -1,3 +1,4 @@
+import { ROUTE_V1 } from "./data/route-v1";
 import type { Item } from "./Instances";
 import type { FlowerPlacement, Side } from "./logic/layout";
 import { FOOTPATH_WIDTH, VERGE_WIDTH, roadCenterZ, roadHalfWidthAt } from "./logic/road";
@@ -101,6 +102,10 @@ export function bushParts(seed: number, x: number, z: number): Item[] {
 
 export type Spot = { x: number; z: number; seed: number };
 
+// the road is drawn from 80 m behind the depot to 100 m past the last stop
+const ROAD_START = ROUTE_V1[0].position - 80;
+const ROAD_END = ROUTE_V1[ROUTE_V1.length - 1].position + 100;
+
 // Where grass and bushes grow along one side of the verge within a route slice:
 // every ~3 m, just beyond the verge edge.
 export function vergeSpots(slice: number, side: Side, spacing = 3): Spot[] {
@@ -108,6 +113,7 @@ export function vergeSpots(slice: number, side: Side, spacing = 3): Spot[] {
   const spots: Spot[] = [];
   for (let i = 0; i * spacing < SLICE_LENGTH - spacing; i++) {
     const x = slice * SLICE_LENGTH + i * spacing + r() * spacing * 0.6;
+    if (x < ROAD_START || x > ROAD_END) continue;
     const lat = roadHalfWidthAt(x) + FOOTPATH_WIDTH + VERGE_WIDTH + 0.4 + r() * 0.8;
     spots.push({ x, z: roadCenterZ(x) + side * lat, seed: Math.floor(r() * 1e9) });
   }

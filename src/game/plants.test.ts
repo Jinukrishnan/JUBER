@@ -72,6 +72,17 @@ describe("grass tufts and bushes", () => {
   });
 });
 
+describe("vergeSpots beyond the ends of the road", () => {
+  it("grow nothing where no road is drawn", () => {
+    expect(vergeSpots(-3, 1)).toEqual([]);
+    expect(vergeSpots(-3, -1)).toEqual([]);
+    expect(vergeSpots(19, 1)).toEqual([]);
+    expect(vergeSpots(21, -1)).toEqual([]);
+    expect(vergeSpots(0, 1).length).toBeGreaterThan(0);
+    expect(vergeSpots(17, 1).length).toBeGreaterThan(0);
+  });
+});
+
 describe("vergeSpots", () => {
   const spots = vergeSpots(5, 1);
   it("lie in their slice, beyond the verge, on the requested side", () => {

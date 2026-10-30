@@ -69,8 +69,8 @@ export function treeParts(p: TreePlacement, detail: Detail): TreeParts {
       const n = full ? 7 : 3;
       for (let k = 0; k < n; k++) {
         const a = r() * Math.PI * 2;
-        const d = k === 0 ? 0 : (0.8 + r() * 1.0) * s;
-        const rad = (k === 0 ? 2.4 : 1.6 + r() * 0.7) * s;
+        const d = k === 0 ? 0 : (0.4 + r() * 0.3) * s;
+        const rad = (k === 0 ? 2.4 : 1.5 + r() * 0.5) * s;
         out.crown.push(sphere(p.x + Math.cos(a) * d, h + 1.8 * s + (r() - 0.3) * 0.8, p.z + Math.sin(a) * d, rad, rad * 0.9, rad, k % 2 ? "#3f7f35" : "#2f6b2f"));
       }
       break;
@@ -81,14 +81,14 @@ export function treeParts(p: TreePlacement, detail: Detail): TreeParts {
       const n = full ? 6 : 3;
       for (let k = 0; k < n; k++) {
         const a = r() * Math.PI * 2;
-        const d = (k === 0 ? 0 : 0.8 + r() * 1.4) * s;
-        const rad = (2.6 + r() * 0.9) * s;
+        const d = (k === 0 ? 0 : 0.3 + r() * 0.5) * s;
+        const rad = (2.2 + r() * 0.4) * s;
         out.crown.push(sphere(p.x + Math.cos(a) * d, 4.4 * s + k * 0.2, p.z + Math.sin(a) * d, rad, 1.2 * s, rad, k % 2 ? "#58994a" : "#4c8f3a"));
       }
       const m = full ? 18 : 6;
       for (let k = 0; k < m; k++) {
         const a = r() * Math.PI * 2;
-        const d = Math.sqrt(r()) * 3.0 * s;
+        const d = Math.sqrt(r()) * 2.6 * s;
         out.blossom.push(sphere(p.x + Math.cos(a) * d, 5.0 * s + r() * 0.5, p.z + Math.sin(a) * d, 0.4 * s, 0.4 * s, 0.4 * s, ["#e8452c", "#f06a2a", "#ef5b2a"][k % 3]));
       }
       break;
@@ -100,7 +100,7 @@ export function treeParts(p: TreePlacement, detail: Detail): TreeParts {
       const n = full ? 8 : 5;
       for (let k = 0; k < n; k++) {
         const a = (k / n) * Math.PI * 2 + r() * 0.5;
-        out.frond.push(frond(p.x, h + 0.1, p.z, a, 0.5 + r() * 0.4, (2.4 + r() * 0.5) * s, 0.95, k % 2 ? "#6fae3b" : "#7bbd44"));
+        out.frond.push(frond(p.x, h + 0.1, p.z, a, 0.5 + r() * 0.4, (1.6 + r() * 0.3) * s, 0.95, k % 2 ? "#6fae3b" : "#7bbd44"));
       }
       break;
     }
@@ -110,13 +110,13 @@ export function treeParts(p: TreePlacement, detail: Detail): TreeParts {
       const n = full ? 5 : 3;
       for (let k = 0; k < n; k++) {
         const a = r() * Math.PI * 2;
-        const d = (k === 0 ? 0 : 0.7 + r() * 0.8) * s;
-        const rad = (1.8 + r() * 0.3) * s;
+        const d = (k === 0 ? 0 : 0.3 + r() * 0.3) * s;
+        const rad = (1.2 + r() * 0.2) * s;
         out.crown.push(sphere(p.x + Math.cos(a) * d, h + 1.3 * s + r() * 0.5, p.z + Math.sin(a) * d, rad, rad * 0.9, rad, "#2b5a2a"));
       }
       for (let k = 0; k < (full ? 4 : 2); k++) {
         const a = r() * Math.PI * 2;
-        out.blossom.push(sphere(p.x + Math.cos(a) * 0.9 * s, 2.0 * s + r() * 1.2, p.z + Math.sin(a) * 0.9 * s, 0.32 * s, 0.4 * s, 0.32 * s, "#a3a83a"));
+        out.blossom.push(sphere(p.x + Math.cos(a) * 0.7 * s, 2.0 * s + r() * 1.2, p.z + Math.sin(a) * 0.7 * s, 0.32 * s, 0.4 * s, 0.32 * s, "#a3a83a"));
       }
       break;
     }

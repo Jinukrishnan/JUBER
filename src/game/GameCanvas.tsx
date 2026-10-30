@@ -28,7 +28,7 @@ export default function GameCanvas() {
 
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       camera={{ fov: 60, near: 0.1, far: 1600, position: [-15, 6.5, 0] }}
       style={{ position: "absolute", inset: 0 }}
     >
