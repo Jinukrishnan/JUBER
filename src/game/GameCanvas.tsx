@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Bus } from "./Bus";
 import { CameraRig } from "./CameraRig";
 import { Road } from "./Road";
+import { Stops } from "./Stops";
 import { useGame } from "./state/store";
 
 function GameLoop() {
@@ -30,6 +31,7 @@ export default function GameCanvas() {
       <ambientLight intensity={0.7} />
       <directionalLight position={[60, 120, 40]} intensity={1.6} castShadow />
       <Road />
+      <Stops />
       <Bus />
       <CameraRig />
       <GameLoop />
