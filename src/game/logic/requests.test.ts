@@ -18,9 +18,9 @@ const origin = { x: 600, z: 0 };
 
 describe("fareFor", () => {
   it("is the base fare plus the rate for every 100 m", () => {
-    expect(fareFor(VEHICLES.auto, 400)).toBe(80 + 38 * 4);
-    expect(fareFor(VEHICLES.bike, 400)).toBe(40 + 15 * 4);
-    expect(fareFor(VEHICLES.car, 400)).toBe(78 + 39 * 4);
+    expect(fareFor(VEHICLES.auto, 400)).toBe(72 + 34 * 4);
+    expect(fareFor(VEHICLES.bike, 400)).toBe(33 + 12 * 4);
+    expect(fareFor(VEHICLES.car, 400)).toBe(74 + 37 * 4);
   });
   it("rounds to a whole rupee", () => {
     expect(Number.isInteger(fareFor(VEHICLES.auto, 333))).toBe(true);
