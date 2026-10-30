@@ -25,3 +25,19 @@ body {
   background: var(--paper);
   color: var(--ink);
 }
+
+/* sticker hover nudge (CSS only) */
+.sticker {
+  transform: rotate(var(--r, 0deg));
+  transition: transform 0.2s ease;
+}
+.sticker:hover {
+  transform: rotate(calc(var(--r, 0deg) + 4deg)) translateY(-6px) scale(1.05);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sticker,
+  .sticker:hover {
+    transition: none;
+    transform: rotate(var(--r, 0deg));
+  }
+}
