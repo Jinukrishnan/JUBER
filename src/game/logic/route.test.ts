@@ -3,6 +3,7 @@ import { ROUTE_V1 } from "../data/route-v1";
 import {
   flipDirection,
   nextStopIndex,
+  passedStop,
   stopsAhead,
   stopsBetween,
   zoneAt,
@@ -56,9 +57,26 @@ describe("stopsBetween", () => {
 
 describe("zoneAt", () => {
   it("returns the stop whose zone contains the position", () => {
-    expect(zoneAt(ROUTE_V1, 1010, 25)).toBe(2);
+    expect(zoneAt(ROUTE_V1, 560, 25)).toBe(2);
   });
   it("returns null between stops", () => {
     expect(zoneAt(ROUTE_V1, 700, 25)).toBeNull();
+  });
+});
+
+describe("passedStop", () => {
+  const MARGIN = 40;
+  it("does not count a small overshoot", () => {
+    expect(passedStop(ROUTE_V1, 1, ROUTE_V1[1].position + 30, "forward", MARGIN)).toBe(false);
+  });
+  it("counts a stop once the bus is clearly beyond it going forward", () => {
+    expect(passedStop(ROUTE_V1, 1, ROUTE_V1[1].position + 41, "forward", MARGIN)).toBe(true);
+  });
+  it("is symmetric going backward", () => {
+    expect(passedStop(ROUTE_V1, 3, ROUTE_V1[3].position - 30, "backward", MARGIN)).toBe(false);
+    expect(passedStop(ROUTE_V1, 3, ROUTE_V1[3].position - 41, "backward", MARGIN)).toBe(true);
+  });
+  it("is false while the stop is still ahead", () => {
+    expect(passedStop(ROUTE_V1, 4, ROUTE_V1[1].position, "forward", MARGIN)).toBe(false);
   });
 });

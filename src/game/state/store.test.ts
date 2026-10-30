@@ -157,6 +157,20 @@ describe("tick", () => {
 });
 
 describe("missed stops", () => {
+  it("forgives a small overshoot and lets the driver reverse back in", () => {
+    const p = makePassenger("a", 0, 1, 100);
+    useGame.setState({ onboard: [p], net: 0 });
+    const stop = ROUTE_V1[1].position;
+    useGame.getState().setBusState(stop, 8);
+    useGame.getState().setBusState(stop + 30, 2);
+    expect(useGame.getState().missedStops).toBe(0);
+    useGame.getState().setBusState(stop + 5, 0);
+    useGame.getState().toggleDoor();
+    useGame.getState().transferStep();
+    expect(useGame.getState().onboard).toEqual([]);
+    expect(useGame.getState().carried).toBe(1);
+  });
+
   it("counts a miss and refunds the fare when the bus drives past a destination", () => {
     const p = makePassenger("a", 0, 1, 100);
     useGame.setState({ onboard: [p], net: 0 });

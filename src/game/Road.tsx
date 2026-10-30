@@ -13,7 +13,7 @@ import { ROUTE_V1 } from "./data/route-v1";
 import { ROAD_HALF_WIDTH, roadCenterZ } from "./logic/road";
 
 const X_MIN = -80;
-const X_MAX = 3400;
+const X_MAX = ROUTE_V1[ROUTE_V1.length - 1].position + 100;
 
 function mulberry32(seed: number) {
   let a = seed;

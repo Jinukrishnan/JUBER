@@ -4,6 +4,7 @@ import {
   CAPACITY,
   INITIAL_WAITING_PER_STOP,
   MAX_WAITING_PER_STOP,
+  MISS_GRACE,
   PATIENCE_S,
   RENT,
   SPAWN_INTERVAL_S,
@@ -14,7 +15,7 @@ import { ROUTE_V1 } from "../data/route-v1";
 import { planTransfer } from "../logic/boarding";
 import { advanceClock } from "../logic/clock";
 import { makePassenger, type Passenger } from "../logic/fares";
-import { flipDirection, zoneAt, type Direction } from "../logic/route";
+import { flipDirection, passedStop, zoneAt, type Direction } from "../logic/route";
 
 type Phase = "idle" | "running" | "paused" | "ended";
 
@@ -137,20 +138,18 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
 
   setBusState: (position, speed) =>
     set((s) => {
-      const prevZone = zoneAt(ROUTE_V1, s.busPosition, ZONE_RADIUS);
       const zone = zoneAt(ROUTE_V1, position, ZONE_RADIUS);
       const patch: Partial<GameState> = { busPosition: position, busSpeed: speed };
 
       if (zone === null && s.doorOpen) patch.doorOpen = false;
 
-      // leaving a zone with someone still aboard for that stop = missed stop
-      if (prevZone !== null && zone !== prevZone) {
-        const missed = s.onboard.filter((p) => p.destination === prevZone);
-        if (missed.length > 0) {
-          patch.onboard = s.onboard.filter((p) => p.destination !== prevZone);
-          patch.missedStops = s.missedStops + 1;
-          patch.net = s.net - missed.reduce((sum, p) => sum + p.fare, 0);
-        }
+      // clearly past a stop with someone still aboard for it = missed stop
+      const margin = ZONE_RADIUS + MISS_GRACE;
+      const missed = s.onboard.filter((p) => passedStop(ROUTE_V1, p.destination, position, s.direction, margin));
+      if (missed.length > 0) {
+        patch.onboard = s.onboard.filter((p) => !missed.includes(p));
+        patch.missedStops = s.missedStops + 1;
+        patch.net = s.net - missed.reduce((sum, p) => sum + p.fare, 0);
       }
       return patch;
     }),

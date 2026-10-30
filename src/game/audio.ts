@@ -77,3 +77,17 @@ export function setHorn(on: boolean) {
     horn = null;
   }
 }
+
+// Silence everything. Call when the game scene unmounts so an engine drone or
+// held horn cannot keep playing on other pages.
+export function stopAudio() {
+  setEngine(0);
+  if (engine && ctx) {
+    engine.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+  }
+  if (horn) {
+    horn.oscs.forEach((o) => o.stop());
+    horn.gain.disconnect();
+    horn = null;
+  }
+}

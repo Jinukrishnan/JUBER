@@ -40,3 +40,16 @@ export function zoneAt(
   const i = stops.findIndex((s) => Math.abs(s.position - position) <= radius);
   return i === -1 ? null : i;
 }
+
+// True once the bus is clearly past the stop in its direction of travel, so a
+// small overshoot (or reversing back in) is not treated as a missed stop.
+export function passedStop(
+  stops: Stop[],
+  index: number,
+  position: number,
+  dir: Direction,
+  margin: number,
+): boolean {
+  const at = stops[index].position;
+  return dir === "forward" ? position > at + margin : position < at - margin;
+}

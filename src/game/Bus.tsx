@@ -3,7 +3,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { Group } from "three";
-import { armAudio, setEngine, setHorn } from "./audio";
+import { armAudio, setEngine, setHorn, stopAudio } from "./audio";
 import { busPose, resetBusPose } from "./busPose";
 import { roadCenterZ, ROAD_HALF_WIDTH } from "./logic/road";
 import { MAX_FORWARD_SPEED, stepVehicle, type VehicleState } from "./logic/vehicle";
@@ -28,7 +28,13 @@ export function Bus() {
     vehicle.current = { x: 0, z: 0, heading: 0, speed: 0 };
   }, [dayId]);
 
-  useEffect(() => armAudio(), []);
+  useEffect(() => {
+    const disarm = armAudio();
+    return () => {
+      disarm();
+      stopAudio();
+    };
+  }, []);
 
   useKeyPress(["KeyE"], () => useGame.getState().toggleDoor());
 
