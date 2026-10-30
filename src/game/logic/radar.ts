@@ -1,5 +1,3 @@
-import type { Direction, Stop } from "./route";
-
 // Radar zoom levels: how many metres from the bus to the edge of the circle.
 export const RADAR_RANGES = [150, 400, 1000] as const;
 export const DEFAULT_RANGE_INDEX = 1;
@@ -25,23 +23,6 @@ export function toRadar(
   const k = radiusPx / rangeM;
   if (dist <= rangeM) return { px: right * k, py: -ahead * k, dist, inside: true };
   return { px: (right / dist) * radiusPx, py: (-ahead / dist) * radiusPx, dist, inside: false };
-}
-
-export type Drop = { index: number; name: string; ml: string; count: number };
-
-// Where the people on board are getting off, nearest first in the direction of travel.
-export function dropSummary(
-  onboard: { destination: number }[],
-  stops: Stop[],
-  direction: Direction,
-  position: number,
-): Drop[] {
-  const counts = new Map<number, number>();
-  for (const p of onboard) counts.set(p.destination, (counts.get(p.destination) ?? 0) + 1);
-  const sign = direction === "forward" ? 1 : -1;
-  return [...counts]
-    .map(([index, count]) => ({ index, name: stops[index].name, ml: stops[index].ml, count }))
-    .sort((a, b) => sign * (stops[a.index].position - position) - sign * (stops[b.index].position - position));
 }
 
 // The same projection without the rim clamp, for drawing roads that run off the edge.

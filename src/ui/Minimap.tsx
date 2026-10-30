@@ -124,9 +124,9 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
   ctx.stroke();
 }
 
-// A round radar like the one in a driving game: the bus in the middle, the
-// road turning around it, signals and bus stops marked, and a green marker
-// wherever someone on board is getting off.
+// A round radar like the one in a driving game: the vehicle in the middle, the
+// road turning around it, signals and places marked, and the pickup (blue) or
+// drop (green) you are headed for picked out.
 export function Minimap() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(DEFAULT_RANGE_INDEX);

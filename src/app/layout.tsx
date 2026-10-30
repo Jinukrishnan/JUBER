@@ -20,8 +20,8 @@ const malayalam = Noto_Sans_Malayalam({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} — drive the bus`,
-  description: "A 3D Kerala bus driving game. Pick up passengers, hit the goal.",
+  title: `${APP_NAME} — drive the ride`,
+  description: "A 3D Kerala ride-hailing game. Drive a bike, auto or car, pick up customers and reach the daily goal.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

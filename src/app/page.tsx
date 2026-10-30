@@ -3,16 +3,17 @@ import { APP_NAME } from "@/game/constants";
 import { BusSticker, ChaiSticker, PlateSticker, TeaSticker, TicketSticker } from "@/ui/stickers";
 
 const STEPS = [
-  { n: "1", title: "Pull into the stop", body: "Park completely inside the yellow bay on the kerb side. It turns green, then press E to open the door." },
-  { n: "2", title: "Fill the bus", body: "Many passengers board at once, up to 40, each paying by the stops they ride." },
-  { n: "3", title: "Reach Rs. 800", body: "Clear the diesel and depot rent, hit the goal before closing time." },
+  { n: "1", title: "Choose your ride", body: "Take out a Yamaha R15 bike (1 passenger), an auto-rickshaw (2) or a Swift Dzire car (3)." },
+  { n: "2", title: "Accept, pick up, drop", body: "Accept a request, stop at the customer, hear where they want to go, then follow the radar route to the drop." },
+  { n: "3", title: "Reach the daily goal", body: "Clear the vehicle rent with fares, obey the signals, and finish the day in profit." },
 ];
 
 const KEYS: [string, string][] = [
   ["W / S", "Gas · brake"],
   ["A / D", "Steer"],
   ["Space", "Hand brake"],
-  ["E", "Door"],
+  ["1 2 3 / X", "Accept / skip request"],
+  ["Enter", "Accept ride"],
   ["C", "Camera"],
   ["H", "Horn"],
 ];
@@ -27,12 +28,12 @@ export default function Home() {
         <TicketSticker className="sticker [--r:-8deg] absolute bottom-[10%] right-[6%] hidden h-24 w-32 md:block" />
         <PlateSticker className="sticker [--r:-3deg] absolute left-1/2 top-[4%] hidden h-20 w-28 lg:block" />
 
-        <p className="font-mono text-xs uppercase tracking-[0.3em] opacity-60">Kerala · fixed route · many stops</p>
+        <p className="font-mono text-xs uppercase tracking-[0.3em] opacity-60">Kerala · bike · auto · car</p>
         <h1 className="mt-4 font-malayalam text-6xl font-extrabold leading-tight sm:text-8xl">ആനവണ്ടി</h1>
         <p className="text-4xl font-extrabold tracking-tight text-accent sm:text-6xl">{APP_NAME}</p>
         <p className="mt-6 max-w-xl text-lg opacity-80">
-          Drive the big red bus end to end. Pick up the whole queue at every stop, drop them where they are
-          going, and finish the day in profit.
+          Be the driver your town calls. Take a ride request, pick up the customer, follow the radar to where
+          they are going, and finish the day in profit.
         </p>
 
         <div className="mt-4 flex gap-3 md:hidden">
