@@ -3,7 +3,7 @@ import { roadAngle, roadCenterZ } from "./logic/road";
 
 // Per-frame bus pose shared between Bus (writer) and CameraRig/Stops/Walkers
 // (readers). Kept outside the store so 60fps updates do not trigger React renders.
-export const busPose = { x: 0, z: 0, heading: 0, speed: 0, bump: false };
+export const busPose = { x: 0, z: 0, heading: 0, speed: 0, bump: false, length: 10, width: 2.6 };
 
 // Where a day starts: parked square in the depot's bay, facing down the road.
 export function depotPose() {

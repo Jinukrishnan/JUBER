@@ -1,11 +1,12 @@
 // Bus-against-person collision, in the bus's own frame so heading is handled
 // once: the bus is a 10 x 2.6 m rectangle and a person is a small circle.
 export const MIN_HIT_SPEED = 1.5; // m/s; slower than this the bus only nudges people
-const HALF_LENGTH = 5;
-const HALF_WIDTH = 1.3;
+const BUS_LENGTH = 10;
+const BUS_WIDTH = 2.6;
 const PERSON_RADIUS = 0.35;
 
-export type Pose = { x: number; z: number; heading: number; speed: number };
+// length and width default to the 10 x 2.6 m bus; smaller vehicles pass their own.
+export type Pose = { x: number; z: number; heading: number; speed: number; length?: number; width?: number };
 
 // Returns which side of the bus (+1 right, -1 left) the person is on when they
 // are struck, so they can be thrown clear of the road, or null for a miss.
@@ -21,7 +22,9 @@ export function busHitsPerson(
   const s = Math.sin(bus.heading);
   const lx = dx * c + dz * s;
   const lz = -dx * s + dz * c;
-  if (Math.abs(lx) > HALF_LENGTH + radius || Math.abs(lz) > HALF_WIDTH + radius) return null;
+  const halfLength = (bus.length ?? BUS_LENGTH) / 2;
+  const halfWidth = (bus.width ?? BUS_WIDTH) / 2;
+  if (Math.abs(lx) > halfLength + radius || Math.abs(lz) > halfWidth + radius) return null;
   return { side: lz >= 0 ? 1 : -1 };
 }
 

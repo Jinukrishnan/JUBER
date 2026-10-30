@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { VEHICLES, type VehicleKind } from "../data/vehicles";
 import {
   ACCIDENT_FINE,
   SIGNAL_FINE,
@@ -9,7 +10,6 @@ import {
   EVENT_LIMIT,
   MISS_MARGIN,
   PATIENCE_S,
-  RENT,
   SPAWN_INTERVAL_S,
   STOP_SPEED_MAX,
 } from "../constants";
@@ -53,6 +53,7 @@ export type GameEvent = {
 export type GameState = {
   phase: Phase;
   dayId: number;
+  vehicle: VehicleKind;
   muted: boolean;
   headlights: boolean;
   accidents: number;
@@ -88,7 +89,7 @@ export type GameState = {
 };
 
 type Actions = {
-  startDay: () => void;
+  startDay: (vehicle?: VehicleKind) => void;
   pause: () => void;
   resume: () => void;
   tick: (dt: number) => void;
@@ -139,7 +140,7 @@ function spawn(
   return { waitingByStop, seed, nextId: state.nextId + 1 };
 }
 
-function initialState(): GameState {
+function initialState(vehicle: VehicleKind): GameState {
   let s: Pick<GameState, "waitingByStop" | "seed" | "nextId"> = {
     waitingByStop: ROUTE_V1.map(() => []),
     seed: SEED,
@@ -151,6 +152,7 @@ function initialState(): GameState {
   return {
     phase: "idle",
     dayId: 0,
+    vehicle,
     muted: false,
     headlights: false,
     accidents: 0,
@@ -160,7 +162,7 @@ function initialState(): GameState {
     noticeSeq: 0,
     casualties: [],
     casualtySeq: 0,
-    net: -RENT,
+    net: -VEHICLES[vehicle].rent,
     clockElapsed: 0,
     hour: advanceClock(0, 0).hour,
     direction: "forward",
@@ -200,9 +202,9 @@ function isTerminus(stopIndex: number, dir: Direction): boolean {
 }
 
 export const useGame = create<GameState & Actions>()((set, get) => ({
-  ...initialState(),
+  ...initialState("auto"),
 
-  startDay: () => set((s) => ({ ...initialState(), phase: "running", dayId: s.dayId + 1, muted: s.muted, headlights: s.headlights })),
+  startDay: (vehicle) => set((s) => ({ ...initialState(vehicle ?? s.vehicle), phase: "running", dayId: s.dayId + 1, muted: s.muted, headlights: s.headlights })),
   pause: () => set((s) => (s.phase === "running" ? { phase: "paused" } : {})),
   resume: () => set((s) => (s.phase === "paused" ? { phase: "running" } : {})),
   endDay: () => set({ phase: "ended", doorOpen: false }),

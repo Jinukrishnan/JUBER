@@ -18,8 +18,8 @@ const INTO: Record<Approach, [number, number]> = {
 
 // Where the bus front is on this approach: `f` grows toward the junction and
 // `across` is the offset from the approach's own axis.
-function frontOn(r: ResolvedJunction, a: Approach, p: Pose): { f: number; across: number } {
-  const { u, v } = worldToLocal(r, p.x + Math.cos(p.heading) * BUS_HALF_LENGTH, p.z + Math.sin(p.heading) * BUS_HALF_LENGTH);
+function frontOn(r: ResolvedJunction, a: Approach, p: Pose, half: number): { f: number; across: number } {
+  const { u, v } = worldToLocal(r, p.x + Math.cos(p.heading) * half, p.z + Math.sin(p.heading) * half);
   switch (a) {
     case "mainForward": return { f: u, across: v };
     case "mainBackward": return { f: -u, across: v };
@@ -30,10 +30,10 @@ function frontOn(r: ResolvedJunction, a: Approach, p: Pose): { f: number; across
 
 // True when the bus front moved across this approach's stop line, heading into
 // the junction, between two frames.
-export function stopLineCrossed(r: ResolvedJunction, a: Approach, prev: Pose, next: Pose): boolean {
+export function stopLineCrossed(r: ResolvedJunction, a: Approach, prev: Pose, next: Pose, half = BUS_HALF_LENGTH): boolean {
   const line = -(a.startsWith("main") ? stopLineDistance(r) : armStopDistance());
-  const before = frontOn(r, a, prev);
-  const after = frontOn(r, a, next);
+  const before = frontOn(r, a, prev, half);
+  const after = frontOn(r, a, next, half);
   if (!(before.f < line && after.f >= line)) return false;
   const reach = a.startsWith("main") ? ROAD_HALF_WIDTH : r.armHalfWidth + 1;
   if (Math.abs(after.across) > reach) return false;
@@ -43,9 +43,9 @@ export function stopLineCrossed(r: ResolvedJunction, a: Approach, prev: Pose, ne
 }
 
 // Crossing the line while this approach's light is red (and has been for a moment).
-export function redViolation(r: ResolvedJunction, a: Approach, prev: Pose, next: Pose, t: number): boolean {
+export function redViolation(r: ResolvedJunction, a: Approach, prev: Pose, next: Pose, t: number, half = BUS_HALF_LENGTH): boolean {
   if (!r.plan) return false;
-  if (!stopLineCrossed(r, a, prev, next)) return false;
+  if (!stopLineCrossed(r, a, prev, next, half)) return false;
   const g = groupOf(a);
   return signalAt(r.plan, t)[g] === "red" && redAge(r.plan, t, g) >= RED_GRACE_S;
 }

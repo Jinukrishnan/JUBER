@@ -43,3 +43,15 @@ describe("stepChaseYaw", () => {
     expect(stepChaseYaw(1.2, 0, -3, 0)).toBe(1.2);
   });
 });
+
+import { chaseScale } from "./camera";
+describe("chaseScale", () => {
+  it("keeps the old distance for a 10 m bus", () => {
+    expect(chaseScale(10)).toBeCloseTo(1);
+  });
+  it("brings the camera closer for smaller vehicles", () => {
+    expect(chaseScale(2.1)).toBeLessThan(chaseScale(4.4));
+    expect(chaseScale(4.4)).toBeLessThan(1);
+    expect(chaseScale(2.1)).toBeGreaterThan(0.4);
+  });
+});

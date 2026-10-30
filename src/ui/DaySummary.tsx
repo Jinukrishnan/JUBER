@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { GOAL } from "@/game/constants";
+import { VEHICLES } from "@/game/data/vehicles";
 import { computeRating } from "@/game/logic/rating";
 import { useGame } from "@/game/state/store";
 import { loadProfile, recordDay, saveProfile } from "@/lib/profile";
@@ -11,6 +11,7 @@ export function DaySummary() {
   const phase = useGame((s) => s.phase);
   const dayId = useGame((s) => s.dayId);
   const net = useGame((s) => s.net);
+  const goal = VEHICLES[useGame((s) => s.vehicle)].goal;
   const carried = useGame((s) => s.carried);
   const missedStops = useGame((s) => s.missedStops);
   const expiredPassengers = useGame((s) => s.expiredPassengers);
@@ -34,7 +35,7 @@ export function DaySummary() {
   // before the effect saves, the stored best is the old one; max() gives the same answer after
   const best = Math.max(loadProfile()?.bestNet ?? 0, net);
 
-  const hit = net >= GOAL;
+  const hit = net >= goal;
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 p-4">
       <div className="w-[min(480px,100%)] rounded-2xl border border-line bg-cream p-6 shadow-xl">
@@ -43,7 +44,7 @@ export function DaySummary() {
           <dt className="opacity-70">Net earnings</dt>
           <dd className="text-right font-semibold tabular-nums">Rs. {net}</dd>
           <dt className="opacity-70">Goal</dt>
-          <dd className="text-right tabular-nums">Rs. {GOAL}</dd>
+          <dd className="text-right tabular-nums">Rs. {goal}</dd>
           <dt className="opacity-70">Passengers carried</dt>
           <dd className="text-right tabular-nums">{carried}</dd>
           <dt className="opacity-70">Rating</dt>

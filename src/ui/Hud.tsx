@@ -1,20 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CAPACITY, GOAL } from "@/game/constants";
-import { ROUTE_V1 } from "@/game/data/route-v1";
+import { VEHICLES } from "@/game/data/vehicles";
 import { busPose } from "@/game/busPose";
 import { formatClock } from "@/game/logic/clock";
-import { stopGuidance } from "@/game/logic/guidance";
-import { onSideRoad } from "@/game/logic/junction";
+import { roadAngle } from "@/game/logic/road";
 import { nextSignalAhead, type SignalAhead } from "@/game/logic/signalAhead";
-import { nextStopIndex } from "@/game/logic/route";
 import { useGame } from "@/game/state/store";
 import { JUNCTIONS } from "@/game/world";
 import { Minimap } from "./Minimap";
 
-const FIRST = ROUTE_V1[0];
-const LAST = ROUTE_V1[ROUTE_V1.length - 1];
 const NOTICE_MS = 4000;
 
 // A round-cornered switch. Mouse-down does not take focus, so the driving keys
@@ -60,50 +55,31 @@ function AccidentBanner() {
   );
 }
 
-// What the driver needs to know, refreshed a few times a second from the live
-// bus pose: the hint at a stop, the next signal, and whether the bus is on a side road.
-type DriveInfo = { hint: string | null; signal: SignalAhead | null; offRoute: boolean };
-const NO_INFO: DriveInfo = { hint: null, signal: null, offRoute: false };
-
-function useDriveInfo(): DriveInfo {
-  const [info, setInfo] = useState<DriveInfo>(NO_INFO);
+// The next signal, refreshed a few times a second from the live pose, in the
+// direction the vehicle is heading along the main road.
+function useNextSignal(): SignalAhead | null {
+  const [signal, setSignal] = useState<SignalAhead | null>(null);
   useEffect(() => {
     const id = setInterval(() => {
       const g = useGame.getState();
-      if (g.phase !== "running") return setInfo(NO_INFO);
-      setInfo({
-        hint: stopGuidance({ stops: ROUTE_V1, direction: g.direction, doorOpen: g.doorOpen, speed: Math.abs(busPose.speed), x: busPose.x, z: busPose.z, heading: busPose.heading }),
-        signal: nextSignalAhead(JUNCTIONS, busPose.x, g.direction, g.signalTime),
-        offRoute: onSideRoad(JUNCTIONS, busPose.x, busPose.z),
-      });
+      if (g.phase !== "running") return setSignal(null);
+      const dir = Math.cos(busPose.heading - roadAngle(busPose.x)) >= 0 ? "forward" : "backward";
+      setSignal(nextSignalAhead(JUNCTIONS, busPose.x, dir, g.signalTime));
     }, 150);
     return () => clearInterval(id);
   }, []);
-  return info;
+  return signal;
 }
 
 const LAMP = { red: "bg-red-500", yellow: "bg-yellow-400", green: "bg-green-500" } as const;
 
 export function Hud() {
-  const { hint: stopHint, signal, offRoute } = useDriveInfo();
+  const signal = useNextSignal();
   const net = useGame((s) => s.net);
   const hour = useGame((s) => s.hour);
-  const onboard = useGame((s) => s.onboard.length);
-  const direction = useGame((s) => s.direction);
-  const busPosition = useGame((s) => s.busPosition);
-  const doorOpen = useGame((s) => s.doorOpen);
+  const vehicle = VEHICLES[useGame((s) => s.vehicle)];
   const muted = useGame((s) => s.muted);
   const headlights = useGame((s) => s.headlights);
-
-  const forward = direction === "forward";
-  const from = forward ? FIRST : LAST;
-  const to = forward ? LAST : FIRST;
-  const next = nextStopIndex(ROUTE_V1, busPosition, direction);
-  const nextName = next === null ? to.name : ROUTE_V1[next].name;
-
-  const span = LAST.position - FIRST.position;
-  const travelled = forward ? busPosition - FIRST.position : LAST.position - busPosition;
-  const progress = Math.min(1, Math.max(0, travelled / span));
 
   return (
     <div className="pointer-events-none absolute inset-0 select-none font-sans text-ink">
@@ -111,11 +87,11 @@ export function Hud() {
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-3 shadow">
           <div className="text-xs uppercase tracking-wide opacity-60">Today&apos;s net</div>
           <div className="text-2xl font-bold tabular-nums">Rs. {net}</div>
-          <div className="text-xs opacity-70">Goal Rs. {GOAL}</div>
+          <div className="text-xs opacity-70">Goal Rs. {vehicle.goal}</div>
         </div>
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-2 shadow">
-          <div className="text-xs uppercase tracking-wide opacity-60">Seats</div>
-          <div className="text-lg font-semibold tabular-nums">{onboard} / {CAPACITY}</div>
+          <div className="text-xs uppercase tracking-wide opacity-60">{vehicle.name}</div>
+          <div className="text-lg font-semibold tabular-nums">0 / {vehicle.capacity}</div>
         </div>
         {signal && (
           <div className="rounded-xl border border-line bg-cream/90 px-4 py-2 shadow">
@@ -133,38 +109,12 @@ export function Hud() {
       <div data-side="right" className="absolute right-4 top-4 flex w-48 flex-col gap-2">
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-3 text-right shadow">
           <div className="text-2xl font-bold tabular-nums">{formatClock(hour)}</div>
-          <div className="text-xs opacity-70">{doorOpen ? "Door open" : "Door closed"}</div>
         </div>
         <Toggle label="Sound" hint="M" on={!muted} onClick={() => useGame.getState().toggleMute()} />
         <Minimap />
       </div>
 
       <AccidentBanner />
-
-      {offRoute && (
-        <div className="absolute inset-x-0 top-4 mx-auto w-fit max-w-[60vw] rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow">
-          Off route - rejoin the main road
-        </div>
-      )}
-
-      {stopHint && (
-        <div className="absolute inset-x-0 bottom-28 mx-auto w-fit max-w-[92vw] rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow">
-          {stopHint}
-        </div>
-      )}
-
-      <div className="absolute inset-x-0 bottom-4 mx-auto w-[min(640px,92vw)] rounded-xl border border-line bg-cream/90 px-4 py-3 shadow">
-        <div className="flex items-baseline justify-between text-sm">
-          <span className="opacity-70">Next stop</span>
-          <span className="font-semibold">{nextName}</span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-paper-sunk">
-          <div className="h-full bg-accent" style={{ width: `${progress * 100}%` }} />
-        </div>
-        <div className="mt-1 text-center text-xs opacity-70">
-          {from.name} → {to.name}
-        </div>
-      </div>
     </div>
   );
 }

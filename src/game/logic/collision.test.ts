@@ -57,3 +57,17 @@ describe("throwDirection", () => {
     expect(throwDirection({ ...bus, speed: -3 }, 1).dx).toBeLessThan(0);
   });
 });
+
+describe("busHitsPerson with a smaller vehicle", () => {
+  const bike = { x: 0, z: 0, heading: 0, speed: 10, length: 2.1, width: 0.8 };
+  it("hits someone right in front of the bike", () => {
+    expect(busHitsPerson(bike, { x: 1.2, z: 0 })).not.toBeNull();
+  });
+  it("misses someone who would be under a bus's side but is clear of the bike", () => {
+    expect(busHitsPerson(bike, { x: 0, z: 1.2 })).toBeNull();
+    expect(busHitsPerson(bike, { x: 3, z: 0 })).toBeNull();
+  });
+  it("still treats a vehicle with no size as the 10 m bus", () => {
+    expect(busHitsPerson({ x: 0, z: 0, heading: 0, speed: 10 }, { x: 4.5, z: 1 })).not.toBeNull();
+  });
+});

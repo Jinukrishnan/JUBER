@@ -18,3 +18,8 @@ export function stepChaseYaw(yaw: number, heading: number, speed: number, dt: nu
   const diff = wrapAngle(target - yaw);
   return yaw + diff * Math.min(1, dt * FOLLOW_RATE);
 }
+
+// How much of the 10 m bus's camera distance a vehicle of this length needs.
+export function chaseScale(length: number): number {
+  return 0.4 + length * 0.06;
+}

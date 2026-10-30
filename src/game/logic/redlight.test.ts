@@ -69,3 +69,17 @@ describe("redViolation", () => {
     expect(redViolation(free, "mainForward", pose("mainForward", -0.3), pose("mainForward", 0.3), RED_FOR_MAIN)).toBe(false);
   });
 });
+
+describe("a shorter vehicle", () => {
+  it("crosses the line when its own front does, not a 10 m bus's", () => {
+    const bikeHalf = 1.05;
+    // centre positions such that a 2.1 m bike's front crosses the line, but a bus front would be 4 m further on
+    const w0 = localToWorld(r, -stopLineDistance(r) - bikeHalf - 0.3, -3);
+    const w1 = localToWorld(r, -stopLineDistance(r) - bikeHalf + 0.3, -3);
+    const prev = { x: w0.x, z: w0.z, heading: r.angle };
+    const next = { x: w1.x, z: w1.z, heading: r.angle };
+    expect(stopLineCrossed(r, "mainForward", prev, next, bikeHalf)).toBe(true);
+    expect(stopLineCrossed(r, "mainForward", prev, next)).toBe(false);
+    expect(redViolation(r, "mainForward", prev, next, RED_FOR_MAIN, bikeHalf)).toBe(true);
+  });
+});

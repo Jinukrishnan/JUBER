@@ -4,23 +4,22 @@ import { useFrame } from "@react-three/fiber";
 import { useRef, useState } from "react";
 import { Vector3 } from "three";
 import { busPose } from "./busPose";
-import { isReversing, stepChaseYaw } from "./logic/camera";
+import { VEHICLES } from "./data/vehicles";
+import { chaseScale, isReversing, stepChaseYaw } from "./logic/camera";
+import { useGame } from "./state/store";
 import { useKeyPress } from "./useKeys";
 
 export const CAMERA_MODES = ["chase", "high", "driver"] as const;
 export type CameraMode = (typeof CAMERA_MODES)[number];
 
-// chase / high: distance behind the bus along the camera yaw, height, and how
-// far ahead of the bus (along the same yaw) the camera looks.
+// chase / high: distance behind the vehicle along the camera yaw, height, and how
+// far ahead of it (along the same yaw) the camera looks. These are for a 10 m
+// bus and shrink with the vehicle's length.
 const FOLLOW = {
   chase: { back: 15, height: 6.5, look: 8 },
   high: { back: 10, height: 28, look: 8 },
 } as const;
 
-// Driver seat looks forward; while reversing the view moves to the rear window
-// and looks back. Offsets are bus-local: +x forward, +y up, +z right.
-const SEAT = { pos: [3.6, 2.15, 0.7], look: [40, 1.9, 0.7] } as const;
-const REAR = { pos: [-4.7, 2.3, 0.4], look: [-40, 1.8, 0.4] } as const;
 
 function local(o: readonly [number, number, number], out: Vector3) {
   const c = Math.cos(busPose.heading);
@@ -46,6 +45,12 @@ export function CameraRig() {
 
   useFrame(({ camera }, dt) => {
     const reversing = isReversing(busPose.speed);
+    const spec = VEHICLES[useGame.getState().vehicle];
+    const scale = chaseScale(spec.length);
+    const [ex, ey, ez] = spec.eye;
+    // driver view looks forward; while reversing it moves to the back and looks behind
+    const SEAT = { pos: [ex, ey, ez], look: [40, ey - 0.2, ez] } as const;
+    const REAR = { pos: [-spec.length / 2 + 0.3, ey + 0.1, ez * 0.5], look: [-40, ey - 0.3, ez * 0.5] } as const;
 
     if (mode === "driver") {
       const view = reversing ? REAR : SEAT;
@@ -57,8 +62,10 @@ export function CameraRig() {
       const f = FOLLOW[mode];
       const dx = Math.cos(yaw.current);
       const dz = Math.sin(yaw.current);
-      pos.current.set(busPose.x - dx * f.back, f.height, busPose.z - dz * f.back);
-      look.current.set(busPose.x + dx * f.look, mode === "high" ? 0 : 1.8, busPose.z + dz * f.look);
+      const back = f.back * scale;
+      const ahead = f.look * scale;
+      pos.current.set(busPose.x - dx * back, mode === "high" ? f.height : f.height * scale, busPose.z - dz * back);
+      look.current.set(busPose.x + dx * ahead, mode === "high" ? 0 : 1.1, busPose.z + dz * ahead);
     }
 
     const k = Math.min(1, dt * (mode === "driver" ? 10 : 6));

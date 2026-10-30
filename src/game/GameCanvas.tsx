@@ -2,7 +2,6 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect } from "react";
-import { Bus } from "./Bus";
 import { Casualties } from "./Casualties";
 import { CameraRig } from "./CameraRig";
 import { Ground } from "./Ground";
@@ -12,7 +11,9 @@ import { Road } from "./Road";
 import { SignalHeads } from "./SignalHeads";
 import { Signs } from "./Signs";
 import { Stops } from "./Stops";
+import type { VehicleKind } from "./data/vehicles";
 import { useGame } from "./state/store";
+import { Vehicle } from "./Vehicle";
 import { Walkers } from "./Walkers";
 import { Weather } from "./Weather";
 
@@ -23,10 +24,10 @@ function GameLoop() {
   return null;
 }
 
-export default function GameCanvas() {
+export default function GameCanvas({ vehicle }: { vehicle?: VehicleKind }) {
   useEffect(() => {
-    useGame.getState().startDay();
-  }, []);
+    useGame.getState().startDay(vehicle);
+  }, [vehicle]);
 
   return (
     <Canvas
@@ -43,7 +44,7 @@ export default function GameCanvas() {
       <Stops />
       <Pedestrians />
       <Casualties />
-      <Bus />
+      <Vehicle />
       <Walkers />
       <CameraRig />
       <GameLoop />

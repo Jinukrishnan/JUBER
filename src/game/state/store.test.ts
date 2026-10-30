@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { VEHICLES } from "../data/vehicles";
 import {
   ACCIDENT_FINE,
   BOARD_INTERVAL_S,
   CAPACITY,
   DAY_REAL_SECONDS,
-  RENT,
 } from "../constants";
 import { ROUTE_V1 } from "../data/route-v1";
 import { makePassenger, type Passenger } from "../logic/fares";
@@ -21,7 +21,7 @@ beforeEach(() => {
 describe("startDay", () => {
   it("owes the rent and starts running forward at the depot", () => {
     const s = useGame.getState();
-    expect(s.net).toBe(-RENT);
+    expect(s.net).toBe(-VEHICLES.auto.rent);
     expect(s.phase).toBe("running");
     expect(s.direction).toBe("forward");
     expect(s.busPosition).toBe(0);
@@ -164,7 +164,7 @@ describe("transferStep", () => {
     const s = useGame.getState();
     expect(s.onboard.map((x) => x.id)).toEqual(["a"]);
     expect(s.waitingByStop[0]).toEqual([]);
-    expect(s.net).toBe(-RENT + p.fare);
+    expect(s.net).toBe(-VEHICLES.auto.rent + p.fare);
   });
 
   it("leaves waiting passengers queued when the bus is full", () => {
@@ -390,5 +390,20 @@ describe("signal clock", () => {
     useGame.getState().pause();
     useGame.getState().tick(0.5);
     expect(useGame.getState().signalTime).toBeCloseTo(1);
+  });
+});
+
+describe("choosing a vehicle", () => {
+  it("takes that vehicle's rent off the day's takings", () => {
+    useGame.getState().startDay("bike");
+    expect(useGame.getState().vehicle).toBe("bike");
+    expect(useGame.getState().net).toBe(-100);
+    useGame.getState().startDay("car");
+    expect(useGame.getState().net).toBe(-300);
+  });
+  it("keeps the previous vehicle when none is given", () => {
+    useGame.getState().startDay("bike");
+    useGame.getState().startDay();
+    expect(useGame.getState().vehicle).toBe("bike");
   });
 });

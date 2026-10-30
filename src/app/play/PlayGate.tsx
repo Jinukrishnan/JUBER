@@ -50,7 +50,7 @@ export default function PlayGate() {
 
   return (
     <div className="fixed inset-0 bg-black">
-      <GameCanvas />
+      <GameCanvas vehicle={profile.vehicle} />
       <Hud />
       <PauseMenu />
       <DaySummary />
