@@ -2,6 +2,7 @@
 
 import { beepOn, engineGain, firingHz, rpmFor, tireGain } from "./logic/engine";
 import { useGame } from "./state/store";
+import { cancelSpeech } from "./voice";
 
 // Synthesised bus sound. Everything runs through one master gain so the sound
 // button (and pause) can silence it all at once. The audio context is created
@@ -278,6 +279,7 @@ export function playYelp(pitch = 1) {
 // Silence everything. Call when the game scene unmounts so an engine drone or
 // held horn cannot keep playing on other pages.
 export function stopAudio() {
+  cancelSpeech();
   if (ctx && eng) {
     const t = ctx.currentTime;
     eng.master.gain.setTargetAtTime(0, t, 0.03);

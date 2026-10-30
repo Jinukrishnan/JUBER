@@ -3,7 +3,9 @@
 import { playCrash, playYelp } from "./audio";
 import { busPose } from "./busPose";
 import { throwDirection } from "./logic/collision";
+import { accidentLine } from "./logic/speech";
 import { useGame } from "./state/store";
+import { speakLine } from "./voice";
 
 // One place that turns "the bus hit this person" into everything that follows:
 // the fine, the thump and the cry, the bus losing speed, and a casualty who
@@ -27,6 +29,8 @@ export function reportHit(
   busPose.bump = true;
   playCrash();
   playYelp(0.8 + (h % 7) / 10);
+  // they shout the same line that appears in their speech bubble, in their own pitch
+  speakLine(accidentLine(h), 0.9 + (h % 5) / 10);
   if (queued) useGame.getState().hitWaiting(queued.stop, queued.passengerId, casualty);
   else useGame.getState().injure(casualty);
 }
