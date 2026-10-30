@@ -145,3 +145,25 @@ describe("offRoute", () => {
     expect(offRoute(r, { x: p.x, z: p.z + 30 })).toBe(true);
   });
 });
+
+describe("nextStep and the opening U-turn", () => {
+  const facingAway = { ...at("panchayat") }; // faces out along its arm
+  const r = route(graph, facingAway, place("karimbanam"));
+  it("starts with the U-turn while the vehicle still faces the wrong way", () => {
+    const n = nextStep(r, facingAway, facingAway.heading)!;
+    expect(n.step.turn).toBe("uturn");
+    expect(n.distance).toBe(0);
+  });
+  it("moves on to the real turn once the vehicle has turned round", () => {
+    const n = nextStep(r, facingAway, facingAway.heading + Math.PI)!;
+    expect(n.step.turn).not.toBe("uturn");
+  });
+  it("forgets the U-turn once the vehicle has driven off", () => {
+    const p = r.points[Math.min(5, r.points.length - 1)];
+    const n = nextStep(r, p, facingAway.heading)!;
+    expect(n.step.turn).not.toBe("uturn");
+  });
+  it("still works without a heading", () => {
+    expect(nextStep(r, facingAway)!.step.turn).not.toBe("uturn");
+  });
+});

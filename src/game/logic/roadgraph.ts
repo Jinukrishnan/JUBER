@@ -204,10 +204,19 @@ function project(r: Route, p: { x: number; z: number }): { along: number; off: n
   return best;
 }
 
-// The next turn (or the arrival) still ahead, and how far away it is.
-export function nextStep(r: Route, p: { x: number; z: number }): { step: Step; distance: number } | null {
+const OPENING_UTURN_M = 12; // the starting U-turn is still due until the vehicle has moved this far
+
+// The next turn (or the arrival) still ahead, and how far away it is. With the
+// vehicle's heading, the U-turn that opens a route stays due until it faces the
+// way of the route.
+export function nextStep(r: Route, p: { x: number; z: number }, heading?: number): { step: Step; distance: number } | null {
   const { along } = project(r, p);
-  const step = r.steps.find((s) => s.distanceFromStart > along + 1 || s.turn === "arrive");
+  const first = r.points.length > 1 ? { x: r.points[1].x - r.points[0].x, z: r.points[1].z - r.points[0].z } : null;
+  const facingAway =
+    heading !== undefined && first !== null && Math.cos(heading) * first.x + Math.sin(heading) * first.z < -0.3 * Math.hypot(first.x, first.z);
+  const step = r.steps.find(
+    (s) => s.turn === "arrive" || s.distanceFromStart > along + 1 || (s.turn === "uturn" && s.distanceFromStart === 0 && facingAway && along < OPENING_UTURN_M),
+  );
   if (!step) return null;
   return { step, distance: Math.max(0, step.distanceFromStart - along) };
 }

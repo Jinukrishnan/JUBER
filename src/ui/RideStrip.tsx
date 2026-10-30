@@ -23,7 +23,7 @@ export function RideStrip() {
       const s = spotOf(target);
       setMetres(Math.round(Math.hypot(s.x - busPose.x, s.z - busPose.z)));
       const g = useGame.getState();
-      const next = g.route && (g.ride.phase === "toPickup" || g.ride.phase === "riding") ? nextStep(g.route, busPose) : null;
+      const next = g.route && (g.ride.phase === "toPickup" || g.ride.phase === "riding") ? nextStep(g.route, busPose, busPose.heading) : null;
       setNav(next ? { text: describeStep(next.step, next.distance, target.name), arrow: arrowFor(next.step.turn) } : null);
     }, 200);
     return () => clearInterval(id);
