@@ -37,7 +37,7 @@ export function CameraRig() {
   const yaw = useRef(0);
   const pos = useRef(new Vector3());
   const look = useRef(new Vector3());
-  const smoothPos = useRef(new Vector3(-15, 6.5, 0));
+  const smoothPos = useRef(new Vector3(-15, 6.5, -3.7));
   const smoothLook = useRef(new Vector3(8, 1.8, 0));
 
   useKeyPress(["KeyC"], () =>

@@ -164,7 +164,7 @@ describe("missed stops", () => {
     useGame.getState().setBusState(stop, 8);
     useGame.getState().setBusState(stop + 30, 2);
     expect(useGame.getState().missedStops).toBe(0);
-    useGame.getState().setBusState(stop + 5, 0);
+    useGame.getState().setBusState(stop + 1, 0);
     useGame.getState().toggleDoor();
     useGame.getState().transferStep();
     expect(useGame.getState().onboard).toEqual([]);
@@ -189,5 +189,69 @@ describe("missed stops", () => {
     useGame.getState().transferStep();
     useGame.getState().setBusState(ROUTE_V1[1].position + 200, 8);
     expect(useGame.getState().missedStops).toBe(0);
+  });
+});
+
+describe("bay rules", () => {
+  it("keeps the door shut when the bus is not completely inside a bay", () => {
+    useGame.getState().setBusState(0, 0, null);
+    useGame.getState().toggleDoor();
+    expect(useGame.getState().doorOpen).toBe(false);
+  });
+
+  it("opens the door when the caller reports the bus fully inside the bay", () => {
+    useGame.getState().setBusState(0, 0, { stop: 0, side: "forward" });
+    useGame.getState().toggleDoor();
+    expect(useGame.getState().doorOpen).toBe(true);
+    expect(useGame.getState().parked).toEqual({ stop: 0, side: "forward" });
+  });
+
+  it("closes the door as soon as the bus is no longer in a bay", () => {
+    useGame.getState().setBusState(0, 0, { stop: 0, side: "forward" });
+    useGame.getState().toggleDoor();
+    useGame.getState().setBusState(0, 0, null);
+    expect(useGame.getState().doorOpen).toBe(false);
+    expect(useGame.getState().parked).toBeNull();
+  });
+
+  it("does not board anyone while parked in the bay for the other direction", () => {
+    const p = makePassenger("a", 0, 2, 100);
+    useGame.setState({ waitingByStop: [[p], ...ROUTE_V1.slice(1).map(() => [])] });
+    useGame.getState().setBusState(0, 0, { stop: 0, side: "backward" });
+    useGame.getState().toggleDoor();
+    useGame.getState().transferStep();
+    expect(useGame.getState().onboard).toEqual([]);
+  });
+});
+
+describe("events", () => {
+  it("records a board event with where the passenger is going", () => {
+    const p = makePassenger("a", 0, 2, 100);
+    useGame.setState({ waitingByStop: [[p], ...ROUTE_V1.slice(1).map(() => [])] });
+    useGame.getState().setBusState(0, 0);
+    useGame.getState().toggleDoor();
+    useGame.getState().transferStep();
+    const e = useGame.getState().events.at(-1);
+    expect(e).toMatchObject({ type: "board", passengerId: "a", stop: 0, side: "forward", destination: 2, fare: p.fare, slot: 0 });
+  });
+
+  it("records an alight event and gives every event a new id", () => {
+    useGame.setState({ onboard: [makePassenger("b", 0, 1, 100)] });
+    useGame.getState().setBusState(ROUTE_V1[1].position, 0);
+    useGame.getState().toggleDoor();
+    useGame.getState().transferStep();
+    const events = useGame.getState().events;
+    expect(events.at(-1)).toMatchObject({ type: "alight", passengerId: "b", stop: 1 });
+    expect(new Set(events.map((e) => e.id)).size).toBe(events.length);
+  });
+
+  it("keeps only the most recent events", () => {
+    const crowd = Array.from({ length: 40 }, (_, i) => makePassenger(`c${i}`, 0, 6, 100));
+    useGame.setState({ waitingByStop: [crowd, ...ROUTE_V1.slice(1).map(() => [])] });
+    useGame.getState().setBusState(0, 0);
+    useGame.getState().toggleDoor();
+    for (let i = 0; i < 40; i++) useGame.getState().transferStep();
+    expect(useGame.getState().onboard).toHaveLength(40);
+    expect(useGame.getState().events).toHaveLength(30);
   });
 });

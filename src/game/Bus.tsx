@@ -5,8 +5,10 @@ import { useEffect, useRef } from "react";
 import type { Group } from "three";
 import { BusModel } from "./BusModel";
 import { armAudio, setEngine, setHorn, stopAudio } from "./audio";
-import { busPose, resetBusPose } from "./busPose";
-import { roadCenterZ, ROAD_HALF_WIDTH } from "./logic/road";
+import { busPose, depotPose, resetBusPose } from "./busPose";
+import { ROUTE_V1 } from "./data/route-v1";
+import { bayAt } from "./logic/bay";
+import { roadCenterZ, roadHalfWidthAt } from "./logic/road";
 import { MAX_FORWARD_SPEED, stepVehicle, type VehicleState } from "./logic/vehicle";
 import { useGame } from "./state/store";
 import { useHeldKeys, useKeyPress } from "./useKeys";
@@ -17,7 +19,7 @@ export function Bus() {
   const group = useRef<Group>(null);
   const door = useRef<Group>(null);
   const keys = useHeldKeys();
-  const vehicle = useRef<VehicleState>({ x: 0, z: 0, heading: 0, speed: 0 });
+  const vehicle = useRef<VehicleState>(depotPose());
   const edgeCooldown = useRef(0);
 
   const dayId = useGame((g) => g.dayId);
@@ -25,7 +27,7 @@ export function Bus() {
   // a new day (first load or restart) puts the bus back at the depot
   useEffect(() => {
     resetBusPose();
-    vehicle.current = { x: 0, z: 0, heading: 0, speed: 0 };
+    vehicle.current = depotPose();
   }, [dayId]);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function Bus() {
           handbrake: k.handbrake || !doorShut,
         },
         dt,
-        ROAD_HALF_WIDTH,
+        roadHalfWidthAt(vehicle.current.x),
         roadCenterZ(vehicle.current.x),
       );
       vehicle.current = r.state;
@@ -61,7 +63,9 @@ export function Bus() {
         edgeCooldown.current = 1;
         game.registerHarsh();
       }
-      game.setBusState(r.state.x, Math.abs(r.state.speed));
+      // the bus must be completely inside the painted bay for people to get on/off
+      const bay = bayAt(ROUTE_V1, r.state.x, r.state.z, r.state.heading);
+      game.setBusState(r.state.x, Math.abs(r.state.speed), bay);
     }
 
     const v = vehicle.current;

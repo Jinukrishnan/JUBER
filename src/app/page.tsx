@@ -3,7 +3,7 @@ import { APP_NAME } from "@/game/constants";
 import { BusSticker, ChaiSticker, PlateSticker, TeaSticker, TicketSticker } from "@/ui/stickers";
 
 const STEPS = [
-  { n: "1", title: "Pull into the stop", body: "Stop inside the yellow zone, then press E to open the door." },
+  { n: "1", title: "Pull into the stop", body: "Park completely inside the yellow bay on the kerb side. It turns green, then press E to open the door." },
   { n: "2", title: "Fill the bus", body: "Many passengers board at once, up to 40, each paying by the stops they ride." },
   { n: "3", title: "Reach Rs. 800", body: "Clear the diesel and depot rent, hit the goal before closing time." },
 ];

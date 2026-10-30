@@ -7,6 +7,7 @@ import { CameraRig } from "./CameraRig";
 import { Road } from "./Road";
 import { Stops } from "./Stops";
 import { useGame } from "./state/store";
+import { Walkers } from "./Walkers";
 import { Weather } from "./Weather";
 
 function GameLoop() {
@@ -31,6 +32,7 @@ export default function GameCanvas() {
       <Road />
       <Stops />
       <Bus />
+      <Walkers />
       <CameraRig />
       <GameLoop />
     </Canvas>

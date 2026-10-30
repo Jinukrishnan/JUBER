@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planTransfer } from "./boarding";
+import { planTransfer, travelSide } from "./boarding";
 import { makePassenger } from "./fares";
 
 const p = (id: string, origin: number, destination: number) =>
@@ -80,5 +80,12 @@ describe("planTransfer", () => {
     });
     expect(r.alight).toHaveLength(2);
     expect(r.board).toEqual([]);
+  });
+});
+
+describe("travelSide", () => {
+  it("puts forward-bound passengers on the forward kerb and the rest on the other", () => {
+    expect(travelSide(p("a", 1, 4))).toBe("forward");
+    expect(travelSide(p("b", 4, 1))).toBe("backward");
   });
 });

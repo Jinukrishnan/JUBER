@@ -12,12 +12,11 @@ export const BOARD_INTERVAL_S = 0.6;
 // "nearly stationary" threshold in m/s
 export const STOP_SPEED_MAX = 1;
 
-// stop zone radius in metres
-export const ZONE_RADIUS = 25;
 export const PATIENCE_S = 240;
 export const SPAWN_INTERVAL_S = 1.5;
 export const INITIAL_WAITING_PER_STOP = 5;
 export const MAX_WAITING_PER_STOP = 25;
 
-// metres past a stop zone before a skipped stop counts as missed
-export const MISS_GRACE = 15;
+// metres past a stop (in the direction of travel) before a skipped stop counts as missed
+export const MISS_MARGIN = 40;
+export const EVENT_LIMIT = 30;

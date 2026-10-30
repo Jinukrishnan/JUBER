@@ -8,7 +8,7 @@ import {
 } from "./vehicle";
 import { roadCenterZ } from "./road";
 
-const still: VehicleState = { x: 0, z: 0, heading: 0, speed: 0 };
+const still: VehicleState = { x: 0, z: 0, heading: 0, speed: 0, steerAngle: 0 };
 const none: Inputs = { throttle: 0, steer: 0, handbrake: false };
 
 function run(s: VehicleState, i: Inputs, seconds: number, half = 6) {
@@ -67,7 +67,7 @@ describe("stepVehicle", () => {
   });
 
   it("clamps to the road edge, flags the hit and scrubs speed", () => {
-    const off: VehicleState = { x: 0, z: 5.9, heading: Math.PI / 2, speed: 10 };
+    const off: VehicleState = { x: 0, z: 5.9, heading: Math.PI / 2, speed: 10, steerAngle: 0 };
     const { state, hit } = run(off, none, 1, 6);
     expect(hit).toBe(true);
     expect(Math.abs(state.z)).toBeLessThanOrEqual(6);
@@ -75,9 +75,42 @@ describe("stepVehicle", () => {
   });
 
   it("measures the edge against the road centre when given one", () => {
-    const r = stepVehicle({ x: 0, z: 20, heading: 0, speed: 0 }, none, 1 / 60, 6, 20);
+    const r = stepVehicle({ x: 0, z: 20, heading: 0, speed: 0, steerAngle: 0 }, none, 1 / 60, 6, 20);
     expect(r.hitEdge).toBe(false);
     expect(r.state.z).toBe(20);
+  });
+});
+
+describe("steering feel", () => {
+  it("ramps the steering in gradually instead of snapping to full lock", () => {
+    const { state } = run({ ...still, speed: 5 }, { ...none, steer: 1 }, 0.1);
+    expect(state.steerAngle).toBeGreaterThan(0);
+    expect(state.steerAngle).toBeLessThan(0.1);
+    expect(state.heading).toBeLessThan(0.02);
+  });
+
+  it("cannot whip the bus round at cruising speed", () => {
+    const { state } = run({ ...still, speed: 14 }, { ...none, steer: 1, throttle: 0.4 }, 3, 400);
+    // 3 seconds of full lock at ~14 m/s turns well under half a radian
+    expect(state.heading).toBeGreaterThan(0.05);
+    expect(state.heading).toBeLessThan(0.7);
+  });
+
+  it("turns tighter at walking pace than at speed", () => {
+    const slow = run({ ...still, speed: 3 }, { ...none, steer: 1, throttle: 0.2 }, 2, 400).state.heading;
+    const fast = run({ ...still, speed: 14 }, { ...none, steer: 1, throttle: 0.4 }, 2, 400).state.heading;
+    expect(slow).toBeGreaterThan(fast);
+  });
+
+  it("straightens the wheels again when steering is released", () => {
+    const turned = run({ ...still, speed: 6 }, { ...none, steer: 1 }, 1, 400).state;
+    const { state } = run(turned, none, 3, 400);
+    expect(Math.abs(state.steerAngle)).toBeLessThan(0.01);
+  });
+
+  it("reverses the turn direction when backing up", () => {
+    const { state } = run({ ...still, speed: -3 }, { ...none, steer: 1, throttle: -0.2 }, 1.5, 400);
+    expect(state.heading).toBeLessThan(0);
   });
 });
 

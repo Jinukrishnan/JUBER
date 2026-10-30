@@ -10,7 +10,7 @@ import {
   Object3D,
 } from "three";
 import { ROUTE_V1 } from "./data/route-v1";
-import { ROAD_HALF_WIDTH, roadCenterZ } from "./logic/road";
+import { ROAD_HALF_WIDTH, roadCenterZ, roadHalfWidthAt } from "./logic/road";
 
 const X_MIN = -80;
 const X_MAX = ROUTE_V1[ROUTE_V1.length - 1].position + 100;
@@ -69,7 +69,8 @@ export function Road() {
     let n = 0;
     for (let x = X_MIN; x <= X_MAX; x += 8) {
       const cz = roadCenterZ(x);
-      pos.push(x, 0.01, cz - ROAD_HALF_WIDTH, x, 0.01, cz + ROAD_HALF_WIDTH);
+      const half = roadHalfWidthAt(x);
+      pos.push(x, 0.01, cz - half, x, 0.01, cz + half);
       if (n > 0) {
         const a = (n - 1) * 2;
         idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
@@ -95,7 +96,7 @@ export function Road() {
       dashes.push({ x, y: 0.03, z: roadCenterZ(x), sx: 5, sy: 0.02, sz: 0.25, color: "#f3ead6" });
     }
     for (let x = X_MIN; x <= X_MAX; x += 18) {
-      if (nearStop(x)) continue;
+      if (nearStop(x) || x < ROUTE_V1[0].position - 10 || x > ROUTE_V1[ROUTE_V1.length - 1].position + 10) continue;
       for (const side of [-1, 1]) {
         const jitter = rnd() * 10 - 5;
         const cx = x + jitter;

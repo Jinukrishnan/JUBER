@@ -1,4 +1,5 @@
 import type { Passenger } from "./fares";
+import type { Side } from "./bay";
 import { stopsAhead, type Direction } from "./route";
 
 export type TransferArgs = {
@@ -27,4 +28,9 @@ export function planTransfer(args: TransferArgs): {
     .slice(0, Math.max(0, free));
 
   return { alight, board };
+}
+
+// Which kerb a passenger waits on: the bay for the direction they want to travel.
+export function travelSide(p: Passenger): Side {
+  return p.destination > p.origin ? "forward" : "backward";
 }

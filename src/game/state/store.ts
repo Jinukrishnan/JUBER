@@ -4,20 +4,33 @@ import {
   CAPACITY,
   INITIAL_WAITING_PER_STOP,
   MAX_WAITING_PER_STOP,
-  MISS_GRACE,
+  EVENT_LIMIT,
+  MISS_MARGIN,
   PATIENCE_S,
   RENT,
   SPAWN_INTERVAL_S,
   STOP_SPEED_MAX,
-  ZONE_RADIUS,
 } from "../constants";
 import { ROUTE_V1 } from "../data/route-v1";
 import { planTransfer } from "../logic/boarding";
 import { advanceClock } from "../logic/clock";
 import { makePassenger, type Passenger } from "../logic/fares";
-import { flipDirection, passedStop, zoneAt, type Direction } from "../logic/route";
+import { BAY_LONG_TOL, type Bay, type Side } from "../logic/bay";
+import { flipDirection, passedStop, type Direction } from "../logic/route";
 
 type Phase = "idle" | "running" | "paused" | "ended";
+
+export type GameEvent = {
+  id: number;
+  type: "board" | "alight";
+  passengerId: string;
+  stop: number;
+  side: Side;
+  destination: number;
+  fare: number;
+  slot: number;
+  at: number;
+};
 
 export type GameState = {
   phase: Phase;
@@ -30,6 +43,10 @@ export type GameState = {
   onboard: Passenger[];
   waitingByStop: Passenger[][];
   doorOpen: boolean;
+  // the bay the bus is completely inside right now, if any
+  parked: Bay | null;
+  events: GameEvent[];
+  eventSeq: number;
   busPosition: number;
   busSpeed: number;
   missedStops: number;
@@ -48,7 +65,7 @@ type Actions = {
   pause: () => void;
   resume: () => void;
   tick: (dt: number) => void;
-  setBusState: (position: number, speed: number) => void;
+  setBusState: (position: number, speed: number, bay?: Bay | null) => void;
   toggleDoor: () => void;
   transferStep: () => void;
   toggleMute: () => void;
@@ -109,6 +126,9 @@ function initialState(): GameState {
     onboard: [],
     waitingByStop: s.waitingByStop,
     doorOpen: false,
+    parked: { stop: 0, side: "forward" },
+    events: [],
+    eventSeq: 0,
     busPosition: 0,
     busSpeed: 0,
     missedStops: 0,
@@ -120,6 +140,18 @@ function initialState(): GameState {
     seed: s.seed,
     nextId: s.nextId,
   };
+}
+
+// Without a full pose (headless tests, simple callers) a bus whose centre is
+// within the bay tolerance of a stop counts as parked in that direction's bay.
+function defaultBay(position: number, dir: Direction): Bay | null {
+  const stop = ROUTE_V1.findIndex((st) => Math.abs(st.position - position) <= BAY_LONG_TOL);
+  return stop === -1 ? null : { stop, side: dir };
+}
+
+function record(s: GameState, e: Omit<GameEvent, "id" | "at">): Pick<GameState, "events" | "eventSeq"> {
+  const id = s.eventSeq + 1;
+  return { events: [...s.events, { ...e, id, at: Date.now() }].slice(-EVENT_LIMIT), eventSeq: id };
 }
 
 function isTerminus(stopIndex: number, dir: Direction): boolean {
@@ -136,16 +168,15 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
   toggleMute: () => set((s) => ({ muted: !s.muted })),
   registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1 })),
 
-  setBusState: (position, speed) =>
+  setBusState: (position, speed, bayArg) =>
     set((s) => {
-      const zone = zoneAt(ROUTE_V1, position, ZONE_RADIUS);
-      const patch: Partial<GameState> = { busPosition: position, busSpeed: speed };
+      const bay = bayArg === undefined ? defaultBay(position, s.direction) : bayArg;
+      const patch: Partial<GameState> = { busPosition: position, busSpeed: speed, parked: bay };
 
-      if (zone === null && s.doorOpen) patch.doorOpen = false;
+      if (bay === null && s.doorOpen) patch.doorOpen = false;
 
       // clearly past a stop with someone still aboard for it = missed stop
-      const margin = ZONE_RADIUS + MISS_GRACE;
-      const missed = s.onboard.filter((p) => passedStop(ROUTE_V1, p.destination, position, s.direction, margin));
+      const missed = s.onboard.filter((p) => passedStop(ROUTE_V1, p.destination, position, s.direction, MISS_MARGIN));
       if (missed.length > 0) {
         patch.onboard = s.onboard.filter((p) => !missed.includes(p));
         patch.missedStops = s.missedStops + 1;
@@ -157,16 +188,16 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
   toggleDoor: () =>
     set((s) => {
       if (s.doorOpen) return { doorOpen: false, transferTimer: 0 };
-      const zone = zoneAt(ROUTE_V1, s.busPosition, ZONE_RADIUS);
-      if (zone === null || s.busSpeed > STOP_SPEED_MAX) return {};
+      if (s.parked === null || s.busSpeed > STOP_SPEED_MAX) return {};
       return { doorOpen: true, transferTimer: 0 };
     }),
 
   transferStep: () =>
     set((s) => {
       if (!s.doorOpen) return {};
-      const zone = zoneAt(ROUTE_V1, s.busPosition, ZONE_RADIUS);
-      if (zone === null) return {};
+      // people only move while the bus is completely inside the bay serving its direction
+      if (s.parked === null || s.parked.side !== s.direction) return {};
+      const zone = s.parked.stop;
 
       const terminus = isTerminus(zone, s.direction);
       const plan = planTransfer({
@@ -183,6 +214,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
         return {
           onboard: s.onboard.filter((p) => p.id !== gone.id),
           carried: s.carried + 1,
+          ...record(s, { type: "alight", passengerId: gone.id, stop: zone, side: s.parked.side, destination: gone.destination, fare: gone.fare, slot: s.carried % 6 }),
         };
       }
       if (terminus) return { direction: flipDirection(s.direction) };
@@ -195,6 +227,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
             i === zone ? q.filter((x) => x.id !== p.id) : q,
           ),
           net: s.net + p.fare,
+          ...record(s, { type: "board", passengerId: p.id, stop: zone, side: s.parked.side, destination: p.destination, fare: p.fare, slot: 0 }),
         };
       }
       return {};
