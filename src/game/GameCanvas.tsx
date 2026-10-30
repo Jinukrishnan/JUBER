@@ -7,6 +7,7 @@ import { CameraRig } from "./CameraRig";
 import { Road } from "./Road";
 import { Stops } from "./Stops";
 import { useGame } from "./state/store";
+import { Weather } from "./Weather";
 
 function GameLoop() {
   useFrame((_, dt) => {
@@ -26,10 +27,7 @@ export default function GameCanvas() {
       camera={{ fov: 60, near: 0.1, far: 900, position: [-15, 6.5, 0] }}
       style={{ position: "absolute", inset: 0 }}
     >
-      <color attach="background" args={["#bfe3f5"]} />
-      <fog attach="fog" args={["#bfe3f5", 80, 420]} />
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[60, 120, 40]} intensity={1.6} castShadow />
+      <Weather />
       <Road />
       <Stops />
       <Bus />

@@ -3,9 +3,10 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { Group } from "three";
+import { armAudio, setEngine, setHorn } from "./audio";
 import { busPose, resetBusPose } from "./busPose";
 import { roadCenterZ, ROAD_HALF_WIDTH } from "./logic/road";
-import { stepVehicle, type VehicleState } from "./logic/vehicle";
+import { MAX_FORWARD_SPEED, stepVehicle, type VehicleState } from "./logic/vehicle";
 import { useGame } from "./state/store";
 import { useHeldKeys, useKeyPress } from "./useKeys";
 
@@ -19,10 +20,15 @@ export function Bus() {
   const vehicle = useRef<VehicleState>({ x: 0, z: 0, heading: 0, speed: 0 });
   const edgeCooldown = useRef(0);
 
+  const dayId = useGame((g) => g.dayId);
+
+  // a new day (first load or restart) puts the bus back at the depot
   useEffect(() => {
     resetBusPose();
     vehicle.current = { x: 0, z: 0, heading: 0, speed: 0 };
-  }, []);
+  }, [dayId]);
+
+  useEffect(() => armAudio(), []);
 
   useKeyPress(["KeyE"], () => useGame.getState().toggleDoor());
 
@@ -53,6 +59,9 @@ export function Bus() {
     }
 
     const v = vehicle.current;
+    const live = game.phase === "running";
+    setEngine(live ? Math.abs(v.speed) / MAX_FORWARD_SPEED : 0);
+    setHorn(live && keys.current.horn);
     busPose.x = v.x;
     busPose.z = v.z;
     busPose.heading = v.heading;

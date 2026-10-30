@@ -20,6 +20,8 @@ type Phase = "idle" | "running" | "paused" | "ended";
 
 export type GameState = {
   phase: Phase;
+  dayId: number;
+  muted: boolean;
   net: number;
   clockElapsed: number;
   hour: number;
@@ -48,6 +50,7 @@ type Actions = {
   setBusState: (position: number, speed: number) => void;
   toggleDoor: () => void;
   transferStep: () => void;
+  toggleMute: () => void;
   registerHarsh: () => void;
   endDay: () => void;
 };
@@ -96,6 +99,8 @@ function initialState(): GameState {
   }
   return {
     phase: "idle",
+    dayId: 0,
+    muted: false,
     net: -RENT,
     clockElapsed: 0,
     hour: advanceClock(0, 0).hour,
@@ -123,10 +128,11 @@ function isTerminus(stopIndex: number, dir: Direction): boolean {
 export const useGame = create<GameState & Actions>()((set, get) => ({
   ...initialState(),
 
-  startDay: () => set({ ...initialState(), phase: "running" }),
+  startDay: () => set((s) => ({ ...initialState(), phase: "running", dayId: s.dayId + 1, muted: s.muted })),
   pause: () => set((s) => (s.phase === "running" ? { phase: "paused" } : {})),
   resume: () => set((s) => (s.phase === "paused" ? { phase: "running" } : {})),
   endDay: () => set({ phase: "ended", doorOpen: false }),
+  toggleMute: () => set((s) => ({ muted: !s.muted })),
   registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1 })),
 
   setBusState: (position, speed) =>

@@ -27,6 +27,24 @@ describe("startDay", () => {
   });
 });
 
+describe("dayId", () => {
+  it("increments on every startDay so the scene can reset", () => {
+    const before = useGame.getState().dayId;
+    useGame.getState().startDay();
+    expect(useGame.getState().dayId).toBe(before + 1);
+  });
+});
+
+describe("mute", () => {
+  it("toggles and survives a new day", () => {
+    expect(useGame.getState().muted).toBe(false);
+    useGame.getState().toggleMute();
+    useGame.getState().startDay();
+    expect(useGame.getState().muted).toBe(true);
+    useGame.getState().toggleMute();
+  });
+});
+
 describe("toggleDoor", () => {
   it("stays closed when the bus is moving", () => {
     useGame.getState().setBusState(0, 5);
