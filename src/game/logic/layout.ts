@@ -1,5 +1,5 @@
 import { keepOutZones, overlaps, type Shape } from "./footprint";
-import { FOOTPATH_WIDTH, VERGE_WIDTH, roadCenterZ, roadHalfWidthAt } from "./road";
+import { FOOTPATH_WIDTH, VERGE_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
 import type { RoadFeatures } from "./roadside";
 import type { Stop } from "./route";
 
@@ -29,7 +29,39 @@ export type FlowerPlacement = {
   count: number;
   seed: number;
 };
-export type Placement = TreePlacement | FlowerPlacement;
+// A house or shop. `heading` is the road's direction at its station; `width`
+// runs along the road and `depth` back from it, with the front facing the road.
+export type BuildingPlacement = {
+  kind: "house" | "shop";
+  side: Side;
+  x: number;
+  z: number;
+  heading: number;
+  width: number;
+  depth: number;
+  floors: number;
+  seed: number;
+  compound: number;
+};
+// A compound has two wall pieces and a gate between them, in front of the building.
+export type WallPlacement = {
+  kind: "wall";
+  side: Side;
+  x: number;
+  z: number;
+  heading: number;
+  length: number;
+  compound: number;
+};
+export type GatePlacement = {
+  kind: "gate";
+  side: Side;
+  x: number;
+  z: number;
+  heading: number;
+  compound: number;
+};
+export type Placement = TreePlacement | FlowerPlacement | BuildingPlacement | WallPlacement | GatePlacement;
 
 // crown radius at scale 1, metres
 export const TREE_RADIUS: Record<TreeKind, number> = {
@@ -42,10 +74,24 @@ export const TREE_RADIUS: Record<TreeKind, number> = {
 // A cluster of heads is about a metre across; its centre stands 1.0-1.8 m beyond the verge
 // edge, so the nearest flowers are 0.4-1.2 m from it.
 const FLOWER_RADIUS = 0.6;
+const WALL_THICKNESS = 0.3;
+export const GATE_WIDTH = 3;
+const GATE_DEPTH = 0.5;
 
 export function footprintOf(p: Placement): Shape {
-  if (p.kind === "flowers") return { kind: "circle", x: p.x, z: p.z, r: FLOWER_RADIUS };
-  return { kind: "circle", x: p.x, z: p.z, r: TREE_RADIUS[p.kind] * p.scale };
+  switch (p.kind) {
+    case "flowers":
+      return { kind: "circle", x: p.x, z: p.z, r: FLOWER_RADIUS };
+    case "house":
+    case "shop":
+      return { kind: "rect", x: p.x, z: p.z, w: p.width, d: p.depth, heading: p.heading };
+    case "wall":
+      return { kind: "rect", x: p.x, z: p.z, w: p.length, d: WALL_THICKNESS, heading: p.heading };
+    case "gate":
+      return { kind: "rect", x: p.x, z: p.z, w: GATE_WIDTH, d: GATE_DEPTH, heading: p.heading };
+    default:
+      return { kind: "circle", x: p.x, z: p.z, r: TREE_RADIUS[p.kind] * p.scale };
+  }
 }
 
 function mulberry32(seed: number) {
@@ -70,6 +116,9 @@ const WEIGHTS: [Kind, number][] = [
 const FLOWERS: FlowerKind[] = ["sunflower", "hibiscus", "marigold"];
 const SLOT = 9; // metres between plant slots along the road
 const JITTER = 2; // keep well under SLOT/2 so slots stay in order along the road
+const BUILDING_SLOT = 20; // metres between building plots along the road
+const SETBACK = 3.6; // building front behind the verge edge, metres
+const WALL_SETBACK = 1.2; // compound wall behind the verge edge
 
 function pickKind(r: () => number, avoid: Kind | null): Kind {
   for (let tries = 0; tries < 8; tries++) {
@@ -107,10 +156,63 @@ export function layoutScenery(
     return true;
   };
 
-  const first = stops[0].position - 30;
-  const last = stops[stops.length - 1].position + 30;
+  const firstStop = stops[0].position;
+  const lastStop = stops[stops.length - 1].position;
+  const first = firstStop - 30;
+  const last = lastStop + 30;
   const verge = (x: number) => roadHalfWidthAt(x) + FOOTPATH_WIDTH + VERGE_WIDTH;
+  const nearestStop = (x: number) => Math.min(...stops.map((s) => Math.abs(s.position - x)));
+  const nearestEnd = (x: number) => Math.min(Math.abs(x - firstStop), Math.abs(x - lastStop));
 
+  // ---- houses and shops, each in a walled compound with a gate ----
+  let compound = 0;
+  for (const side of [-1, 1] as Side[]) {
+    for (let slot = first + (side === 1 ? BUILDING_SLOT / 2 : 0); slot <= last; slot += BUILDING_SLOT) {
+      const x = slot + (r() - 0.5) * 6;
+      // fewer buildings toward the ends of the route
+      if (r() > (nearestEnd(x) < 120 ? 0.3 : 0.8)) continue;
+      // shops gather around the stops, houses fill in between
+      const d = nearestStop(x);
+      const shopChance = d <= 60 ? 0.85 : d > 120 ? 0.08 : 0.85 - ((d - 60) / 60) * 0.77;
+      const shop = r() < shopChance;
+      const width = shop ? 8 + r() * 2 : 8 + r() * 3;
+      const depth = shop ? 7 + r() * 2 : 6 + r() * 2;
+      const floors = shop ? 2 + Math.floor(r() * 3) : 1;
+      const bseed = Math.floor(r() * 1e9);
+      const jitter = r() * 1.5;
+
+      const a = roadAngle(x);
+      const perpX = -Math.sin(a);
+      const perpZ = Math.cos(a);
+      const roadZ = roadCenterZ(x);
+      // a point `lateral` metres from the road centreline, measured square to the road
+      const at = (lateral: number, along = 0) => ({
+        x: x + side * lateral * perpX + along * Math.cos(a),
+        z: roadZ + side * lateral * perpZ + along * Math.sin(a),
+      });
+      const id = compound;
+      const bc = at(verge(x) + SETBACK + jitter + depth / 2);
+      const wallBase = verge(x) + WALL_SETBACK;
+      const wallLen = (width + 4 - GATE_WIDTH) / 2;
+      const offset = GATE_WIDTH / 2 + 0.05 + wallLen / 2; // a 5 cm gap so wall and gate never touch
+      const parts: Placement[] = [
+        { kind: shop ? "shop" : "house", side, x: bc.x, z: bc.z, heading: a, width, depth, floors, seed: bseed, compound: id },
+        { kind: "wall", side, ...at(wallBase, -offset), heading: a, length: wallLen, compound: id },
+        { kind: "wall", side, ...at(wallBase, offset), heading: a, length: wallLen, compound: id },
+        { kind: "gate", side, ...at(wallBase), heading: a, compound: id },
+      ];
+      // the whole compound goes in, or none of it
+      const fits = parts.every((p, i) => {
+        const s = footprintOf(p);
+        return !zones.some((z) => overlaps(s, z)) && !shapes.some((o) => overlaps(s, o)) && !parts.slice(0, i).some((q) => overlaps(s, footprintOf(q)));
+      });
+      if (!fits) continue;
+      parts.forEach((p) => accept(p));
+      compound += 1;
+    }
+  }
+
+  // ---- trees and flowers fill in around them ----
   for (const side of [-1, 1] as Side[]) {
     const recent: Kind[] = [];
     for (let slot = first; slot <= last; slot += SLOT) {
