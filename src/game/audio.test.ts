@@ -77,22 +77,22 @@ afterEach(() => disarm());
 
 describe("engine sound", () => {
   it("is audible while driving", () => {
-    updateEngine({ speed: 10, throttle: 1, live: true });
+    updateEngine({ speed: 10, throttle: 1, live: true, kind: "auto" });
     expect(master().targets.at(-1)).toBeGreaterThan(0);
   });
 
   it("goes silent when the game is paused or over", () => {
-    updateEngine({ speed: 10, throttle: 1, live: true });
-    updateEngine({ speed: 10, throttle: 1, live: false });
+    updateEngine({ speed: 10, throttle: 1, live: true, kind: "auto" });
+    updateEngine({ speed: 10, throttle: 1, live: false, kind: "auto" });
     expect(master().targets.at(-1)).toBe(0);
   });
 
   it("is muted by the sound button", () => {
     useGame.setState({ muted: true });
-    updateEngine({ speed: 10, throttle: 1, live: true });
+    updateEngine({ speed: 10, throttle: 1, live: true, kind: "auto" });
     expect(master().targets.at(-1)).toBe(0);
     useGame.setState({ muted: false });
-    updateEngine({ speed: 10, throttle: 1, live: true });
+    updateEngine({ speed: 10, throttle: 1, live: true, kind: "auto" });
     expect(master().targets.at(-1)).toBeGreaterThan(0);
   });
 });
@@ -128,7 +128,7 @@ describe("a hit person", () => {
 
 describe("stopAudio", () => {
   it("silences everything and releases a held horn", () => {
-    updateEngine({ speed: 10, throttle: 1, live: true });
+    updateEngine({ speed: 10, throttle: 1, live: true, kind: "auto" });
     setHorn(true);
     stopAudio();
     expect(master().targets.at(-1)).toBe(0);

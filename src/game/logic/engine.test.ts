@@ -4,7 +4,7 @@ import { beepOn, engineGain, firingHz, gearFor, IDLE_RPM, rpmFor, tireGain } fro
 
 describe("gearFor", () => {
   it("climbs through the gears as the bus speeds up", () => {
-    expect([1, 4, 8, 11, 15].map(gearFor)).toEqual([1, 2, 3, 4, 5]);
+    expect([1, 4, 8, 11, 15].map((v) => gearFor(v))).toEqual([1, 2, 3, 4, 5]);
   });
   it("treats reversing like going forward at the same speed", () => {
     expect(gearFor(-4)).toBe(gearFor(4));
@@ -64,5 +64,56 @@ describe("beepOn", () => {
     expect(beepOn(400, true)).toBe(false);
     expect(beepOn(800, true)).toBe(true);
     expect(beepOn(0, false)).toBe(false);
+  });
+});
+
+import { VEHICLES, VEHICLE_KINDS } from "../data/vehicles";
+import { engineProfile } from "./engine";
+
+describe("engineProfile", () => {
+  it("keeps every vehicle's revs between its idle and its limit over its whole speed range", () => {
+    for (const k of VEHICLE_KINDS) {
+      const p = engineProfile(k);
+      for (let v = 0; v <= VEHICLES[k].maxSpeed; v += 0.25) {
+        for (const t of [0, 1]) {
+          const r = rpmFor(v, t, p);
+          expect(r).toBeGreaterThanOrEqual(p.idleRpm);
+          expect(r).toBeLessThanOrEqual(p.idleRpm + 12000);
+        }
+      }
+    }
+  });
+  it("tops each vehicle out in its last gear at its own top speed", () => {
+    for (const k of VEHICLE_KINDS) {
+      const p = engineProfile(k);
+      expect(gearFor(VEHICLES[k].maxSpeed, p)).toBe(p.gearTops.length);
+    }
+  });
+  it("has the bike idling high and the auto idling low", () => {
+    expect(engineProfile("bike").idleRpm).toBeGreaterThan(engineProfile("car").idleRpm);
+    expect(engineProfile("car").idleRpm).toBeGreaterThan(engineProfile("auto").idleRpm);
+  });
+  it("gives the auto fewer gears than the car", () => {
+    expect(engineProfile("auto").gearTops.length).toBeLessThan(engineProfile("car").gearTops.length);
+  });
+  it("revs the bike much harder than the auto at full speed", () => {
+    expect(rpmFor(22, 1, engineProfile("bike"))).toBeGreaterThan(rpmFor(14, 1, engineProfile("auto")) * 2);
+  });
+  it("still gives the old bus numbers when no profile is passed", () => {
+    expect(rpmFor(5, 1)).toBe(rpmFor(5, 1, engineProfile("bus")));
+    expect(gearFor(11)).toBe(4);
+  });
+  it("is audible but not deafening for every vehicle", () => {
+    for (const k of VEHICLE_KINDS) {
+      const p = engineProfile(k);
+      for (const v of [0, 5, 10, VEHICLES[k].maxSpeed]) {
+        const g = engineGain(v, 1, p);
+        expect(g).toBeGreaterThan(0.03);
+        expect(g).toBeLessThan(0.3);
+      }
+    }
+  });
+  it("scales the road roar to the vehicle's top speed", () => {
+    expect(tireGain(14, 14)).toBeCloseTo(tireGain(22, 22));
   });
 });

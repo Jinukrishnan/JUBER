@@ -1,6 +1,7 @@
 "use client";
 
-import { beepOn, engineGain, firingHz, rpmFor, tireGain } from "./logic/engine";
+import { VEHICLES, type VehicleKind } from "./data/vehicles";
+import { beepOn, engineGain, engineProfile, firingHz, rpmFor, tireGain } from "./logic/engine";
 import { useGame } from "./state/store";
 import { cancelSpeech } from "./voice";
 
@@ -154,9 +155,10 @@ export function armAudio(): () => void {
 const muted = () => useGame.getState().muted;
 
 // Call every frame. speed is signed (negative = reversing); throttle is 0..1.
-export function updateEngine(state: { speed: number; throttle: number; live: boolean }) {
+export function updateEngine(state: { speed: number; throttle: number; live: boolean; kind: VehicleKind }) {
   if (!ctx || !eng) return;
-  const { speed, throttle, live } = state;
+  const { speed, throttle, live, kind } = state;
+  const profile = engineProfile(kind);
   const t = ctx.currentTime;
   const on = live && !muted();
   eng.master.gain.setTargetAtTime(on ? 1 : 0, t, 0.06);
@@ -166,14 +168,14 @@ export function updateEngine(state: { speed: number; throttle: number; live: boo
   }
 
   const load = Math.max(0, throttle);
-  const rpm = rpmFor(speed, load);
-  const fire = firingHz(rpm);
-  const level = engineGain(speed, load);
+  const rpm = rpmFor(speed, load, profile);
+  const fire = firingHz(rpm, profile);
+  const level = engineGain(speed, load, profile);
 
-  eng.saw.frequency.setTargetAtTime(fire * 2, t, 0.08);
+  eng.saw.frequency.setTargetAtTime(fire * profile.tone, t, 0.08);
   eng.sawFilter.frequency.setTargetAtTime(260 + rpm * 0.3, t, 0.08);
   eng.sawGain.gain.setTargetAtTime(level, t, 0.08);
-  eng.sub.frequency.setTargetAtTime(fire, t, 0.08);
+  eng.sub.frequency.setTargetAtTime(fire * (profile.tone / 2), t, 0.08);
   eng.subGain.gain.setTargetAtTime(level * 0.45, t, 0.08);
 
   eng.lfo.frequency.setTargetAtTime(fire, t, 0.08);
@@ -181,7 +183,7 @@ export function updateEngine(state: { speed: number; throttle: number; live: boo
   eng.lfoDepth.gain.setTargetAtTime(level * 0.2, t, 0.08);
 
   eng.roadFilter.frequency.setTargetAtTime(300 + Math.abs(speed) * 45, t, 0.1);
-  eng.roadGain.gain.setTargetAtTime(tireGain(speed), t, 0.1);
+  eng.roadGain.gain.setTargetAtTime(tireGain(speed, VEHICLES[kind].maxSpeed), t, 0.1);
 
   const beeping = beepOn(performance.now(), speed < -0.3);
   eng.beepGain.gain.setTargetAtTime(beeping ? 0.05 : 0, t, 0.01);

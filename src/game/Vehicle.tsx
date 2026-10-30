@@ -100,7 +100,7 @@ export function Vehicle() {
 
     const v = state.current;
     const live = game.phase === "running";
-    updateEngine({ speed: v.speed, throttle: keys.current.throttle, live });
+    updateEngine({ speed: v.speed, throttle: keys.current.throttle, live, kind: game.vehicle });
     setHorn(live && keys.current.horn);
     busPose.x = v.x;
     busPose.z = v.z;
