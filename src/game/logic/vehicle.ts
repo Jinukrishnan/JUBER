@@ -9,6 +9,9 @@ export type VehicleState = {
 export type Inputs = { throttle: number; steer: number; handbrake: boolean };
 
 export const MAX_FORWARD_SPEED = 16; // m/s, about 58 km/h
+
+// What differs between vehicles. Left out, the original bus numbers apply.
+export type Handling = { wheelbase: number; maxSpeed: number; accel: number; maxSteer: number; maxLateralAccel: number };
 export const MAX_REVERSE_SPEED = 4;
 
 const ACCEL = 5;
@@ -24,12 +27,14 @@ const MAX_STEER = 0.6; // rad, full lock at walking pace (turning radius ~8 m)
 const STEER_RATE = 0.55; // rad/s the wheel can move, so turns come in slowly
 const MAX_LATERAL_ACCEL = 3; // m/s^2, what the bus may pull sideways
 
+const DEFAULT_HANDLING: Handling = { wheelbase: WHEELBASE, maxSpeed: MAX_FORWARD_SPEED, accel: ACCEL, maxSteer: MAX_STEER, maxLateralAccel: MAX_LATERAL_ACCEL };
+
 // Lock available at this speed: full at a crawl, shrinking so the sideways
 // acceleration (v^2 / radius) never exceeds MAX_LATERAL_ACCEL.
-export function maxSteerAt(speed: number): number {
+export function maxSteerAt(speed: number, h: Handling = DEFAULT_HANDLING): number {
   const v = Math.abs(speed);
-  if (v < 0.5) return MAX_STEER;
-  return Math.min(MAX_STEER, Math.atan((WHEELBASE * MAX_LATERAL_ACCEL) / (v * v)));
+  if (v < 0.5) return h.maxSteer;
+  return Math.min(h.maxSteer, Math.atan((h.wheelbase * h.maxLateralAccel) / (v * v)));
 }
 
 // x runs along the route; heading 0 faces +x; positive heading turns toward +z.
@@ -40,25 +45,26 @@ export function stepVehicle(
   roadHalfWidth: number,
   centerZ = 0,
   bounds?: (x: number, z: number) => { x: number; z: number; clamped: boolean },
+  h: Handling = DEFAULT_HANDLING,
 ): { state: VehicleState; hitEdge: boolean } {
   let speed = s.speed;
 
   if (i.handbrake) {
     speed = approachZero(speed, HANDBRAKE * dt);
   } else if (i.throttle > 0) {
-    speed += (speed < 0 ? BRAKE : ACCEL) * i.throttle * dt;
+    speed += (speed < 0 ? BRAKE : h.accel) * i.throttle * dt;
   } else if (i.throttle < 0) {
-    speed -= (speed > 0 ? BRAKE : ACCEL) * -i.throttle * dt;
+    speed -= (speed > 0 ? BRAKE : h.accel) * -i.throttle * dt;
   } else {
     speed = approachZero(speed, COAST * dt);
   }
-  speed = Math.min(MAX_FORWARD_SPEED, Math.max(-MAX_REVERSE_SPEED, speed));
+  speed = Math.min(h.maxSpeed, Math.max(-MAX_REVERSE_SPEED, speed));
 
-  const wanted = i.steer * maxSteerAt(speed);
+  const wanted = i.steer * maxSteerAt(speed, h);
   const maxMove = STEER_RATE * dt;
   const steerAngle = s.steerAngle + Math.max(-maxMove, Math.min(maxMove, wanted - s.steerAngle));
 
-  const heading = s.heading + (speed / WHEELBASE) * Math.tan(steerAngle) * dt;
+  const heading = s.heading + (speed / h.wheelbase) * Math.tan(steerAngle) * dt;
 
   let x = s.x + Math.cos(heading) * speed * dt;
   let z = s.z + Math.sin(heading) * speed * dt;

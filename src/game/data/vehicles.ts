@@ -12,6 +12,7 @@ export type Vehicle = {
   maxSpeed: number; // m/s forward
   accel: number; // m/s^2
   maxSteer: number; // radians at a crawl
+  maxLateralAccel: number; // m/s^2 of sideways pull before it slides: bikes lean, autos tip
   baseFare: number; // Rs
   farePer100m: number; // Rs per 100 m of route
   rent: number; // Rs taken at the start of the day
@@ -29,6 +30,7 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     maxSpeed: 22,
     accel: 7,
     maxSteer: 0.7,
+    maxLateralAccel: 6,
     baseFare: 15,
     farePer100m: 3,
     rent: 100,
@@ -44,6 +46,7 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     maxSpeed: 14,
     accel: 3.5,
     maxSteer: 0.55,
+    maxLateralAccel: 2.5,
     baseFare: 25,
     farePer100m: 5,
     rent: 200,
@@ -59,6 +62,7 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     maxSpeed: 18,
     accel: 5,
     maxSteer: 0.6,
+    maxLateralAccel: 3.5,
     baseFare: 35,
     farePer100m: 7,
     rent: 300,

@@ -137,3 +137,42 @@ describe("stepVehicle with a bounds function", () => {
     expect(r.state.speed).toBeLessThan(5);
   });
 });
+
+import { VEHICLES } from "../data/vehicles";
+
+describe("stepVehicle with a vehicle spec", () => {
+  const drive = (spec: (typeof VEHICLES)["bike"], seconds: number, steer = 0, start = still) => {
+    let s = start;
+    for (let t = 0; t < seconds; t += 1 / 60) {
+      s = stepVehicle(s, { throttle: 1, steer, handbrake: false }, 1 / 60, 1000, 0, undefined, spec).state;
+    }
+    return s;
+  };
+
+  it("lets the bike reach 22 m/s and no more", () => {
+    const s = drive(VEHICLES.bike, 12);
+    expect(s.speed).toBeCloseTo(22, 5);
+  });
+  it("caps the auto at 14 m/s", () => {
+    expect(drive(VEHICLES.auto, 12).speed).toBeCloseTo(14, 5);
+  });
+  it("still caps at the old 16 m/s when no spec is given", () => {
+    let s = still;
+    for (let t = 0; t < 12; t += 1 / 60) s = stepVehicle(s, { throttle: 1, steer: 0, handbrake: false }, 1 / 60, 1000).state;
+    expect(s.speed).toBeCloseTo(MAX_FORWARD_SPEED, 5);
+  });
+  it("accelerates the bike faster than the auto", () => {
+    expect(drive(VEHICLES.bike, 2).speed).toBeGreaterThan(drive(VEHICLES.auto, 2).speed);
+  });
+  it("turns the bike tighter than the car at the same speed", () => {
+    const at = { ...still, speed: 6 };
+    const turned = (spec: (typeof VEHICLES)["bike"]) => {
+      let s = at;
+      for (let t = 0; t < 3; t += 1 / 60) {
+        s = stepVehicle({ ...s, speed: 6 }, { throttle: 0, steer: 1, handbrake: false }, 1 / 60, 1000, 0, undefined, spec).state;
+      }
+      return Math.abs(s.heading);
+    };
+    expect(turned(VEHICLES.bike)).toBeGreaterThan(turned(VEHICLES.car));
+  });
+});
