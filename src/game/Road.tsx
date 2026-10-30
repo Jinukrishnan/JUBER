@@ -8,6 +8,8 @@ import { Instances, type Item } from "./Instances";
 import { FOOTPATH_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./logic/road";
 import { isSolidAt, roadFeatures, ZEBRA_LENGTH } from "./logic/roadside";
 import { Scenery } from "./Scenery";
+import { armSigns } from "./logic/junction";
+import { JUNCTIONS } from "./world";
 
 export const X_MIN = -80;
 export const X_MAX = ROUTE_V1[ROUTE_V1.length - 1].position + 100;
@@ -83,6 +85,21 @@ function wall(xs: number[], off: (x: number) => number, y0: number, y1: number):
   return g;
 }
 
+// The stretches of the road edge on one side that are left open where a side road joins.
+function openRanges(side: -1 | 1): number[][] {
+  const gaps = JUNCTIONS.filter((j) => armSigns(j.arms).includes(side))
+    .map((j) => [j.x - j.armHalfWidth, j.x + j.armHalfWidth])
+    .sort((a, b) => a[0] - b[0]);
+  const out: number[][] = [];
+  let from = X_MIN;
+  for (const [a, b] of gaps) {
+    out.push(range(from, a, 5));
+    from = b;
+  }
+  out.push(range(from, X_MAX, 5));
+  return out;
+}
+
 export function Road() {
   const dirt = useNoiseTexture(DIRT);
   const asphalt = useNoiseTexture(ASPHALT);
@@ -91,16 +108,19 @@ export function Road() {
   const geo = useMemo(() => {
     const xs = range(X_MIN, X_MAX, 5);
     const half = roadHalfWidthAt;
+    const left = openRanges(-1);
+    const right = openRanges(1);
     const asphaltGeo = ribbon(xs, (x) => -half(x), (x) => half(x), 0.01, 0.1);
-    const footL = ribbon(xs, (x) => -half(x) - FOOTPATH_WIDTH, (x) => -half(x), KERB, 0.25);
-    const footR = ribbon(xs, (x) => half(x), (x) => half(x) + FOOTPATH_WIDTH, KERB, 0.25);
-    const kerbL = wall(xs, (x) => -half(x), 0, KERB);
-    const kerbR = wall(xs, (x) => half(x), 0, KERB);
-    const vergeL = ribbon(xs, (x) => -half(x) - FOOTPATH_WIDTH - 1.8, (x) => -half(x) - FOOTPATH_WIDTH, 0.005, 0.3);
-    const vergeR = ribbon(xs, (x) => half(x) + FOOTPATH_WIDTH, (x) => half(x) + FOOTPATH_WIDTH + 1.8, 0.005, 0.3);
+    // the footpath, kerb, verge and edge line are left open where a side road joins
+    const footL = left.map((r) => ribbon(r, (x) => -half(x) - FOOTPATH_WIDTH, (x) => -half(x), KERB, 0.25));
+    const footR = right.map((r) => ribbon(r, (x) => half(x), (x) => half(x) + FOOTPATH_WIDTH, KERB, 0.25));
+    const kerbL = left.map((r) => wall(r, (x) => -half(x), 0, KERB));
+    const kerbR = right.map((r) => wall(r, (x) => half(x), 0, KERB));
+    const vergeL = left.map((r) => ribbon(r, (x) => -half(x) - FOOTPATH_WIDTH - 1.8, (x) => -half(x) - FOOTPATH_WIDTH, 0.005, 0.3));
+    const vergeR = right.map((r) => ribbon(r, (x) => half(x) + FOOTPATH_WIDTH, (x) => half(x) + FOOTPATH_WIDTH + 1.8, 0.005, 0.3));
     // solid white edge lines, following the road as it widens at the ends
-    const edgeL = ribbon(xs, (x) => -half(x) + 0.22, (x) => -half(x) + 0.37, 0.03, 0.1);
-    const edgeR = ribbon(xs, (x) => half(x) - 0.37, (x) => half(x) - 0.22, 0.03, 0.1);
+    const edgeL = left.map((r) => ribbon(r, (x) => -half(x) + 0.22, (x) => -half(x) + 0.37, 0.03, 0.1));
+    const edgeR = right.map((r) => ribbon(r, (x) => half(x) - 0.37, (x) => half(x) - 0.22, 0.03, 0.1));
     // double yellow centre line wherever overtaking is not allowed
     const yellow = FEATURES.solidRanges.flatMap(([a, b]) => {
       const run = range(Math.max(a, FIRST - 10), Math.min(b, LAST + 10), 2);
@@ -114,6 +134,8 @@ export function Road() {
     for (let x = FIRST - 8; x < LAST + 8; x += 9) {
       if (isSolidAt(FEATURES, x) || isSolidAt(FEATURES, x + 3)) continue;
       const mid = x + 1.5;
+      // the centre line stops before a junction
+      if (JUNCTIONS.some((j) => Math.abs(mid - j.x) < j.armHalfWidth + 8)) continue;
       dashes.push({ x: mid, y: 0.03, z: roadCenterZ(mid), sx: 3, sy: 0.02, sz: 0.15, color: "#f4f1e6", ry: -roadAngle(mid) });
     }
     const zebra: Item[] = [];
@@ -134,7 +156,7 @@ export function Road() {
 
   return (
     <group>
-      {[geo.vergeL, geo.vergeR].map((g, i) => (
+      {[...geo.vergeL, ...geo.vergeR].map((g, i) => (
         <mesh key={i} geometry={g}>
           <meshStandardMaterial map={dirt} side={DoubleSide} />
         </mesh>
@@ -146,19 +168,19 @@ export function Road() {
       </mesh>
 
       {/* footpaths with kerbs */}
-      {[geo.footL, geo.footR].map((g, i) => (
+      {[...geo.footL, ...geo.footR].map((g, i) => (
         <mesh key={i} geometry={g} receiveShadow>
           <meshStandardMaterial map={paving} side={DoubleSide} />
         </mesh>
       ))}
-      {[geo.kerbL, geo.kerbR].map((g, i) => (
+      {[...geo.kerbL, ...geo.kerbR].map((g, i) => (
         <mesh key={i} geometry={g}>
           <meshStandardMaterial color="#b9b4a8" side={DoubleSide} />
         </mesh>
       ))}
 
       {/* painted lines */}
-      {[geo.edgeL, geo.edgeR].map((g, i) => (
+      {[...geo.edgeL, ...geo.edgeR].map((g, i) => (
         <mesh key={i} geometry={g}>
           <meshBasicMaterial color="#f4f1e6" side={DoubleSide} />
         </mesh>

@@ -113,3 +113,31 @@ It is a standard Next.js app with no server dependencies, so it deploys as-is to
 - Desktop keyboard only; touch devices get a "best on desktop" screen.
 - The route and stop names are invented. The bus uses an original livery and badge,
   not the official KSRTC logo.
+
+## Junctions, signals and the radar
+
+Junctions are data. Open `src/game/data/junctions-v1.ts` and edit the list:
+
+```ts
+{ id: "j400", x: 400, arms: "both", signal: { offset: 0 } },
+```
+
+- `x` is where along the route the junction is (the bus stops are at 0, 250, 550, 850, ...).
+  Change it to move the junction left or right along the road.
+- `arms` is `"left"`, `"right"` or `"both"`: which side the side road goes.
+- `armLength` (default 200 m) is how far the side road runs before its turn-around circle.
+- `signal` sets the light timings (`offset`, `mainGreen`, `crossGreen`, `yellow`, `allRed`, in
+  seconds), or `false` for a junction without lights.
+
+The side road, kerbs, zebra crossings, stop lines, signals, scenery clearance, radar and rules all
+follow. A junction must be at least 90 m from a bus stop, 45 m from a zebra crossing and 150 m from
+another junction, and 60 m inside the first and last stop; a bad one is skipped and the reason is
+printed in the browser console.
+
+You can turn left or right into any side road, drive to its end, turn round in the circle and come
+back. Crossing a stop line while that road's light is red costs Rs. 100, half a star and a red banner
+(yellow is allowed; a light that has only just turned red gets a 0.4 s grace).
+
+The round radar in the top-right corner shows the road turning around the bus, the side roads, each
+signal in its current colour, every bus stop, and a green marker with the stop name wherever someone
+on board is getting off. Press **Z** (or click the button) to zoom between 150 m, 400 m and 1 km.

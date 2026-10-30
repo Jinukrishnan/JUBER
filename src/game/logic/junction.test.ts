@@ -138,3 +138,14 @@ describe("clampToDrivable", () => {
     }
   });
 });
+
+import { onSideRoad } from "./junction";
+describe("onSideRoad", () => {
+  const r = resolveJunction(j());
+  it("is true on an arm and false on the main road", () => {
+    const w = localToWorld(r, 0, 60);
+    expect(onSideRoad([r], w.x, w.z)).toBe(true);
+    expect(onSideRoad([r], 100, roadCenterZ(100))).toBe(false);
+    expect(onSideRoad([r], r.x, r.z)).toBe(false);
+  });
+});

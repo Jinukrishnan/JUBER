@@ -6,8 +6,10 @@ import { Bus } from "./Bus";
 import { Casualties } from "./Casualties";
 import { CameraRig } from "./CameraRig";
 import { Ground } from "./Ground";
+import { Junctions } from "./Junctions";
 import { Pedestrians } from "./Pedestrians";
 import { Road } from "./Road";
+import { SignalHeads } from "./SignalHeads";
 import { Signs } from "./Signs";
 import { Stops } from "./Stops";
 import { useGame } from "./state/store";
@@ -35,6 +37,8 @@ export default function GameCanvas() {
       <Weather />
       <Ground />
       <Road />
+      <Junctions />
+      <SignalHeads />
       <Signs />
       <Stops />
       <Pedestrians />

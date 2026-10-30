@@ -64,3 +64,17 @@ export function approachLight(j: Junction, t: number, approach: Approach): Light
   if (!plan) return "green";
   return signalAt(plan, t)[groupOf(approach)];
 }
+
+// Seconds until this road's light next changes colour.
+export function untilChange(p: Plan, t: number, group: Group): number {
+  const now = signalAt(p, t)[group];
+  let total = 0;
+  let probe = t;
+  for (let i = 0; i < 8; i++) {
+    const s = signalAt(p, probe);
+    if (s[group] !== now) return total;
+    total += s.nextChange;
+    probe += s.nextChange + 1e-6;
+  }
+  return total;
+}

@@ -8,13 +8,18 @@ import { armAudio, playDoor, setHorn, stopAudio, updateEngine } from "./audio";
 import { busPose, depotPose, resetBusPose } from "./busPose";
 import { ROUTE_V1 } from "./data/route-v1";
 import { bayAt } from "./logic/bay";
+import { clampToDrivable } from "./logic/junction";
+import { redViolation } from "./logic/redlight";
+import type { Approach } from "./logic/signals";
 import { roadCenterZ, roadHalfWidthAt } from "./logic/road";
 import { stepVehicle, type VehicleState } from "./logic/vehicle";
 import { useGame } from "./state/store";
 import { useHeldKeys, useKeyPress } from "./useKeys";
+import { JUNCTIONS } from "./world";
 
 const WIDTH = 2.6;
 const CRASH_SPEED_KEPT = 0.3; // fraction of speed left after hitting someone
+const APPROACHES: Approach[] = ["mainForward", "mainBackward", "armLeft", "armRight"];
 
 export function Bus() {
   const group = useRef<Group>(null);
@@ -52,6 +57,7 @@ export function Bus() {
     if (game.phase === "running") {
       const k = keys.current;
       const doorShut = !game.doorOpen;
+      const before = vehicle.current;
       const r = stepVehicle(
         vehicle.current,
         {
@@ -62,8 +68,16 @@ export function Bus() {
         dt,
         roadHalfWidthAt(vehicle.current.x),
         roadCenterZ(vehicle.current.x),
+        (x, z) => clampToDrivable(JUNCTIONS, x, z),
       );
       vehicle.current = r.state;
+      // front of the bus crossing a stop line while that light is red
+      for (const j of JUNCTIONS) {
+        if (!j.plan || Math.abs(j.x - r.state.x) > 60) continue;
+        for (const a of APPROACHES) {
+          if (redViolation(j, a, before, r.state, game.signalTime)) game.registerViolation();
+        }
+      }
       // hitting someone knocks the speed off (the collision itself is detected where the people are)
       if (busPose.bump) {
         busPose.bump = false;

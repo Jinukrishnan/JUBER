@@ -6,8 +6,12 @@ import { ROUTE_V1 } from "@/game/data/route-v1";
 import { busPose } from "@/game/busPose";
 import { formatClock } from "@/game/logic/clock";
 import { stopGuidance } from "@/game/logic/guidance";
+import { onSideRoad } from "@/game/logic/junction";
+import { nextSignalAhead, type SignalAhead } from "@/game/logic/signalAhead";
 import { nextStopIndex } from "@/game/logic/route";
 import { useGame } from "@/game/state/store";
+import { JUNCTIONS } from "@/game/world";
+import { Minimap } from "./Minimap";
 
 const FIRST = ROUTE_V1[0];
 const LAST = ROUTE_V1[ROUTE_V1.length - 1];
@@ -56,25 +60,32 @@ function AccidentBanner() {
   );
 }
 
-// What to do next at a stop, refreshed a few times a second from the live bus pose.
-function useStopHint(): string | null {
-  const [hint, setHint] = useState<string | null>(null);
+// What the driver needs to know, refreshed a few times a second from the live
+// bus pose: the hint at a stop, the next signal, and whether the bus is on a side road.
+type DriveInfo = { hint: string | null; signal: SignalAhead | null; offRoute: boolean };
+const NO_INFO: DriveInfo = { hint: null, signal: null, offRoute: false };
+
+function useDriveInfo(): DriveInfo {
+  const [info, setInfo] = useState<DriveInfo>(NO_INFO);
   useEffect(() => {
     const id = setInterval(() => {
       const g = useGame.getState();
-      setHint(
-        g.phase !== "running"
-          ? null
-          : stopGuidance({ stops: ROUTE_V1, direction: g.direction, doorOpen: g.doorOpen, speed: Math.abs(busPose.speed), x: busPose.x, z: busPose.z, heading: busPose.heading }),
-      );
+      if (g.phase !== "running") return setInfo(NO_INFO);
+      setInfo({
+        hint: stopGuidance({ stops: ROUTE_V1, direction: g.direction, doorOpen: g.doorOpen, speed: Math.abs(busPose.speed), x: busPose.x, z: busPose.z, heading: busPose.heading }),
+        signal: nextSignalAhead(JUNCTIONS, busPose.x, g.direction, g.signalTime),
+        offRoute: onSideRoad(JUNCTIONS, busPose.x, busPose.z),
+      });
     }, 150);
     return () => clearInterval(id);
   }, []);
-  return hint;
+  return info;
 }
 
+const LAMP = { red: "bg-red-500", yellow: "bg-yellow-400", green: "bg-green-500" } as const;
+
 export function Hud() {
-  const stopHint = useStopHint();
+  const { hint: stopHint, signal, offRoute } = useDriveInfo();
   const net = useGame((s) => s.net);
   const hour = useGame((s) => s.hour);
   const onboard = useGame((s) => s.onboard.length);
@@ -106,18 +117,35 @@ export function Hud() {
           <div className="text-xs uppercase tracking-wide opacity-60">Seats</div>
           <div className="text-lg font-semibold tabular-nums">{onboard} / {CAPACITY}</div>
         </div>
+        {signal && (
+          <div className="rounded-xl border border-line bg-cream/90 px-4 py-2 shadow">
+            <div className="text-xs uppercase tracking-wide opacity-60">Next signal</div>
+            <div className="flex items-center gap-2">
+              <span aria-label={`Signal is ${signal.light}`} className={`inline-block h-4 w-4 rounded-full border border-black/40 ${LAMP[signal.light]}`} />
+              <span className="text-lg font-semibold tabular-nums">{Math.round(signal.distance)} m</span>
+            </div>
+            <div className="text-xs opacity-70">changes in {Math.ceil(signal.seconds)} s</div>
+          </div>
+        )}
         <Toggle label="Headlights" hint="L" on={headlights} onClick={() => useGame.getState().toggleHeadlights()} />
       </div>
 
-      <div data-side="right" className="absolute right-4 top-4 flex w-40 flex-col gap-2">
+      <div data-side="right" className="absolute right-4 top-4 flex w-48 flex-col gap-2">
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-3 text-right shadow">
           <div className="text-2xl font-bold tabular-nums">{formatClock(hour)}</div>
           <div className="text-xs opacity-70">{doorOpen ? "Door open" : "Door closed"}</div>
         </div>
         <Toggle label="Sound" hint="M" on={!muted} onClick={() => useGame.getState().toggleMute()} />
+        <Minimap />
       </div>
 
       <AccidentBanner />
+
+      {offRoute && (
+        <div className="absolute inset-x-0 top-4 mx-auto w-fit max-w-[60vw] rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow">
+          Off route - rejoin the main road
+        </div>
+      )}
 
       {stopHint && (
         <div className="absolute inset-x-0 bottom-28 mx-auto w-fit max-w-[92vw] rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow">

@@ -146,3 +146,9 @@ export function clampToDrivable(list: ResolvedJunction[], x: number, z: number):
   }
   return { x: best.x, z: best.z, clamped: true };
 }
+
+// On a side road: paved, but not part of the main carriageway.
+export function onSideRoad(list: ResolvedJunction[], x: number, z: number): boolean {
+  if (Math.abs(z - roadCenterZ(x)) <= roadHalfWidthAt(x) + EPS) return false;
+  return drivable(list, x, z);
+}

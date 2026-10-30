@@ -57,3 +57,16 @@ describe("redAge", () => {
     expect(redAge(plan, 10, "main")).toBe(0);
   });
 });
+
+import { untilChange } from "./signals";
+describe("untilChange", () => {
+  it("counts down to the next time this road's light changes", () => {
+    expect(untilChange(plan, 0, "main")).toBeCloseTo(28);
+    expect(untilChange(plan, 29, "main")).toBeCloseTo(2); // yellow to red
+  });
+  it("skips phases where this road's light stays the same", () => {
+    // main is red from 31 s to 52 s, through the cross phases
+    expect(untilChange(plan, 32, "main")).toBeCloseTo(20);
+    expect(untilChange(plan, 33, "cross")).toBeCloseTo(14);
+  });
+});
