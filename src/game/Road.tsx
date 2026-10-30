@@ -17,7 +17,6 @@ const FIRST = ROUTE_V1[0].position;
 const LAST = ROUTE_V1[ROUTE_V1.length - 1].position;
 const FEATURES = roadFeatures(ROUTE_V1);
 
-const GRASS = { size: 256, base: [86, 140, 58] as [number, number, number], spread: 46, dots: 2600, seed: 3, repeat: [700, 150] as [number, number] };
 const DIRT = { size: 128, base: [138, 110, 78] as [number, number, number], spread: 40, dots: 700, seed: 9, repeat: [1, 1] as [number, number] };
 const ASPHALT = { size: 256, base: [62, 64, 68] as [number, number, number], spread: 22, dots: 2200, seed: 5, repeat: [1, 1] as [number, number] };
 const PAVING = {
@@ -85,7 +84,6 @@ function wall(xs: number[], off: (x: number) => number, y0: number, y1: number):
 }
 
 export function Road() {
-  const grass = useNoiseTexture(GRASS);
   const dirt = useNoiseTexture(DIRT);
   const asphalt = useNoiseTexture(ASPHALT);
   const paving = useNoiseTexture(PAVING);
@@ -136,11 +134,6 @@ export function Road() {
 
   return (
     <group>
-      {/* ground */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1650, -0.05, 0]} receiveShadow>
-        <planeGeometry args={[4400, 900]} />
-        <meshStandardMaterial map={grass} />
-      </mesh>
       {[geo.vergeL, geo.vergeR].map((g, i) => (
         <mesh key={i} geometry={g}>
           <meshStandardMaterial map={dirt} side={DoubleSide} />

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Bus } from "./Bus";
 import { Casualties } from "./Casualties";
 import { CameraRig } from "./CameraRig";
+import { Ground } from "./Ground";
 import { Pedestrians } from "./Pedestrians";
 import { Road } from "./Road";
 import { Signs } from "./Signs";
@@ -28,10 +29,11 @@ export default function GameCanvas() {
   return (
     <Canvas
       shadows
-      camera={{ fov: 60, near: 0.1, far: 900, position: [-15, 6.5, 0] }}
+      camera={{ fov: 60, near: 0.1, far: 1600, position: [-15, 6.5, 0] }}
       style={{ position: "absolute", inset: 0 }}
     >
       <Weather />
+      <Ground />
       <Road />
       <Signs />
       <Stops />
