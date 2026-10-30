@@ -11,3 +11,10 @@ export const DAY_REAL_SECONDS = 480;
 export const BOARD_INTERVAL_S = 0.6;
 // "nearly stationary" threshold in m/s
 export const STOP_SPEED_MAX = 1;
+
+// stop zone radius in metres
+export const ZONE_RADIUS = 25;
+export const PATIENCE_S = 120;
+export const SPAWN_INTERVAL_S = 5;
+export const INITIAL_WAITING_PER_STOP = 3;
+export const MAX_WAITING_PER_STOP = 15;
