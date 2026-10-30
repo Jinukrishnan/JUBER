@@ -94,6 +94,33 @@ export function footprintOf(p: Placement): Shape {
   }
 }
 
+// A coarse grid along the route so a shape is only compared with its neighbours
+// instead of everything: the layout has hundreds of shapes.
+const CELL = 25;
+function reach(s: Shape): number {
+  return s.kind === "circle" ? s.r : Math.hypot(s.w, s.d) / 2;
+}
+class Grid {
+  private cells = new Map<number, Shape[]>();
+  add(s: Shape) {
+    const r = reach(s);
+    for (let c = Math.floor((s.x - r) / CELL); c <= Math.floor((s.x + r) / CELL); c++) {
+      const list = this.cells.get(c);
+      if (list) list.push(s);
+      else this.cells.set(c, [s]);
+    }
+  }
+  // true if any stored shape that could be near `s` overlaps it
+  hits(s: Shape): boolean {
+    const r = reach(s);
+    for (let c = Math.floor((s.x - r) / CELL); c <= Math.floor((s.x + r) / CELL); c++) {
+      const list = this.cells.get(c);
+      if (list && list.some((o) => overlaps(s, o))) return true;
+    }
+    return false;
+  }
+}
+
 function mulberry32(seed: number) {
   let a = seed | 0;
   return () => {
@@ -145,14 +172,15 @@ export function layoutScenery(
   const r = mulberry32(seed);
   const zones = keepOutZones(stops, features);
   const placements: Placement[] = [];
-  const shapes: Shape[] = [];
+  const zoneGrid = new Grid();
+  zones.forEach((z) => zoneGrid.add(z));
+  const placedGrid = new Grid();
 
-  const free = (s: Shape) => !zones.some((z) => overlaps(s, z)) && !shapes.some((o) => overlaps(s, o));
   const accept = (p: Placement): boolean => {
     const s = footprintOf(p);
-    if (!free(s)) return false;
+    if (zoneGrid.hits(s) || placedGrid.hits(s)) return false;
     placements.push(p);
-    shapes.push(s);
+    placedGrid.add(s);
     return true;
   };
 
@@ -204,7 +232,7 @@ export function layoutScenery(
       // the whole compound goes in, or none of it
       const fits = parts.every((p, i) => {
         const s = footprintOf(p);
-        return !zones.some((z) => overlaps(s, z)) && !shapes.some((o) => overlaps(s, o)) && !parts.slice(0, i).some((q) => overlaps(s, footprintOf(q)));
+        return !zoneGrid.hits(s) && !placedGrid.hits(s) && !parts.slice(0, i).some((q) => overlaps(s, footprintOf(q)));
       });
       if (!fits) continue;
       parts.forEach((p) => accept(p));
@@ -244,7 +272,7 @@ export function layoutScenery(
     placements,
     isGroundFree: (x, z, radius) => {
       const probe: Shape = { kind: "circle", x, z, r: radius };
-      return !shapes.some((s) => overlaps(probe, s));
+      return !placedGrid.hits(probe);
     },
   };
 }

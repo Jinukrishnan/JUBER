@@ -58,6 +58,16 @@ Anyone the bus hits (pedestrians, people walking the footpaths, the queue at a s
 alighting) is thrown clear, lands on the road or the footpath, cries out, and costs the same fine. Hit someone and they are thrown clear, fall, and cry out in a speech bubble ("അയ്യോ! Oh my God!",
 "എന്റമ്മേ! Help me!"). It costs a Rs. 300 fine, slows the bus, and takes a full star off the rating.
 
+## Scenery
+
+The roadside is a Kerala village laid out once from a seed (src/game/logic/layout.ts): coconut palms, mango,
+gulmohar, banana and jackfruit trees, sunflower, hibiscus and marigold clusters, grass tufts and bushes, and
+Kerala houses (plinth, veranda, clay-tile roof) and multi-storey shops (balconies, shutters, water tanks,
+Malayalam signboards) each in a walled compound with a gate. Buildings follow the curve of the road and face it,
+and nothing is ever placed on the road, footpath, bus bays, shelters, signs or poles. Beyond the road are
+patchy grass, rice paddies and distant hills. Only the 100 m slices within 260 m of the bus are drawn.
+Shop names are placeholders in src/game/data/shopnames.ts.
+
 ## The road
 
 A realistic Kerala road: asphalt with white edge lines, a dashed centre line that turns into a double
