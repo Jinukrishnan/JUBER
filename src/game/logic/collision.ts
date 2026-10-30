@@ -24,3 +24,15 @@ export function busHitsPerson(
   if (Math.abs(lx) > HALF_LENGTH + radius || Math.abs(lz) > HALF_WIDTH + radius) return null;
   return { side: lz >= 0 ? 1 : -1 };
 }
+
+// Which way someone struck by the bus is thrown (a unit vector on the ground):
+// mostly out to the side they were on, and on in the direction the bus was going.
+export function throwDirection(bus: Pose, side: 1 | -1): { dx: number; dz: number } {
+  const fwd = Math.sign(bus.speed) || 1;
+  const fx = Math.cos(bus.heading) * fwd * 0.5;
+  const fz = Math.sin(bus.heading) * fwd * 0.5;
+  const sx = -Math.sin(bus.heading) * side * 0.9;
+  const sz = Math.cos(bus.heading) * side * 0.9;
+  const len = Math.hypot(fx + sx, fz + sz) || 1;
+  return { dx: (fx + sx) / len, dz: (fz + sz) / len };
+}

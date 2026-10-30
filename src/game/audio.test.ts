@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useGame } from "./state/store";
-import { armAudio, playCrash, playDoor, setHorn, stopAudio, updateEngine } from "./audio";
+import { armAudio, playCrash, playDoor, playYelp, setHorn, stopAudio, updateEngine } from "./audio";
 
 type Param = {
   value: number;
@@ -111,6 +111,18 @@ describe("one-off sounds", () => {
     playDoor();
     playCrash();
     expect(log.sources).toBe(before);
+  });
+});
+
+describe("a hit person", () => {
+  it("cries out, but not when muted", () => {
+    const before = log.oscillators;
+    playYelp();
+    expect(log.oscillators).toBeGreaterThan(before);
+    useGame.setState({ muted: true });
+    const muted = log.oscillators;
+    playYelp();
+    expect(log.oscillators).toBe(muted);
   });
 });
 

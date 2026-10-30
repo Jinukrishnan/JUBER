@@ -3,6 +3,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect } from "react";
 import { Bus } from "./Bus";
+import { Casualties } from "./Casualties";
 import { CameraRig } from "./CameraRig";
 import { Pedestrians } from "./Pedestrians";
 import { Road } from "./Road";
@@ -35,6 +36,7 @@ export default function GameCanvas() {
       <Signs />
       <Stops />
       <Pedestrians />
+      <Casualties />
       <Bus />
       <Walkers />
       <CameraRig />

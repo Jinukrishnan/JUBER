@@ -252,6 +252,29 @@ export function playCrash() {
   burst(900, 0.6, 0.6, 0.5);
 }
 
+// A person's cry as the bus hits them: a short falling wail. pitch varies it between people.
+export function playYelp(pitch = 1) {
+  if (muted() || !ctx || !eng) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(720 * pitch, t);
+  o.frequency.exponentialRampToValueAtTime(300 * pitch, t + 0.5);
+  const f = ctx.createBiquadFilter();
+  f.type = "bandpass";
+  f.frequency.value = 1100;
+  f.Q.value = 1.2;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.22, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+  o.connect(f);
+  f.connect(g);
+  g.connect(eng.master);
+  o.start(t);
+  o.stop(t + 0.6);
+}
+
 // Silence everything. Call when the game scene unmounts so an engine drone or
 // held horn cannot keep playing on other pages.
 export function stopAudio() {

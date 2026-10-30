@@ -4,9 +4,11 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import type { Group } from "three";
 import { busPose } from "./busPose";
+import { reportHit } from "./hit";
 import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
 import { ROUTE_V1 } from "./data/route-v1";
 import { BAY_LENGTH, BAY_OFFSET, BAY_WIDTH, type Side } from "./logic/bay";
+import { busHitsPerson } from "./logic/collision";
 import { travelSide } from "./logic/boarding";
 import { personFor, type PersonSpec } from "./logic/people";
 import { roadAngle, roadCenterZ } from "./logic/road";
@@ -238,9 +240,25 @@ export function Stops() {
 
   // draw only the stops near the bus; a bus line is long and people are not cheap
   useFrame(() => {
+    const game = useGame.getState();
     ROUTE_V1.forEach((stop, i) => {
       const g = groups.current[i];
-      if (g) g.visible = Math.abs(stop.position - busPose.x) < DRAW_RANGE;
+      const dist = Math.abs(stop.position - busPose.x);
+      if (g) g.visible = dist < DRAW_RANGE;
+      // a bus that mounts the kerb at speed can hit the people queueing at the shelter
+      if (dist > 30 || game.phase !== "running") return;
+      for (const side of SIDES) {
+        const here = (game.waitingByStop[i] ?? []).filter((p) => travelSide(p) === side).slice(0, MAX_VISIBLE);
+        for (let k = 0; k < here.length; k++) {
+          const slot = queueSlot(k);
+          const at = shelterToWorld(stop.position, side, slot.x, slot.z);
+          const hit = busHitsPerson(busPose, at);
+          if (hit) {
+            reportHit(here[k].id, { ...at, y: FOOTPATH_HEIGHT + 0.12 }, hit.side, { stop: i, passengerId: here[k].id });
+            return;
+          }
+        }
+      }
     });
   });
 

@@ -84,6 +84,50 @@ describe("accidents", () => {
   });
 });
 
+describe("casualties", () => {
+  const hurt = { personKey: "w1", x: 10, z: 8, y: 0.15, dx: 0, dz: 1, line: 2 };
+
+  it("are recorded with an id and fine the driver", () => {
+    const before = useGame.getState().net;
+    useGame.getState().injure(hurt);
+    const s = useGame.getState();
+    expect(s.casualties).toHaveLength(1);
+    expect(s.casualties[0]).toMatchObject({ personKey: "w1", line: 2 });
+    expect(s.net).toBe(before - ACCIDENT_FINE);
+    expect(s.accidents).toBe(1);
+  });
+
+  it("can be cleared once they have been seen", () => {
+    useGame.getState().injure(hurt);
+    const id = useGame.getState().casualties[0].id;
+    useGame.getState().clearCasualty(id);
+    expect(useGame.getState().casualties).toEqual([]);
+  });
+
+  it("take a waiting passenger out of the queue when the bus hits them", () => {
+    const p = makePassenger("w1", 2, 4, 100);
+    const q = emptyQueues();
+    q[2] = [p, makePassenger("w2", 2, 5, 100)];
+    useGame.setState({ waitingByStop: q });
+    useGame.getState().hitWaiting(2, "w1", hurt);
+    const s = useGame.getState();
+    expect(s.waitingByStop[2].map((x) => x.id)).toEqual(["w2"]);
+    expect(s.casualties).toHaveLength(1);
+    expect(s.accidents).toBe(1);
+  });
+
+  it("are cleared on a new day", () => {
+    useGame.getState().injure(hurt);
+    useGame.getState().startDay();
+    expect(useGame.getState().casualties).toEqual([]);
+  });
+
+  it("keep only the most recent few", () => {
+    for (let i = 0; i < 12; i++) useGame.getState().injure({ ...hurt, personKey: `k${i}` });
+    expect(useGame.getState().casualties.length).toBeLessThanOrEqual(8);
+  });
+});
+
 describe("toggleDoor", () => {
   it("stays closed when the bus is moving", () => {
     useGame.getState().setBusState(0, 5);

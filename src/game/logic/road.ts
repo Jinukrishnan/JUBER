@@ -32,3 +32,14 @@ export function roadHalfWidthAt(x: number): number {
 
 // Raised footpath on each side of the carriageway, metres wide.
 export const FOOTPATH_WIDTH = 3.6;
+
+// Height of the kerb: the footpath stands this far above the carriageway.
+export const KERB_HEIGHT = 0.15;
+
+// Ground level at a spot: raised on the footpaths, flat everywhere else, so
+// anyone knocked down lands on the footpath or the road, whichever is under them.
+export function groundY(x: number, z: number): number {
+  const lateral = Math.abs(z - roadCenterZ(x));
+  const half = roadHalfWidthAt(x);
+  return lateral > half && lateral <= half + FOOTPATH_WIDTH ? KERB_HEIGHT : 0;
+}

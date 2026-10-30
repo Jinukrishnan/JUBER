@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_HIT_SPEED, busHitsPerson } from "./collision";
+import { MIN_HIT_SPEED, busHitsPerson, throwDirection } from "./collision";
 
 // bus centred at the origin facing +x, 10 m long and 2.6 m wide
 const bus = { x: 0, z: 0, heading: 0, speed: 8 };
@@ -38,5 +38,22 @@ describe("busHitsPerson", () => {
   it("reports which side the person was on, so they can be thrown clear", () => {
     expect(busHitsPerson(bus, { x: 0, z: 1.4 })?.side).toBe(1);
     expect(busHitsPerson(bus, { x: 0, z: -1.4 })?.side).toBe(-1);
+  });
+});
+
+describe("throwDirection", () => {
+  it("is a unit vector", () => {
+    const d = throwDirection(bus, 1);
+    expect(Math.hypot(d.dx, d.dz)).toBeCloseTo(1);
+  });
+  it("throws people out to the side they were on, and on in the way the bus was going", () => {
+    const right = throwDirection(bus, 1);
+    expect(right.dz).toBeGreaterThan(0.5);
+    expect(right.dx).toBeGreaterThan(0);
+    const left = throwDirection(bus, -1);
+    expect(left.dz).toBeLessThan(-0.5);
+  });
+  it("carries them backwards when the bus was reversing", () => {
+    expect(throwDirection({ ...bus, speed: -3 }, 1).dx).toBeLessThan(0);
   });
 });

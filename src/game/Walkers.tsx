@@ -3,7 +3,10 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import type { Group } from "three";
-import { busLocalToWorld } from "./busPose";
+import { busLocalToWorld, busPose } from "./busPose";
+import { reportHit } from "./hit";
+import { busHitsPerson } from "./logic/collision";
+import { groundY } from "./logic/road";
 import { ROUTE_V1 } from "./data/route-v1";
 import type { PersonSpec } from "./logic/people";
 import { Person } from "./Person";
@@ -62,7 +65,7 @@ function WalkerFigure({ w, onDone }: { w: Walker; onDone: (id: number) => void }
       }
     } else {
       // out of the doorway, down the step, across to the shelter, then away
-      const away = shelterToWorld(stopPos, e.side, slotFrom.x + 1.5, slotFrom.z - 3.2);
+      const away = shelterToWorld(stopPos, e.side, slotFrom.x + 8, slotFrom.z);
       dur = ALIGHT_S;
       const split = 0.55;
       const p = t.current / dur;
@@ -87,6 +90,16 @@ function WalkerFigure({ w, onDone }: { w: Walker; onDone: (id: number) => void }
     const k = Math.min(1, Math.max(0, u));
     const x = from.x + (to.x - from.x) * k;
     const z = from.z + (to.z - from.z) * k;
+    // anyone still on their way to or from the door can be hit if the bus pulls away
+    if (!done.current && useGame.getState().phase === "running") {
+      const hit = busHitsPerson(busPose, { x, z });
+      if (hit) {
+        done.current = true;
+        reportHit(w.event.passengerId, { x, z, y: Math.max(y, groundY(x, z)) }, hit.side);
+        onDone(w.id);
+        return;
+      }
+    }
     if (group.current) {
       group.current.position.set(x, y, z);
       group.current.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);

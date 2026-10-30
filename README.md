@@ -54,7 +54,8 @@ The bus has a synthesised diesel engine (idle, gear changes, load), tyre roar, a
 hiss and an air horn. The **Sound** button on the right (or **M**) mutes everything. The **Headlights**
 button on the left (or **L**) turns on real beams.
 
-Hit a pedestrian and they are thrown clear, fall, and cry out in a speech bubble ("അയ്യോ! Oh my God!",
+Anyone the bus hits (pedestrians, people walking the footpaths, the queue at a shelter, people boarding or
+alighting) is thrown clear, lands on the road or the footpath, cries out, and costs the same fine. Hit someone and they are thrown clear, fall, and cry out in a speech bubble ("അയ്യോ! Oh my God!",
 "എന്റമ്മേ! Help me!"). It costs a Rs. 300 fine, slows the bus, and takes a full star off the rating.
 
 ## The road

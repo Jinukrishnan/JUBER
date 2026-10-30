@@ -20,6 +20,21 @@ import { makePassenger, type Passenger } from "../logic/fares";
 import { BAY_LONG_TOL, type Bay, type Side } from "../logic/bay";
 import { flipDirection, passedStop, type Direction } from "../logic/route";
 
+// Someone the bus has hit, lying where they landed, until they are tidied away.
+export type Casualty = {
+  id: number;
+  personKey: string; // which look to draw (see specFor)
+  x: number;
+  z: number;
+  y: number; // height of the ground they were standing on when hit
+  dx: number; // unit direction they are thrown
+  dz: number;
+  line: number; // which cry they shout (see logic/speech.ts)
+  at: number;
+};
+type NewCasualty = Omit<Casualty, "id" | "at">;
+const CASUALTY_LIMIT = 8;
+
 type Phase = "idle" | "running" | "paused" | "ended";
 
 export type GameEvent = {
@@ -43,6 +58,8 @@ export type GameState = {
   // a short on-screen message (accident fines); a new id restarts its display
   notice: { id: number; text: string } | null;
   noticeSeq: number;
+  casualties: Casualty[];
+  casualtySeq: number;
   net: number;
   clockElapsed: number;
   hour: number;
@@ -78,6 +95,9 @@ type Actions = {
   toggleMute: () => void;
   toggleHeadlights: () => void;
   registerAccident: () => void;
+  injure: (c: NewCasualty) => void;
+  clearCasualty: (id: number) => void;
+  hitWaiting: (stop: number, passengerId: string, c: NewCasualty) => void;
   registerHarsh: () => void;
   endDay: () => void;
 };
@@ -132,6 +152,8 @@ function initialState(): GameState {
     accidents: 0,
     notice: null,
     noticeSeq: 0,
+    casualties: [],
+    casualtySeq: 0,
     net: -RENT,
     clockElapsed: 0,
     hour: advanceClock(0, 0).hour,
@@ -187,6 +209,20 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       noticeSeq: s.noticeSeq + 1,
       notice: { id: s.noticeSeq + 1, text: `Accident! Fine Rs. ${ACCIDENT_FINE}` },
     })),
+  injure: (c) => {
+    get().registerAccident();
+    set((s) => ({
+      casualtySeq: s.casualtySeq + 1,
+      casualties: [...s.casualties, { ...c, id: s.casualtySeq + 1, at: Date.now() }].slice(-CASUALTY_LIMIT),
+    }));
+  },
+  clearCasualty: (id) => set((s) => ({ casualties: s.casualties.filter((c) => c.id !== id) })),
+  hitWaiting: (stop, passengerId, c) => {
+    set((s) => ({
+      waitingByStop: s.waitingByStop.map((q, i) => (i === stop ? q.filter((p) => p.id !== passengerId) : q)),
+    }));
+    get().injure(c);
+  },
   registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1 })),
 
   setBusState: (position, speed, bayArg) =>

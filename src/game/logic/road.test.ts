@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ROUTE_V1 } from "../data/route-v1";
-import { ROAD_HALF_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
+import { FOOTPATH_WIDTH, KERB_HEIGHT, ROAD_HALF_WIDTH, groundY, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
 
 const END = ROUTE_V1[ROUTE_V1.length - 1].position;
 
@@ -32,5 +32,21 @@ describe("roadHalfWidthAt", () => {
       expect(w - prev).toBeLessThan(1.5);
       prev = w;
     }
+  });
+});
+
+describe("groundY", () => {
+  const x = 500;
+  const cz = roadCenterZ(x);
+  it("is flat on the carriageway", () => {
+    expect(groundY(x, cz)).toBe(0);
+    expect(groundY(x, cz + ROAD_HALF_WIDTH - 0.5)).toBe(0);
+  });
+  it("is raised on the footpath on either side", () => {
+    expect(groundY(x, cz - ROAD_HALF_WIDTH - 1)).toBe(KERB_HEIGHT);
+    expect(groundY(x, cz + ROAD_HALF_WIDTH + 1)).toBe(KERB_HEIGHT);
+  });
+  it("drops back to the ground beyond the footpath", () => {
+    expect(groundY(x, cz + ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1)).toBe(0);
   });
 });
