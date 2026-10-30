@@ -59,3 +59,9 @@ export function customerSpot(place: Place, junctions: ResolvedJunction[], k: num
   if (!j) throw new Error(`No junction "${at.junctionId}" for place "${place.id}"`);
   return localToWorld(j, at.side * (j.armHalfWidth + KERB_STANDING), at.side * (at.distance + along));
 }
+
+// The places that are valid for these junctions. One that is not (its junction was
+// dropped or its distance is off) is left out instead of throwing later.
+export function usablePlaces(places: Place[], junctions: ResolvedJunction[]): Place[] {
+  return places.filter((p) => placesAreValid([p], junctions).length === 0);
+}

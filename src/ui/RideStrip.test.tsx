@@ -92,3 +92,27 @@ describe("RideStrip directions", () => {
     expect(screen.queryByTestId("ride-directions")).toBeNull();
   });
 });
+
+describe("RideStrip details", () => {
+  it("does not show the last target's distance right after the target changes", () => {
+    busPose.x = RIDE_WORLD.spot(req.pickup).x - 120;
+    show(acceptRequest(IDLE_RIDE, req));
+    expect(screen.getByTestId("ride-strip")).toHaveTextContent("120 m");
+    act(() => {
+      useGame.setState({ ride: arrivePickup(acceptRequest(IDLE_RIDE, req)) });
+      useGame.setState({ ride: finishBoarding(acceptRide(arrivePickup(acceptRequest(IDLE_RIDE, req)))) });
+    });
+    // the drop is far away; until the strip has measured it, it must not claim 120 m
+    expect(screen.getByTestId("ride-strip")).not.toHaveTextContent("120 m");
+  });
+  it("warns when the customer is about to give up waiting", () => {
+    useGame.setState({ pickupLeft: 20 });
+    show(acceptRequest(IDLE_RIDE, req));
+    expect(screen.getByTestId("ride-strip")).toHaveTextContent(/leaves in 20 s/i);
+  });
+  it("says nothing about waiting while there is plenty of time", () => {
+    useGame.setState({ pickupLeft: 120 });
+    show(acceptRequest(IDLE_RIDE, req));
+    expect(screen.getByTestId("ride-strip")).not.toHaveTextContent(/leaves in/i);
+  });
+});

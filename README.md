@@ -57,7 +57,7 @@ asks for a group bigger than your vehicle holds. All the numbers live in `src/ga
    Accept one (**1 2 3** or the button) or skip it (**X**). Requests expire after 45 seconds.
 3. The **radar** shows a blue route to the customer, with turn-by-turn text at the top of the screen
    ("Turn left in 80 m"). A blue beacon marks the pickup.
-4. Stop at the pickup (within 6 m of the kerb spot, under 1.5 m/s). The customer speaks, out loud in
+4. Stop at the pickup (within 8 m of the kerb spot, so the far lane counts too, under 1.5 m/s). The customer speaks, out loud in
    Malayalam when your device has a Malayalam voice, and the card shows the Malayalam and English.
    Press **Enter** to accept the ride. They walk to your vehicle and get in.
 5. The route turns green and leads to the drop. Stop there and they get out and walk off; you are paid

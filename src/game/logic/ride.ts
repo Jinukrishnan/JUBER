@@ -8,9 +8,9 @@ export type Ride = { phase: RidePhase; request: Request | null; elapsed: number 
 
 export const IDLE_RIDE: Ride = { phase: "online", request: null, elapsed: 0 };
 
-// Close enough to the kerb spot (a vehicle on the far side of the road is not)
-// and slow enough to be stopping.
-export const ZONE_RADIUS = 6;
+// Close enough to the kerb spot (the far lane of the road still counts, so a
+// vehicle never has to cross the centre line) and slow enough to be stopping.
+export const ZONE_RADIUS = 8;
 export const ZONE_MAX_SPEED = 1.5;
 
 export function inZone(vehicle: { x: number; z: number; speed: number }, spot: { x: number; z: number }): boolean {

@@ -83,4 +83,24 @@ describe("ConversationCard", () => {
     render(<ConversationCard />);
     expect(speakLine).not.toHaveBeenCalled();
   });
+  it("goes quiet and disappears when the day ends", () => {
+    useGame.setState({ ride: arrivePickup(acceptRequest(IDLE_RIDE, req)) });
+    render(<ConversationCard />);
+    vi.mocked(cancelSpeech).mockClear();
+    act(() => {
+      useGame.setState({ phase: "ended" });
+    });
+    expect(cancelSpeech).toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  it("stops a line that is already playing when the sound is muted", () => {
+    useGame.setState({ ride: arrivePickup(acceptRequest(IDLE_RIDE, req)) });
+    render(<ConversationCard />);
+    vi.mocked(cancelSpeech).mockClear();
+    act(() => {
+      useGame.getState().toggleMute();
+    });
+    expect(cancelSpeech).toHaveBeenCalled();
+    useGame.getState().toggleMute();
+  });
 });

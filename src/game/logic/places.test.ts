@@ -115,3 +115,16 @@ describe("customerSpot", () => {
     expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(0.6);
   });
 });
+
+import { usablePlaces } from "./places";
+describe("usablePlaces", () => {
+  it("keeps every place when all are valid", () => {
+    expect(usablePlaces(PLACES, JUNCTIONS)).toHaveLength(PLACES.length);
+  });
+  it("leaves out a place whose junction is gone, so nothing throws later", () => {
+    const bad = { id: "x", name: "Nowhere", ml: "എവിടെയോ", at: { kind: "arm" as const, junctionId: "j9", side: 1 as const, distance: 50 } };
+    const list = usablePlaces([...PLACES, bad], JUNCTIONS);
+    expect(list.map((p) => p.id)).not.toContain("x");
+    expect(list).toHaveLength(PLACES.length);
+  });
+});

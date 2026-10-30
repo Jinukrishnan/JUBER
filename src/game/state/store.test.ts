@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ACCIDENT_FINE, DAY_REAL_SECONDS, PICKUP_PATIENCE_S } from "../constants";
 import { VEHICLES } from "../data/vehicles";
 import { MAX_OPEN, REQUEST_TTL_S, type Request } from "../logic/requests";
+import { busPose, depotPose } from "../busPose";
 import { RIDE_WORLD } from "../rideWorld";
 import { useGame } from "./store";
 
@@ -352,5 +353,86 @@ describe("navigation route", () => {
     g().setVehicleState({ x: p.x, z: p.z + 40, speed: 5 }); // well off it
     expect(g().route).not.toBe(before);
     expect(g().route!.points[0].z).toBeCloseTo(p.z + 40);
+  });
+});
+
+describe("review fixes", () => {
+  const ride = () => {
+    const r = first();
+    g().accept(r.id);
+    park(r, "pickup");
+    g().confirmRide();
+    g().finishBoarding();
+    return r;
+  };
+
+  it("does not make a new ride object every frame while riding", () => {
+    ride();
+    const before = g().ride;
+    g().tick(1);
+    g().tick(1);
+    expect(g().ride).toBe(before);
+  });
+  it("still pays the speed bonus for a quick ride", () => {
+    const r = ride();
+    g().tick(10);
+    park(r, "drop");
+    const before = g().net;
+    g().finishAlighting();
+    expect(g().net - before).toBeGreaterThan(r.fare);
+  });
+  it("pays no bonus for a slow ride", () => {
+    const r = ride();
+    g().tick(400);
+    park(r, "drop");
+    const before = g().net;
+    g().finishAlighting();
+    expect(g().net - before).toBe(r.fare);
+  });
+  it("ignores Enter while paused or after the day has ended", () => {
+    const r = first();
+    g().accept(r.id);
+    park(r, "pickup");
+    g().pause();
+    g().confirmRide();
+    expect(g().ride.phase).toBe("atPickup");
+    g().resume();
+    g().tick(DAY_REAL_SECONDS + 1);
+    g().confirmRide();
+    expect(g().ride.phase).toBe("atPickup");
+  });
+  it("ignores skipping while paused or after the day has ended", () => {
+    const id = first().id;
+    g().pause();
+    g().skip(id);
+    expect(g().openRequests.some((x) => x.id === id)).toBe(true);
+  });
+  it("says the booking is off when the waiting customer is hit", () => {
+    g().accept(first().id);
+    g().hitCustomer({ personKey: "c", x: 0, z: 0, y: 0.15, dx: 1, dz: 0, line: 1 });
+    expect(g().notice?.text).toMatch(/booking.*(off|cancel)/i);
+    expect(g().notice?.text).toMatch(/300/);
+  });
+  it("offers fresh requests once a ride is over, not the old stale ones", () => {
+    const old = new Set(g().openRequests.map((r) => r.id));
+    const r = ride();
+    park(r, "drop");
+    g().finishAlighting();
+    expect(g().openRequests.length).toBeGreaterThanOrEqual(1);
+    for (const x of g().openRequests) expect(old.has(x.id)).toBe(false);
+  });
+  it("offers fresh requests after a customer gives up too", () => {
+    const old = new Set(g().openRequests.map((r) => r.id));
+    g().accept(first().id);
+    for (let i = 0; i < PICKUP_PATIENCE_S + 5; i++) g().tick(1);
+    expect(g().openRequests.length).toBeGreaterThanOrEqual(1);
+    for (const x of g().openRequests) expect(old.has(x.id)).toBe(false);
+  });
+  it("starts every day at the depot, facing the road", () => {
+    busPose.heading = 2;
+    busPose.x = 500;
+    g().startDay();
+    expect(busPose.x).toBeCloseTo(depotPose().x);
+    expect(busPose.heading).toBeCloseTo(depotPose().heading);
   });
 });

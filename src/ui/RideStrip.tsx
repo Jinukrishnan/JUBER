@@ -11,30 +11,35 @@ import { useGame } from "@/game/state/store";
 // where to drop them, and how far it is.
 export function RideStrip() {
   const ride = useGame((s) => s.ride);
-  const [metres, setMetres] = useState(0);
+  // the distance, tagged with the target it was measured for so a new target never shows the old one
+  const [measured, setMeasured] = useState<{ key: string; m: number } | null>(null);
+  const pickupLeft = useGame((s) => s.pickupLeft);
   const [nav, setNav] = useState<{ text: string; arrow: string } | null>(null);
 
   const request = ride.request;
   const target = request ? (ride.phase === "toPickup" ? request.pickup : request.drop) : null;
+  const key = request && target ? `${request.id}:${target.id}` : "";
+  const metres = measured && measured.key === key ? `${measured.m} m` : "...";
 
   useEffect(() => {
     if (!target) return;
     const id = setInterval(() => {
       const s = spotOf(target);
-      setMetres(Math.round(Math.hypot(s.x - busPose.x, s.z - busPose.z)));
+      setMeasured({ key, m: Math.round(Math.hypot(s.x - busPose.x, s.z - busPose.z)) });
       const g = useGame.getState();
       const next = g.route && (g.ride.phase === "toPickup" || g.ride.phase === "riding") ? nextStep(g.route, busPose, busPose.heading) : null;
       setNav(next ? { text: describeStep(next.step, next.distance, target.name), arrow: arrowFor(next.step.turn) } : null);
     }, 200);
     return () => clearInterval(id);
-  }, [target]);
+  }, [target, key]);
 
   if (!request) return null;
 
   let text: string;
   switch (ride.phase) {
     case "toPickup":
-      text = `Pickup: ${request.customer}, ${request.pickup.name} · ${metres} m`;
+      text = `Pickup: ${request.customer}, ${request.pickup.name} · ${metres}`;
+      if (pickupLeft < 30) text += ` · customer leaves in ${Math.ceil(pickupLeft)} s`;
       break;
     case "atPickup":
       text = `${request.customer} is waiting for you`;
@@ -43,7 +48,7 @@ export function RideStrip() {
       text = `${request.customer} is getting in`;
       break;
     case "riding":
-      text = `Drop: ${request.drop.name} · ${metres} m`;
+      text = `Drop: ${request.drop.name} · ${metres}`;
       break;
     case "alighting":
       text = `${request.customer} is getting out at ${request.drop.name}`;

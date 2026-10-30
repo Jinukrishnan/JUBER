@@ -11,7 +11,9 @@ import { passengers } from "./RequestBoard";
 // and on the card; the driver accepts the ride.
 export function ConversationCard() {
   const ride = useGame((s) => s.ride);
-  const paused = useGame((s) => s.phase === "paused");
+  const running = useGame((s) => s.phase === "running");
+  const ended = useGame((s) => s.phase === "ended");
+  const muted = useGame((s) => s.muted);
   const request = ride.request;
   const talking = ride.phase === "atPickup" && request !== null;
   const id = request?.id;
@@ -20,16 +22,21 @@ export function ConversationCard() {
     useGame.getState().confirmRide();
   });
 
-  // speak once as they start talking; stop when the ride is accepted or the game pauses
+  // speak once as they start talking; stop when the ride is accepted, the game pauses or the day ends
   useEffect(() => {
     const r = useGame.getState().ride.request;
-    if (!talking || paused || !r) return;
+    if (!talking || !running || !r) return;
     const d = dialogueFor(r);
     speakLine({ ml: d.ml, en: d.en }, 1 + (id ? id.length % 3 : 0) * 0.1);
     return cancelSpeech;
-  }, [talking, paused, id]);
+  }, [talking, running, id]);
 
-  if (!talking || !request) return null;
+  // muting stops a line that is already playing
+  useEffect(() => {
+    if (muted) cancelSpeech();
+  }, [muted]);
+
+  if (!talking || ended || !request) return null;
   const d = dialogueFor(request);
 
   return (

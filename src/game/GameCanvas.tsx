@@ -20,7 +20,7 @@ import { Weather } from "./Weather";
 
 function GameLoop() {
   useFrame((_, dt) => {
-    useGame.getState().tick(Math.min(dt, 0.1));
+    useGame.getState().tick(Math.min(dt, 0.05));
   });
   return null;
 }

@@ -30,21 +30,6 @@ export function specFor(id: string): PersonSpec {
   return s;
 }
 
-// Where the k-th person in a shelter queue stands, in the shelter's local frame
-// (+z toward the road).
-export function queueSlot(k: number): { x: number; z: number } {
-  return { x: -1.6 + (k % 3) * 1.0, z: 0.9 + Math.floor(k / 3) * 0.9 };
-}
-
-// World x/z of a shelter-local point. The back-kerb shelter is turned 180 degrees.
-export function shelterToWorld(stopPos: number, side: Side, lx: number, lz: number) {
-  const cz = roadCenterZ(stopPos);
-  const edge = BAY_OFFSET + BAY_WIDTH / 2 + SHELTER_GAP;
-  return side === "forward"
-    ? { x: stopPos + lx, z: cz - edge + lz }
-    : { x: stopPos - lx, z: cz + edge - lz };
-}
-
 const CONCRETE = "#cfcabd";
 const CREAM = "#efe6cf";
 const GREEN = "#2f7d4a";
@@ -63,7 +48,7 @@ function boardDrawer(stop: Stop): Draw {
     g.font = "bold 18px Arial, sans-serif";
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.fillText("KSRTC  ·  BUS STOP", w / 2, h - 22);
+    g.fillText("AANAWADI  ·  PICK-UP POINT", w / 2, h - 22);
     g.fillStyle = "#14532d";
     g.font = malayalamFont(800, 88);
     g.fillText(stop.ml, w / 2, 62);
@@ -95,7 +80,7 @@ export const drawStopSign: Draw = (g, w, h) => {
   g.font = "bold 22px Arial, sans-serif";
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.fillText("BUS STOP", w / 2, h * 0.8);
+  g.fillText("PICK-UP", w / 2, h * 0.8);
 };
 
 // A Kerala-style waiting shed: concrete pillars, clay-tile roof, green-banded
@@ -246,12 +231,14 @@ export function Stops() {
     <group>
       {ROUTE_V1.map((stop, i) => {
         const place = PLACES.find((p) => p.id === stop.id);
+        // customers wait on one kerb only, so only that kerb gets a bay and a shelter
+        const placeSide: Side | null = place?.at.kind === "main" ? (place.at.side === "left" ? "forward" : "backward") : null;
         const targetSide: Side | null = target && target.id === stop.id && place?.at.kind === "main" ? (place.at.side === "left" ? "forward" : "backward") : null;
         const edge = BAY_OFFSET + BAY_WIDTH / 2 + SHELTER_GAP;
         const cz = roadCenterZ(stop.position);
         return (
           <group key={stop.id} ref={(g) => { groups.current[i] = g; }}>
-            {SIDES.map((side) => (
+            {SIDES.filter((side) => !placeSide || side === placeSide).map((side) => (
               <group key={side}>
                 <Bay stopPos={stop.position} side={side} occupied={targetSide === side} />
                 <group position={[stop.position, FOOTPATH_HEIGHT, side === "forward" ? cz - edge : cz + edge]} rotation={[0, side === "forward" ? 0 : Math.PI, 0]}>

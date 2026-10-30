@@ -139,3 +139,12 @@ describe("targetPlace", () => {
     expect(targetPlace(arriveDrop(riding()))?.id).toBe(req.drop.id);
   });
 });
+
+describe("the stop zone is generous across the road", () => {
+  it("counts a vehicle in the far lane, about 7 m from the kerb spot", () => {
+    expect(inZone({ x: 100, z: 6.7, speed: 0 }, { x: 100, z: 0 })).toBe(true);
+  });
+  it("still refuses 9 m", () => {
+    expect(inZone({ x: 100, z: 9, speed: 0 }, { x: 100, z: 0 })).toBe(false);
+  });
+});

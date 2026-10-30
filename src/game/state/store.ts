@@ -14,11 +14,11 @@ import {
   finishAlighting as payRide,
   finishBoarding as boarded,
   inZone,
-  tickRide,
   type Ride,
 } from "../logic/ride";
 import { offRoute, route as planRoute, type Route } from "../logic/roadgraph";
 import { GRAPH, RIDE_WORLD, spotOf } from "../rideWorld";
+import { resetBusPose } from "../busPose";
 
 // Someone the vehicle has hit, lying where they landed, until they are tidied away.
 export type Casualty = {
@@ -63,6 +63,7 @@ export type GameState = {
   expiredPickups: number;
   harshEvents: number;
   pickupLeft: number; // seconds the accepted customer will still wait
+  rideElapsed: number; // seconds the customer has been in the vehicle (kept out of `ride` so that object does not change every frame)
   route: Route | null; // the way to the pickup, then to the drop
   // internal timers / rng
   spawnTimer: number;
@@ -129,11 +130,27 @@ function initialState(vehicle: VehicleKind): GameState {
     expiredPickups: 0,
     harshEvents: 0,
     pickupLeft: 0,
+    rideElapsed: 0,
     route: null,
     spawnTimer: first.delay,
     seed: first.seed,
     nextId,
   };
+}
+
+// Two new requests chosen from where the vehicle is now, for when it goes back online
+// (the old ones were picked for somewhere else and have been standing still).
+function freshRequests(s: GameState): Pick<GameState, "openRequests" | "seed" | "nextId"> {
+  let seed = s.seed;
+  let nextId = s.nextId;
+  const openRequests: Request[] = [];
+  for (let i = 0; i < START_REQUESTS; i++) {
+    const r = nextRequest({ seed, nextId }, VEHICLES[s.vehicle], { x: busPose.x, z: busPose.z }, RIDE_WORLD);
+    openRequests.push(r.request);
+    seed = r.seed;
+    nextId = r.nextId;
+  }
+  return { openRequests, seed, nextId };
 }
 
 const notice = (s: GameState, text: string): Pick<GameState, "noticeSeq" | "notice"> => ({
@@ -147,8 +164,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
   startDay: (vehicle) =>
     set((s) => {
       // a new day starts at the depot, so requests are chosen from there
-      busPose.x = 0;
-      busPose.z = 0;
+      resetBusPose();
       return { ...initialState(vehicle ?? s.vehicle), phase: "running", dayId: s.dayId + 1, muted: s.muted, headlights: s.headlights };
     }),
   pause: () => set((s) => (s.phase === "running" ? { phase: "paused" } : {})),
@@ -181,7 +197,8 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
     get().injure(c);
     set((s) => {
       const ride = cancelRide(s.ride);
-      return ride === s.ride ? {} : { ride, route: null };
+      if (ride === s.ride) return {};
+      return { ride, route: null, ...freshRequests(s), ...notice(s, `Accident! Fine Rs. ${ACCIDENT_FINE} - the booking is cancelled`) };
     });
   },
   clearCasualty: (id) => set((s) => ({ casualties: s.casualties.filter((c) => c.id !== id) })),
@@ -196,7 +213,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
         return { ride: arrivePickup(s.ride) };
       }
       if (s.ride.phase === "riding" && inZone(pose, spotOf(s.ride.request.drop))) {
-        return { ride: arriveDrop(s.ride) };
+        return { ride: arriveDrop({ ...s.ride, elapsed: s.rideElapsed }) };
       }
       // left the road the route follows: work out the way again from here
       const heading = pose.heading ?? busPose.heading;
@@ -218,13 +235,13 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
         route: planRoute(GRAPH, { x: busPose.x, z: busPose.z, heading: busPose.heading }, request.pickup),
       };
     }),
-  skip: (id) => set((s) => (s.ride.phase === "online" ? { openRequests: s.openRequests.filter((r) => r.id !== id) } : {})),
-  confirmRide: () => set((s) => ({ ride: acceptRide(s.ride) })),
+  skip: (id) => set((s) => (s.phase === "running" && s.ride.phase === "online" ? { openRequests: s.openRequests.filter((r) => r.id !== id) } : {})),
+  confirmRide: () => set((s) => (s.phase === "running" ? { ride: acceptRide(s.ride) } : {})),
   finishBoarding: () =>
     set((s) => {
       const ride = boarded(s.ride);
       if (ride === s.ride || !ride.request) return {};
-      return { ride, route: planRoute(GRAPH, { x: busPose.x, z: busPose.z, heading: busPose.heading }, ride.request.drop) };
+      return { ride, rideElapsed: 0, route: planRoute(GRAPH, { x: busPose.x, z: busPose.z, heading: busPose.heading }, ride.request.drop) };
     }),
   finishAlighting: () =>
     set((s) => {
@@ -233,6 +250,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       return {
         ride: done.ride,
         route: null,
+        ...freshRequests(s),
         net: s.net + done.paid,
         ridesDone: s.ridesDone + 1,
         distanceDone: s.distanceDone + s.ride.request.distance,
@@ -250,8 +268,9 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       phase: clock.ended ? "ended" : "running",
     };
 
-    let ride = tickRide(s.ride, dt);
-    if (ride !== s.ride) patch.ride = ride;
+    let ride = s.ride;
+    // ride time is counted apart from `ride` so that object only changes when the ride moves on
+    if (ride.phase === "riding") patch.rideElapsed = s.rideElapsed + dt;
 
     if (ride.phase === "online") {
       // requests age, and a new one turns up every so often
@@ -275,7 +294,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       const left = s.pickupLeft - dt;
       if (left <= 0) {
         ride = IDLE_RIDE;
-        Object.assign(patch, { ride, route: null, expiredPickups: s.expiredPickups + 1, ...notice(s, "Customer got tired of waiting and left") });
+        Object.assign(patch, { ride, route: null, ...freshRequests(s), expiredPickups: s.expiredPickups + 1, ...notice(s, "Customer got tired of waiting and left") });
       } else {
         patch.pickupLeft = left;
       }
