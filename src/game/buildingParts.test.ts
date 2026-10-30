@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Item } from "./Instances";
 import type { BuildingPlacement, GatePlacement, WallPlacement } from "./logic/layout";
-import { gateParts, houseParts, shopParts, wallParts } from "./buildings";
+import { gateParts, houseParts, shopParts, wallParts } from "./buildingParts";
 
 const base = { x: 300, z: 25, heading: 0.1, width: 10, depth: 7, seed: 4242, compound: 0 };
 const house = (side: 1 | -1 = 1): BuildingPlacement => ({ ...base, kind: "house", side, floors: 1 });

@@ -69,7 +69,7 @@ export function flowerParts(p: FlowerPlacement): FlowerParts {
   return out;
 }
 
-const BLADES = ["#5a9a3a", "#6aaa44", "#7ab850"];
+const BLADES = ["#86c452", "#96d05c", "#a6dc6a"];
 
 // Two clumps of crossed blades, so a tuft looks like grass from any side.
 export function tuftParts(seed: number, x: number, z: number): Item[] {
@@ -80,7 +80,7 @@ export function tuftParts(seed: number, x: number, z: number): Item[] {
     const cz = z + (r() - 0.5) * 1.4;
     const h = 0.5 + r() * 0.4;
     for (let b = 0; b < 3; b++) {
-      out.push({ x: cx, y: h / 2, z: cz, sx: 0.5, sy: h, sz: 0.02, ry: (b * Math.PI) / 3, color: BLADES[(clump + b) % BLADES.length] });
+      out.push({ x: cx, y: h / 2, z: cz, sx: 0.32, sy: h, sz: 0.02, ry: (b * Math.PI) / 3, color: BLADES[(clump + b) % BLADES.length] });
     }
   }
   return out;

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { PlaneGeometry } from "three";
-import { gateParts, houseParts, shopParts, wallParts } from "./buildings";
+import { gateParts, houseParts, shopParts, wallParts } from "./buildingParts";
 import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
 import { SHOP_NAMES, shopNameFor } from "./data/shopnames";
 import { Instances, type Item } from "./Instances";
