@@ -5,13 +5,15 @@ import { useMemo } from "react";
 import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
 import type { Line } from "./logic/speech";
 
-function bubbleDrawer(line: Line): Draw {
+function bubbleDrawer(line: Line, calm: boolean): Draw {
+  const border = calm ? "#14532d" : "#d32020";
+  const ink = calm ? "#14532d" : "#b91c1c";
   return (g, w, h) => {
     const tail = 34;
     const bh = h - tail;
     g.clearRect(0, 0, w, h);
     g.fillStyle = "#ffffff";
-    g.strokeStyle = "#d32020";
+    g.strokeStyle = border;
     g.lineWidth = 8;
     g.beginPath();
     g.roundRect(6, 6, w - 12, bh - 6, 36);
@@ -29,7 +31,7 @@ function bubbleDrawer(line: Line): Draw {
     g.fillRect(w / 2 - 22, bh - 12, 44, 14);
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.fillStyle = "#b91c1c";
+    g.fillStyle = ink;
     g.font = malayalamFont(800, 66);
     g.fillText(line.ml, w / 2, bh * 0.38);
     g.fillStyle = "#111";
@@ -39,8 +41,9 @@ function bubbleDrawer(line: Line): Draw {
 }
 
 // A speech bubble over someone's head, drawn in the scene so it always faces the camera.
-export function Speech({ line }: { line: Line }) {
-  const draw = useMemo(() => bubbleDrawer(line), [line]);
+// Red for a cry of alarm; `calm` is green, for someone just talking.
+export function Speech({ line, calm = false }: { line: Line; calm?: boolean }) {
+  const draw = useMemo(() => bubbleDrawer(line, calm), [line, calm]);
   const tex = useCanvasTexture(640, 280, draw, line.ml);
   return (
     <Billboard>

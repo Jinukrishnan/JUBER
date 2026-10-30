@@ -12,6 +12,8 @@ import { localToWorld } from "./logic/junction";
 import { customerSpot, placeSpot } from "./logic/places";
 import { targetPlace } from "./logic/ride";
 import { KERB_HEIGHT } from "./logic/road";
+import { dialogueFor } from "./logic/dialogue";
+import { Speech } from "./SpeechBubble";
 import { specFor } from "./Stops";
 import { Person } from "./Person";
 import { useGame } from "./state/store";
@@ -99,6 +101,7 @@ function WaitingCustomers() {
 
   if (!request || !waiting) return null;
   const spot = placeSpot(request.pickup, JUNCTIONS);
+  const line = ride.phase === "atPickup" ? dialogueFor(request).bubble : null;
   return (
     <group>
       {Array.from({ length: request.group }, (_, k) => {
@@ -106,6 +109,11 @@ function WaitingCustomers() {
         return (
           <group key={k} position={[c.x, KERB_HEIGHT + 0.12, c.z]} rotation={[0, Math.atan2(spot.x - c.x, spot.z - c.z), 0]}>
             <Person spec={specFor(`${request.id}-${k}`)} />
+            {k === 0 && line && (
+              <group position={[0, 2.5, 0]}>
+                <Speech line={line} calm />
+              </group>
+            )}
           </group>
         );
       })}
