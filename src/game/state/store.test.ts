@@ -6,11 +6,11 @@ import {
   RENT,
 } from "../constants";
 import { ROUTE_V1 } from "../data/route-v1";
-import { makePassenger } from "../logic/fares";
+import { makePassenger, type Passenger } from "../logic/fares";
 import { useGame } from "./store";
 
 const LAST = ROUTE_V1.length - 1;
-const emptyQueues = () => ROUTE_V1.map(() => []);
+const emptyQueues = (): Passenger[][] => ROUTE_V1.map(() => []);
 
 beforeEach(() => {
   useGame.getState().startDay();
