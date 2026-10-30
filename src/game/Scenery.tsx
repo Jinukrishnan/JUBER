@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { ROUTE_V1 } from "./data/route-v1";
 import { Instances, type Item } from "./Instances";
 import { FOOTPATH_WIDTH, roadCenterZ, roadHalfWidthAt } from "./logic/road";
+import { polePositions } from "./logic/roadside";
 
 const FIRST = ROUTE_V1[0].position;
 const LAST = ROUTE_V1[ROUTE_V1.length - 1].position;
@@ -105,7 +106,7 @@ function build() {
 
   // electric poles along the right-hand verge, joined by three wires
   const polePts: { x: number; z: number }[] = [];
-  for (let x = FIRST + 10; x <= LAST; x += 45) {
+  for (const x of polePositions(ROUTE_V1)) {
     polePts.push({ x, z: roadCenterZ(x) + roadHalfWidthAt(x) + FOOTPATH_WIDTH + 0.9 });
   }
   for (const p of polePts) {

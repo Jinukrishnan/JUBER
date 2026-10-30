@@ -43,3 +43,6 @@ export function groundY(x: number, z: number): number {
   const half = roadHalfWidthAt(x);
   return lateral > half && lateral <= half + FOOTPATH_WIDTH ? KERB_HEIGHT : 0;
 }
+
+// Dirt verge between the footpath and the open ground, metres wide.
+export const VERGE_WIDTH = 1.8;

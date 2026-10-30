@@ -55,3 +55,12 @@ export function roadFeatures(stops: Stop[]): RoadFeatures {
 export function isSolidAt(f: RoadFeatures, x: number): boolean {
   return f.solidRanges.some(([a, b]) => x >= a && x <= b);
 }
+
+// x of every electric pole along the route: every 45 m, from 10 m past the depot to the last stop.
+export function polePositions(stops: Stop[]): number[] {
+  const first = stops[0].position;
+  const last = stops[stops.length - 1].position;
+  const xs: number[] = [];
+  for (let x = first + 10; x <= last; x += 45) xs.push(x);
+  return xs;
+}
