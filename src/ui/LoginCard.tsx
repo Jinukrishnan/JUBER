@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { clearProfile, type Profile } from "@/lib/profile";
+import type { VehicleKind } from "@/game/data/vehicles";
 import { AVATARS } from "./stickers";
+import { VehiclePicker } from "./VehiclePicker";
 
 type Props = {
   existing?: Profile | null;
@@ -13,6 +15,7 @@ type Props = {
 export function LoginCard({ existing = null, onSubmit, onLogout }: Props) {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState<string>(AVATARS[0].id);
+  const [vehicle, setVehicle] = useState<VehicleKind>(existing?.vehicle ?? "auto");
   const [error, setError] = useState<string | null>(null);
 
   const submit = (e: React.FormEvent) => {
@@ -23,7 +26,7 @@ export function LoginCard({ existing = null, onSubmit, onLogout }: Props) {
       return;
     }
     setError(null);
-    onSubmit({ name: trimmed, avatar, bestNet: 0, totalEarnings: 0, daysPlayed: 0 });
+    onSubmit({ name: trimmed, avatar, bestNet: 0, totalEarnings: 0, daysPlayed: 0, vehicle });
   };
 
   return (
@@ -44,7 +47,7 @@ export function LoginCard({ existing = null, onSubmit, onLogout }: Props) {
             <button
               type="button"
               className="rounded-lg bg-accent px-4 py-2 font-semibold text-white"
-              onClick={() => onSubmit(existing)}
+              onClick={() => onSubmit({ ...existing, vehicle })}
             >
               Continue as {existing.name}
             </button>
@@ -61,6 +64,9 @@ export function LoginCard({ existing = null, onSubmit, onLogout }: Props) {
           </div>
         </div>
       )}
+
+      <p className="text-sm font-semibold">Choose your vehicle</p>
+      <VehiclePicker value={vehicle} onChange={setVehicle} />
 
       <form onSubmit={submit} noValidate>
         <label htmlFor="driver-name" className="block text-sm font-semibold">

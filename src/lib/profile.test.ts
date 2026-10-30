@@ -29,7 +29,26 @@ const base: Profile = {
   bestNet: 100,
   totalEarnings: 500,
   daysPlayed: 3,
+  vehicle: "auto",
 };
+
+describe("profile vehicle", () => {
+  it("keeps the vehicle the driver chose", () => {
+    const s = fakeStorage();
+    saveProfile({ ...base, vehicle: "bike" }, s);
+    expect(loadProfile(s)?.vehicle).toBe("bike");
+  });
+  it("gives an old profile without a vehicle an auto", () => {
+    const { vehicle: _v, ...old } = base;
+    void _v;
+    const s = fakeStorage({ [KEY]: JSON.stringify({ v: 1, ...old }) });
+    expect(loadProfile(s)?.vehicle).toBe("auto");
+  });
+  it("gives a profile with an unknown vehicle an auto", () => {
+    const s = fakeStorage({ [KEY]: JSON.stringify({ v: 1, ...base, vehicle: "bus" }) });
+    expect(loadProfile(s)?.vehicle).toBe("auto");
+  });
+});
 
 describe("profile storage", () => {
   it("round-trips a saved profile", () => {

@@ -1,9 +1,12 @@
+import { isVehicleKind, type VehicleKind } from "@/game/data/vehicles";
+
 export type Profile = {
   name: string;
   avatar: string;
   bestNet: number;
   totalEarnings: number;
   daysPlayed: number;
+  vehicle: VehicleKind;
 };
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
@@ -19,7 +22,10 @@ function defaultStorage(): Store | null {
   }
 }
 
-function isProfile(x: unknown): x is Profile {
+// The stored shape: `vehicle` may be missing in profiles saved before rides existed.
+type Stored = Omit<Profile, "vehicle"> & { vehicle?: unknown };
+
+function isProfile(x: unknown): x is Stored {
   if (typeof x !== "object" || x === null) return false;
   const p = x as Record<string, unknown>;
   return (
@@ -39,8 +45,8 @@ export function loadProfile(storage: Store | null = defaultStorage()): Profile |
     if (typeof parsed !== "object" || parsed === null) return null;
     if ((parsed as { v?: unknown }).v !== VERSION) return null;
     if (!isProfile(parsed)) return null;
-    const { name, avatar, bestNet, totalEarnings, daysPlayed } = parsed;
-    return { name, avatar, bestNet, totalEarnings, daysPlayed };
+    const { name, avatar, bestNet, totalEarnings, daysPlayed, vehicle } = parsed;
+    return { name, avatar, bestNet, totalEarnings, daysPlayed, vehicle: isVehicleKind(vehicle) ? vehicle : "auto" };
   } catch {
     return null;
   }

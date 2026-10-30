@@ -40,6 +40,7 @@ describe("LoginCard", () => {
       bestNet: 0,
       totalEarnings: 0,
       daysPlayed: 0,
+      vehicle: "auto",
     });
   });
 
@@ -52,14 +53,31 @@ describe("LoginCard", () => {
     expect(onSubmit.mock.calls[0][0].avatar).toBe("tea");
   });
 
+  it("starts with the vehicle the driver picked", () => {
+    const onSubmit = vi.fn();
+    render(<LoginCard onSubmit={onSubmit} />);
+    type("Ravi");
+    fireEvent.click(screen.getByRole("radio", { name: /yamaha r15/i }));
+    submit();
+    expect(onSubmit.mock.calls[0][0].vehicle).toBe("bike");
+  });
+
   describe("with a saved profile", () => {
-    const saved: Profile = { name: "Ravi", avatar: "tea", bestNet: 120, totalEarnings: 400, daysPlayed: 2 };
+    const saved: Profile = { name: "Ravi", avatar: "tea", bestNet: 120, totalEarnings: 400, daysPlayed: 2, vehicle: "car" };
 
     it("continues as the saved driver, keeping their records", () => {
       const onSubmit = vi.fn();
       render(<LoginCard existing={saved} onSubmit={onSubmit} />);
       fireEvent.click(screen.getByRole("button", { name: /continue as ravi/i }));
       expect(onSubmit).toHaveBeenCalledWith(saved);
+    });
+
+    it("lets them switch vehicle when they continue", () => {
+      const onSubmit = vi.fn();
+      render(<LoginCard existing={saved} onSubmit={onSubmit} />);
+      fireEvent.click(screen.getByRole("radio", { name: /auto-rickshaw/i }));
+      fireEvent.click(screen.getByRole("button", { name: /continue as ravi/i }));
+      expect(onSubmit).toHaveBeenCalledWith({ ...saved, vehicle: "auto" });
     });
 
     it("logging out clears the stored profile", () => {
