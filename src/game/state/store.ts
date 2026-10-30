@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  ACCIDENT_FINE,
   BOARD_INTERVAL_S,
   CAPACITY,
   INITIAL_WAITING_PER_STOP,
@@ -37,6 +38,11 @@ export type GameState = {
   phase: Phase;
   dayId: number;
   muted: boolean;
+  headlights: boolean;
+  accidents: number;
+  // a short on-screen message (accident fines); a new id restarts its display
+  notice: { id: number; text: string } | null;
+  noticeSeq: number;
   net: number;
   clockElapsed: number;
   hour: number;
@@ -70,6 +76,8 @@ type Actions = {
   toggleDoor: () => void;
   transferStep: () => void;
   toggleMute: () => void;
+  toggleHeadlights: () => void;
+  registerAccident: () => void;
   registerHarsh: () => void;
   endDay: () => void;
 };
@@ -120,6 +128,10 @@ function initialState(): GameState {
     phase: "idle",
     dayId: 0,
     muted: false,
+    headlights: false,
+    accidents: 0,
+    notice: null,
+    noticeSeq: 0,
     net: -RENT,
     clockElapsed: 0,
     hour: advanceClock(0, 0).hour,
@@ -162,11 +174,19 @@ function isTerminus(stopIndex: number, dir: Direction): boolean {
 export const useGame = create<GameState & Actions>()((set, get) => ({
   ...initialState(),
 
-  startDay: () => set((s) => ({ ...initialState(), phase: "running", dayId: s.dayId + 1, muted: s.muted })),
+  startDay: () => set((s) => ({ ...initialState(), phase: "running", dayId: s.dayId + 1, muted: s.muted, headlights: s.headlights })),
   pause: () => set((s) => (s.phase === "running" ? { phase: "paused" } : {})),
   resume: () => set((s) => (s.phase === "paused" ? { phase: "running" } : {})),
   endDay: () => set({ phase: "ended", doorOpen: false }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
+  toggleHeadlights: () => set((s) => ({ headlights: !s.headlights })),
+  registerAccident: () =>
+    set((s) => ({
+      net: s.net - ACCIDENT_FINE,
+      accidents: s.accidents + 1,
+      noticeSeq: s.noticeSeq + 1,
+      notice: { id: s.noticeSeq + 1, text: `Accident! Fine Rs. ${ACCIDENT_FINE}` },
+    })),
   registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1 })),
 
   setBusState: (position, speed, bayArg) =>

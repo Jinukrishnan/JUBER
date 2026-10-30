@@ -16,6 +16,10 @@ describe("computeRating", () => {
   it("caps the expired-passenger penalty at half a star", () => {
     expect(computeRating({ ...clean, expiredPassengers: 500 })).toBe(4.5);
   });
+  it("loses a full star for each accident", () => {
+    expect(computeRating({ ...clean, accidents: 1 })).toBe(4);
+    expect(computeRating({ ...clean, accidents: 3 })).toBe(2);
+  });
   it("never goes below 1", () => {
     expect(computeRating({ ...clean, missedStops: 100 })).toBe(1);
   });

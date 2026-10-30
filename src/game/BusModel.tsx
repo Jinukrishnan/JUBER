@@ -1,10 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import { InstancedMesh, Object3D, type Group } from "three";
+import { AdditiveBlending, DoubleSide, InstancedMesh, Object3D, type Group, type SpotLight } from "three";
 import { APP_NAME } from "./constants";
 import { useCanvasTexture, type Draw } from "./canvasTex";
 import { OnboardPassengers } from "./OnboardPassengers";
+import { useGame } from "./state/store";
 import { SEATS } from "./logic/seats";
 
 // KSRTC-style stage-carriage bus built from boxes, with a visible interior.
@@ -110,7 +111,37 @@ function Seats() {
 const WINDOW_XS = Array.from({ length: 8 }, (_, i) => -4.0 + i * 0.95);
 const PILLAR_XS = Array.from({ length: 9 }, (_, i) => -4.475 + i * 0.95);
 
+// Real beams (a spot light each) plus a faint visible cone, only while the lights are on.
+function Headlights() {
+  const on = useGame((s) => s.headlights);
+  const left = useRef<SpotLight>(null);
+  const right = useRef<SpotLight>(null);
+  const aimL = useRef<Object3D>(null);
+  const aimR = useRef<Object3D>(null);
+  useLayoutEffect(() => {
+    if (left.current && aimL.current) left.current.target = aimL.current;
+    if (right.current && aimR.current) right.current.target = aimR.current;
+  }, []);
+  return (
+    <>
+      {[-0.95, 0.95].map((z) => (
+        <group key={z}>
+          <spotLight ref={z < 0 ? left : right} position={[HALF_L + 0.2, 0.9, z]} angle={0.5} penumbra={0.7} intensity={on ? 260 : 0} distance={70} decay={1.6} color="#fff3c4" />
+          <object3D ref={z < 0 ? aimL : aimR} position={[HALF_L + 25, 0.2, z]} />
+          {on && (
+            <mesh position={[HALF_L + 0.2 + 9, 0.85, z]} rotation={[0, 0, Math.PI / 2]}>
+              <coneGeometry args={[4.2, 18, 20, 1, true]} />
+              <meshBasicMaterial color="#fff3c4" transparent opacity={0.07} depthWrite={false} blending={AdditiveBlending} side={DoubleSide} />
+            </mesh>
+          )}
+        </group>
+      ))}
+    </>
+  );
+}
+
 export function BusModel({ doorRef }: { doorRef: RefObject<Group | null> }) {
+  const lightsOn = useGame((s) => s.headlights);
   const board = useCanvasTexture(256, 64, drawBoard);
   const plate = useCanvasTexture(256, 64, drawPlate);
   const badge = useCanvasTexture(256, 64, drawBadge);
@@ -215,7 +246,7 @@ export function BusModel({ doorRef }: { doorRef: RefObject<Group | null> }) {
         <group key={z}>
           <mesh position={[HALF_L + 0.05, 0.9, z]} rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.19, 0.19, 0.1, 18]} />
-            <meshStandardMaterial color="#fff6c2" emissive="#fff0a0" emissiveIntensity={0.7} />
+            <meshStandardMaterial color="#fff6c2" emissive="#fff0a0" emissiveIntensity={lightsOn ? 2.4 : 0.15} />
           </mesh>
           <mesh position={[HALF_L + 0.03, 0.9, z * 1.22]}>
             <boxGeometry args={[0.05, 0.14, 0.14]} />
@@ -289,6 +320,8 @@ export function BusModel({ doorRef }: { doorRef: RefObject<Group | null> }) {
           <meshStandardMaterial color={GLASS} metalness={0.4} roughness={0.15} />
         </mesh>
       </group>
+
+      <Headlights />
 
       {/* interior */}
       <Seats />

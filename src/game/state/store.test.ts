@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  ACCIDENT_FINE,
   BOARD_INTERVAL_S,
   CAPACITY,
   DAY_REAL_SECONDS,
@@ -42,6 +43,44 @@ describe("mute", () => {
     useGame.getState().startDay();
     expect(useGame.getState().muted).toBe(true);
     useGame.getState().toggleMute();
+  });
+});
+
+describe("headlights", () => {
+  it("start off, toggle on and off, and stay as set across a new day", () => {
+    expect(useGame.getState().headlights).toBe(false);
+    useGame.getState().toggleHeadlights();
+    expect(useGame.getState().headlights).toBe(true);
+    useGame.getState().startDay();
+    expect(useGame.getState().headlights).toBe(true);
+    useGame.getState().toggleHeadlights();
+    expect(useGame.getState().headlights).toBe(false);
+  });
+});
+
+describe("accidents", () => {
+  it("fine the driver, count the accident and show a notice", () => {
+    const before = useGame.getState().net;
+    useGame.getState().registerAccident();
+    const s = useGame.getState();
+    expect(s.net).toBe(before - ACCIDENT_FINE);
+    expect(s.accidents).toBe(1);
+    expect(s.notice?.text).toMatch(/accident/i);
+  });
+
+  it("give each notice a new id so the banner can restart", () => {
+    useGame.getState().registerAccident();
+    const first = useGame.getState().notice?.id;
+    useGame.getState().registerAccident();
+    expect(useGame.getState().notice?.id).not.toBe(first);
+    expect(useGame.getState().accidents).toBe(2);
+  });
+
+  it("start from zero on a new day", () => {
+    useGame.getState().registerAccident();
+    useGame.getState().startDay();
+    expect(useGame.getState().accidents).toBe(0);
+    expect(useGame.getState().notice).toBeNull();
   });
 });
 

@@ -4,16 +4,17 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { Group } from "three";
 import { BusModel } from "./BusModel";
-import { armAudio, setEngine, setHorn, stopAudio } from "./audio";
+import { armAudio, playDoor, setHorn, stopAudio, updateEngine } from "./audio";
 import { busPose, depotPose, resetBusPose } from "./busPose";
 import { ROUTE_V1 } from "./data/route-v1";
 import { bayAt } from "./logic/bay";
 import { roadCenterZ, roadHalfWidthAt } from "./logic/road";
-import { MAX_FORWARD_SPEED, stepVehicle, type VehicleState } from "./logic/vehicle";
+import { stepVehicle, type VehicleState } from "./logic/vehicle";
 import { useGame } from "./state/store";
 import { useHeldKeys, useKeyPress } from "./useKeys";
 
 const WIDTH = 2.6;
+const CRASH_SPEED_KEPT = 0.3; // fraction of speed left after hitting someone
 
 export function Bus() {
   const group = useRef<Group>(null);
@@ -38,7 +39,12 @@ export function Bus() {
     };
   }, []);
 
-  useKeyPress(["KeyE"], () => useGame.getState().toggleDoor());
+  useKeyPress(["KeyE"], () => {
+    const before = useGame.getState().doorOpen;
+    useGame.getState().toggleDoor();
+    if (useGame.getState().doorOpen !== before) playDoor();
+  });
+  useKeyPress(["KeyL"], () => useGame.getState().toggleHeadlights());
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
@@ -58,6 +64,11 @@ export function Bus() {
         roadCenterZ(vehicle.current.x),
       );
       vehicle.current = r.state;
+      // hitting someone knocks the speed off (the collision itself is detected where the people are)
+      if (busPose.bump) {
+        busPose.bump = false;
+        vehicle.current = { ...vehicle.current, speed: vehicle.current.speed * CRASH_SPEED_KEPT };
+      }
       edgeCooldown.current -= dt;
       if (r.hitEdge && edgeCooldown.current <= 0) {
         edgeCooldown.current = 1;
@@ -70,7 +81,7 @@ export function Bus() {
 
     const v = vehicle.current;
     const live = game.phase === "running";
-    setEngine(live ? Math.abs(v.speed) / MAX_FORWARD_SPEED : 0);
+    updateEngine({ speed: v.speed, throttle: keys.current.throttle, live });
     setHorn(live && keys.current.horn);
     busPose.x = v.x;
     busPose.z = v.z;

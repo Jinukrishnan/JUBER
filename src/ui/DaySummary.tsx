@@ -15,9 +15,10 @@ export function DaySummary() {
   const missedStops = useGame((s) => s.missedStops);
   const expiredPassengers = useGame((s) => s.expiredPassengers);
   const harshEvents = useGame((s) => s.harshEvents);
+  const accidents = useGame((s) => s.accidents);
   const saved = useRef<number | null>(null);
 
-  const rating = computeRating({ missedStops, expiredPassengers, harshEvents, carried });
+  const rating = computeRating({ missedStops, expiredPassengers, harshEvents, carried, accidents });
 
   // record the finished day exactly once per day
   useEffect(() => {

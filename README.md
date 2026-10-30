@@ -27,10 +27,11 @@ Flow: `/` landing -> `/login` driver ticket -> `/play` the game
 | A / D | Steer |
 | Space | Hand brake |
 | H | Horn |
+| L | Headlights (also the button on the left) |
 | E | Open / close door (stopped inside a stop zone) |
 | C | Camera: chase · high · driver seat |
 | R | Monsoon rain |
-| M | Mute |
+| M | Sound on/off (also the button on the right) |
 | P / Esc | Pause menu |
 
 ## How a shift works
@@ -46,6 +47,15 @@ Flow: `/` landing -> `/login` driver ticket -> `/play` the game
   before corners.
 - Driving past a stop where someone wants to get off costs rating and refunds their fare.
 - The day runs 06:00-20:00 on a clock compressed to 8 real minutes.
+
+## Sound, lights and accidents
+
+The bus has a synthesised diesel engine (idle, gear changes, load), tyre roar, a reversing beeper, a door
+hiss and an air horn. The **Sound** button on the right (or **M**) mutes everything. The **Headlights**
+button on the left (or **L**) turns on real beams.
+
+Hit a pedestrian and they are thrown clear, fall, and cry out in a speech bubble ("അയ്യോ! Oh my God!",
+"എന്റമ്മേ! Help me!"). It costs a Rs. 300 fine, slows the bus, and takes a full star off the rating.
 
 ## The road
 

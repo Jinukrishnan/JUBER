@@ -10,6 +10,7 @@ const CONTROLS: [string, string][] = [
   ["A / D", "Steer"],
   ["Space", "Hand brake"],
   ["H", "Horn"],
+  ["L", "Headlights"],
   ["E", "Open / close door (in a stop zone, stopped)"],
   ["C", "Camera: chase · high · driver seat"],
   ["R", "Monsoon rain"],

@@ -20,3 +20,6 @@ export const MAX_WAITING_PER_STOP = 25;
 // metres past a stop (in the direction of travel) before a skipped stop counts as missed
 export const MISS_MARGIN = 40;
 export const EVENT_LIMIT = 30;
+
+// fine for hitting someone with the bus
+export const ACCIDENT_FINE = 300;
