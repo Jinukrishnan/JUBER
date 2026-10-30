@@ -36,8 +36,14 @@ Flow: `/` landing -> `/login` driver ticket -> `/play` the game
 ## How a shift works
 
 - You start the day Rs. 250 down (diesel + depot rent) and need to reach Rs. 800 net.
-- The route has 7 stops. Stop inside the yellow zone, press **E**, and passengers
-  board and alight one by one. Fares grow with the stops ridden.
+- The route has 7 stops, each with a yellow bus-length bay on both kerbs (traffic keeps left: forward
+  trips use one kerb, return trips the other). Park the bus completely inside the bay, lined up with the
+  road, until it turns green, then press **E**. Passengers walk to the door and board, and riders for
+  that stop step off, one by one. Fares grow with the stops ridden.
+- Each end of the line has a wide turn-around area: after the last stop, turn the bus round and pull
+  into the other kerb's bay to pick up the return passengers.
+- Steering follows a real turning circle (slow to turn the wheel, tighter at low speed), so brake
+  before corners.
 - Driving past a stop where someone wants to get off costs rating and refunds their fare.
 - The day runs 06:00-20:00 on a clock compressed to 8 real minutes.
 
