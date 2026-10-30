@@ -13,6 +13,7 @@ export type Vehicle = {
   accel: number; // m/s^2
   maxSteer: number; // radians at a crawl
   maxLateralAccel: number; // m/s^2 of sideways pull before it slides: bikes lean, autos tip
+  riderSeats: [number, number, number][]; // where each passenger sits: forward, seat height, right
   eye: [number, number, number]; // driver's eye: forward, up, right of the vehicle's centre
   baseFare: number; // Rs
   farePer100m: number; // Rs per 100 m of route
@@ -32,6 +33,7 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     accel: 7,
     maxSteer: 0.7,
     maxLateralAccel: 6,
+    riderSeats: [[-0.6, 1.03, 0]],
     eye: [0.2, 1.45, 0],
     baseFare: 15,
     farePer100m: 3,
@@ -49,6 +51,10 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     accel: 3.5,
     maxSteer: 0.55,
     maxLateralAccel: 2.5,
+    riderSeats: [
+      [-0.7, 0.78, 0.28],
+      [-0.7, 0.78, -0.28],
+    ],
     eye: [0.5, 1.4, 0.3],
     baseFare: 25,
     farePer100m: 5,
@@ -66,6 +72,11 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     accel: 5,
     maxSteer: 0.6,
     maxLateralAccel: 3.5,
+    riderSeats: [
+      [-0.75, 0.97, 0.45],
+      [-0.75, 0.97, 0],
+      [-0.75, 0.97, -0.45],
+    ],
     eye: [0.35, 1.25, 0.4],
     baseFare: 35,
     farePer100m: 7,

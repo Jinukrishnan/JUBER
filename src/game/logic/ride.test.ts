@@ -127,3 +127,15 @@ describe("inZone", () => {
     expect(inZone({ x: 100 + ZONE_RADIUS, z: 0, speed: 0 }, spot)).toBe(true);
   });
 });
+
+import { targetPlace } from "./ride";
+describe("targetPlace", () => {
+  it("is the pickup until the customer is in, then the drop", () => {
+    expect(targetPlace(IDLE_RIDE)).toBeNull();
+    expect(targetPlace(acceptRequest(IDLE_RIDE, req))?.id).toBe(req.pickup.id);
+    expect(targetPlace(arrivePickup(acceptRequest(IDLE_RIDE, req)))?.id).toBe(req.pickup.id);
+    expect(targetPlace(acceptRide(arrivePickup(acceptRequest(IDLE_RIDE, req))))?.id).toBe(req.pickup.id);
+    expect(targetPlace(riding())?.id).toBe(req.drop.id);
+    expect(targetPlace(arriveDrop(riding()))?.id).toBe(req.drop.id);
+  });
+});

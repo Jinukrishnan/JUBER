@@ -1,27 +1,25 @@
 import { create } from "zustand";
+import { ACCIDENT_FINE, PICKUP_PATIENCE_S, SIGNAL_FINE } from "../constants";
+import { busPose } from "../busPose";
 import { VEHICLES, type VehicleKind } from "../data/vehicles";
-import {
-  ACCIDENT_FINE,
-  SIGNAL_FINE,
-  BOARD_INTERVAL_S,
-  CAPACITY,
-  INITIAL_WAITING_PER_STOP,
-  MAX_WAITING_PER_STOP,
-  EVENT_LIMIT,
-  MISS_MARGIN,
-  PATIENCE_S,
-  SPAWN_INTERVAL_S,
-  STOP_SPEED_MAX,
-} from "../constants";
-import { ROUTE_V1 } from "../data/route-v1";
-import { firstFreeSeat } from "../logic/seats";
-import { planTransfer } from "../logic/boarding";
 import { advanceClock } from "../logic/clock";
-import { makePassenger, type Passenger } from "../logic/fares";
-import { BAY_LONG_TOL, type Bay, type Side } from "../logic/bay";
-import { flipDirection, passedStop, type Direction } from "../logic/route";
+import { MAX_OPEN, nextRequest, spawnDelay, type Request } from "../logic/requests";
+import {
+  IDLE_RIDE,
+  acceptRequest,
+  acceptRide,
+  arriveDrop,
+  arrivePickup,
+  cancelRide,
+  finishAlighting as payRide,
+  finishBoarding as boarded,
+  inZone,
+  tickRide,
+  type Ride,
+} from "../logic/ride";
+import { RIDE_WORLD, spotOf } from "../rideWorld";
 
-// Someone the bus has hit, lying where they landed, until they are tidied away.
+// Someone the vehicle has hit, lying where they landed, until they are tidied away.
 export type Casualty = {
   id: number;
   personKey: string; // which look to draw (see specFor)
@@ -35,20 +33,9 @@ export type Casualty = {
 };
 type NewCasualty = Omit<Casualty, "id" | "at">;
 const CASUALTY_LIMIT = 8;
+const START_REQUESTS = 2;
 
 type Phase = "idle" | "running" | "paused" | "ended";
-
-export type GameEvent = {
-  id: number;
-  type: "board" | "alight";
-  passengerId: string;
-  stop: number;
-  side: Side;
-  destination: number;
-  fare: number;
-  slot: number;
-  at: number;
-};
 
 export type GameState = {
   phase: Phase;
@@ -59,7 +46,7 @@ export type GameState = {
   accidents: number;
   violations: number;
   signalTime: number;
-  // a short on-screen message (accident fines); a new id restarts its display
+  // a short on-screen message (fines, a customer giving up); a new id restarts its display
   notice: { id: number; text: string } | null;
   noticeSeq: number;
   casualties: Casualty[];
@@ -67,23 +54,16 @@ export type GameState = {
   net: number;
   clockElapsed: number;
   hour: number;
-  direction: Direction;
-  onboard: Passenger[];
-  waitingByStop: Passenger[][];
-  doorOpen: boolean;
-  // the bay the bus is completely inside right now, if any
-  parked: Bay | null;
-  events: GameEvent[];
-  eventSeq: number;
-  busPosition: number;
-  busSpeed: number;
-  missedStops: number;
-  expiredPassengers: number;
+  // rides
+  ride: Ride;
+  openRequests: Request[];
+  ridesDone: number;
+  distanceDone: number;
+  expiredPickups: number;
   harshEvents: number;
-  carried: number;
+  pickupLeft: number; // seconds the accepted customer will still wait
   // internal timers / rng
   spawnTimer: number;
-  transferTimer: number;
   seed: number;
   nextId: number;
 };
@@ -93,62 +73,37 @@ type Actions = {
   pause: () => void;
   resume: () => void;
   tick: (dt: number) => void;
-  setBusState: (position: number, speed: number, bay?: Bay | null) => void;
-  toggleDoor: () => void;
-  transferStep: () => void;
+  setVehicleState: (pose: { x: number; z: number; speed: number }) => void;
+  accept: (id: string) => void;
+  skip: (id: string) => void;
+  confirmRide: () => void;
+  finishBoarding: () => void;
+  finishAlighting: () => void;
   toggleMute: () => void;
   toggleHeadlights: () => void;
   registerAccident: () => void;
   registerViolation: () => void;
   injure: (c: NewCasualty) => void;
+  hitCustomer: (c: NewCasualty) => void;
   clearCasualty: (id: number) => void;
-  hitWaiting: (stop: number, passengerId: string, c: NewCasualty) => void;
   registerHarsh: () => void;
   endDay: () => void;
 };
 
-const STOP_COUNT = ROUTE_V1.length;
-const LAST = STOP_COUNT - 1;
 const SEED = 20261030;
 
-// mulberry32: returns [value in 0..1, next seed]
-function rand(seed: number): [number, number] {
-  let t = (seed + 0x6d2b79f5) | 0;
-  const next = t;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return [((t ^ (t >>> 14)) >>> 0) / 4294967296, next];
-}
-
-function spawn(
-  state: Pick<GameState, "waitingByStop" | "seed" | "nextId">,
-  origin?: number,
-): Pick<GameState, "waitingByStop" | "seed" | "nextId"> {
-  let seed = state.seed;
-  let r: number;
-  [r, seed] = rand(seed);
-  const o = origin ?? Math.floor(r * STOP_COUNT);
-  [r, seed] = rand(seed);
-  // any other stop; terminus-only origins still get a valid destination
-  const others = ROUTE_V1.map((_, i) => i).filter((i) => i !== o);
-  const d = others[Math.floor(r * others.length)];
-  if (state.waitingByStop[o].length >= MAX_WAITING_PER_STOP) {
-    return { waitingByStop: state.waitingByStop, seed, nextId: state.nextId };
-  }
-  const p = makePassenger(`p${state.nextId}`, o, d, PATIENCE_S);
-  const waitingByStop = state.waitingByStop.map((q, i) => (i === o ? [...q, p] : q));
-  return { waitingByStop, seed, nextId: state.nextId + 1 };
-}
-
 function initialState(vehicle: VehicleKind): GameState {
-  let s: Pick<GameState, "waitingByStop" | "seed" | "nextId"> = {
-    waitingByStop: ROUTE_V1.map(() => []),
-    seed: SEED,
-    nextId: 1,
-  };
-  for (let stop = 0; stop < STOP_COUNT; stop++) {
-    for (let k = 0; k < INITIAL_WAITING_PER_STOP; k++) s = spawn(s, stop);
+  const spec = VEHICLES[vehicle];
+  let seed = SEED;
+  let nextId = 1;
+  const openRequests: Request[] = [];
+  for (let i = 0; i < START_REQUESTS; i++) {
+    const r = nextRequest({ seed, nextId }, spec, { x: busPose.x, z: busPose.z }, RIDE_WORLD);
+    openRequests.push(r.request);
+    seed = r.seed;
+    nextId = r.nextId;
   }
+  const first = spawnDelay(seed);
   return {
     phase: "idle",
     dayId: 0,
@@ -162,67 +117,54 @@ function initialState(vehicle: VehicleKind): GameState {
     noticeSeq: 0,
     casualties: [],
     casualtySeq: 0,
-    net: -VEHICLES[vehicle].rent,
+    net: -spec.rent,
     clockElapsed: 0,
     hour: advanceClock(0, 0).hour,
-    direction: "forward",
-    onboard: [],
-    waitingByStop: s.waitingByStop,
-    doorOpen: false,
-    parked: { stop: 0, side: "forward" },
-    events: [],
-    eventSeq: 0,
-    busPosition: 0,
-    busSpeed: 0,
-    missedStops: 0,
-    expiredPassengers: 0,
+    ride: IDLE_RIDE,
+    openRequests,
+    ridesDone: 0,
+    distanceDone: 0,
+    expiredPickups: 0,
     harshEvents: 0,
-    carried: 0,
-    spawnTimer: 0,
-    transferTimer: 0,
-    seed: s.seed,
-    nextId: s.nextId,
+    pickupLeft: 0,
+    spawnTimer: first.delay,
+    seed: first.seed,
+    nextId,
   };
 }
 
-// Without a full pose (headless tests, simple callers) a bus whose centre is
-// within the bay tolerance of a stop counts as parked in that direction's bay.
-function defaultBay(position: number, dir: Direction): Bay | null {
-  const stop = ROUTE_V1.findIndex((st) => Math.abs(st.position - position) <= BAY_LONG_TOL);
-  return stop === -1 ? null : { stop, side: dir };
-}
-
-function record(s: GameState, e: Omit<GameEvent, "id" | "at">): Pick<GameState, "events" | "eventSeq"> {
-  const id = s.eventSeq + 1;
-  return { events: [...s.events, { ...e, id, at: Date.now() }].slice(-EVENT_LIMIT), eventSeq: id };
-}
-
-function isTerminus(stopIndex: number, dir: Direction): boolean {
-  return (dir === "forward" && stopIndex === LAST) || (dir === "backward" && stopIndex === 0);
-}
+const notice = (s: GameState, text: string): Pick<GameState, "noticeSeq" | "notice"> => ({
+  noticeSeq: s.noticeSeq + 1,
+  notice: { id: s.noticeSeq + 1, text },
+});
 
 export const useGame = create<GameState & Actions>()((set, get) => ({
   ...initialState("auto"),
 
-  startDay: (vehicle) => set((s) => ({ ...initialState(vehicle ?? s.vehicle), phase: "running", dayId: s.dayId + 1, muted: s.muted, headlights: s.headlights })),
+  startDay: (vehicle) =>
+    set((s) => {
+      // a new day starts at the depot, so requests are chosen from there
+      busPose.x = 0;
+      busPose.z = 0;
+      return { ...initialState(vehicle ?? s.vehicle), phase: "running", dayId: s.dayId + 1, muted: s.muted, headlights: s.headlights };
+    }),
   pause: () => set((s) => (s.phase === "running" ? { phase: "paused" } : {})),
   resume: () => set((s) => (s.phase === "paused" ? { phase: "running" } : {})),
-  endDay: () => set({ phase: "ended", doorOpen: false }),
+  endDay: () => set({ phase: "ended" }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
   toggleHeadlights: () => set((s) => ({ headlights: !s.headlights })),
+
   registerAccident: () =>
     set((s) => ({
       net: s.net - ACCIDENT_FINE,
       accidents: s.accidents + 1,
-      noticeSeq: s.noticeSeq + 1,
-      notice: { id: s.noticeSeq + 1, text: `Accident! Fine Rs. ${ACCIDENT_FINE}` },
+      ...notice(s, `Accident! Fine Rs. ${ACCIDENT_FINE}`),
     })),
   registerViolation: () =>
     set((s) => ({
       net: s.net - SIGNAL_FINE,
       violations: s.violations + 1,
-      noticeSeq: s.noticeSeq + 1,
-      notice: { id: s.noticeSeq + 1, text: `Jumped a red signal! Fine Rs. ${SIGNAL_FINE}` },
+      ...notice(s, `Jumped a red signal! Fine Rs. ${SIGNAL_FINE}`),
     })),
   injure: (c) => {
     get().registerAccident();
@@ -231,128 +173,95 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       casualties: [...s.casualties, { ...c, id: s.casualtySeq + 1, at: Date.now() }].slice(-CASUALTY_LIMIT),
     }));
   },
-  clearCasualty: (id) => set((s) => ({ casualties: s.casualties.filter((c) => c.id !== id) })),
-  hitWaiting: (stop, passengerId, c) => {
-    set((s) => ({
-      waitingByStop: s.waitingByStop.map((q, i) => (i === stop ? q.filter((p) => p.id !== passengerId) : q)),
-    }));
+  // the customer waiting at the pickup was hit: they are hurt and the booking is off
+  hitCustomer: (c) => {
     get().injure(c);
+    set((s) => ({ ride: cancelRide(s.ride) }));
   },
+  clearCasualty: (id) => set((s) => ({ casualties: s.casualties.filter((c) => c.id !== id) })),
   registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1 })),
 
-  setBusState: (position, speed, bayArg) =>
+  // Called every frame with where the vehicle is: arriving and stopping at the
+  // pickup or the drop moves the ride on.
+  setVehicleState: (pose) =>
     set((s) => {
-      const bay = bayArg === undefined ? defaultBay(position, s.direction) : bayArg;
-      const patch: Partial<GameState> = { busPosition: position, busSpeed: speed, parked: bay };
-
-      if (bay === null && s.doorOpen) patch.doorOpen = false;
-
-      // clearly past a stop with someone still aboard for it = missed stop
-      const missed = s.onboard.filter((p) => passedStop(ROUTE_V1, p.destination, position, s.direction, MISS_MARGIN));
-      if (missed.length > 0) {
-        patch.onboard = s.onboard.filter((p) => !missed.includes(p));
-        patch.missedStops = s.missedStops + 1;
-        patch.net = s.net - missed.reduce((sum, p) => sum + p.fare, 0);
+      if (s.phase !== "running" || !s.ride.request) return {};
+      if (s.ride.phase === "toPickup" && inZone(pose, spotOf(s.ride.request.pickup))) {
+        return { ride: arrivePickup(s.ride) };
       }
-      return patch;
-    }),
-
-  toggleDoor: () =>
-    set((s) => {
-      if (s.doorOpen) return { doorOpen: false, transferTimer: 0 };
-      if (s.parked === null || s.busSpeed > STOP_SPEED_MAX) return {};
-      return { doorOpen: true, transferTimer: 0 };
-    }),
-
-  transferStep: () =>
-    set((s) => {
-      if (!s.doorOpen) return {};
-      // people only move while the bus is completely inside the bay serving its direction
-      if (s.parked === null || s.parked.side !== s.direction) return {};
-      const zone = s.parked.stop;
-
-      const terminus = isTerminus(zone, s.direction);
-      const plan = planTransfer({
-        stopIndex: zone,
-        dir: s.direction,
-        onboard: s.onboard,
-        waiting: s.waitingByStop[zone],
-        capacity: CAPACITY,
-        isTerminus: terminus,
-      });
-
-      if (plan.alight.length > 0) {
-        const gone = plan.alight[0];
-        return {
-          onboard: s.onboard.filter((p) => p.id !== gone.id),
-          carried: s.carried + 1,
-          ...record(s, { type: "alight", passengerId: gone.id, stop: zone, side: s.parked.side, destination: gone.destination, fare: gone.fare, slot: s.carried % 6 }),
-        };
-      }
-      if (terminus) return { direction: flipDirection(s.direction) };
-
-      if (plan.board.length > 0) {
-        const p = plan.board[0];
-        const seat = firstFreeSeat(s.onboard.map((o) => o.seat ?? -1));
-        if (seat === null) return {};
-        return {
-          onboard: [...s.onboard, { ...p, seat }],
-          waitingByStop: s.waitingByStop.map((q, i) =>
-            i === zone ? q.filter((x) => x.id !== p.id) : q,
-          ),
-          net: s.net + p.fare,
-          ...record(s, { type: "board", passengerId: p.id, stop: zone, side: s.parked.side, destination: p.destination, fare: p.fare, slot: 0 }),
-        };
+      if (s.ride.phase === "riding" && inZone(pose, spotOf(s.ride.request.drop))) {
+        return { ride: arriveDrop(s.ride) };
       }
       return {};
+    }),
+
+  accept: (id) =>
+    set((s) => {
+      const request = s.openRequests.find((r) => r.id === id);
+      if (!request || s.ride.phase !== "online" || s.phase !== "running") return {};
+      return {
+        ride: acceptRequest(s.ride, request),
+        openRequests: s.openRequests.filter((r) => r.id !== id),
+        pickupLeft: PICKUP_PATIENCE_S,
+      };
+    }),
+  skip: (id) => set((s) => (s.ride.phase === "online" ? { openRequests: s.openRequests.filter((r) => r.id !== id) } : {})),
+  confirmRide: () => set((s) => ({ ride: acceptRide(s.ride) })),
+  finishBoarding: () => set((s) => ({ ride: boarded(s.ride) })),
+  finishAlighting: () =>
+    set((s) => {
+      const done = payRide(s.ride);
+      if (done.paid === 0 || !s.ride.request) return {};
+      return {
+        ride: done.ride,
+        net: s.net + done.paid,
+        ridesDone: s.ridesDone + 1,
+        distanceDone: s.distanceDone + s.ride.request.distance,
+      };
     }),
 
   tick: (dt) => {
     const s = get();
     if (s.phase !== "running") return;
-
     const clock = advanceClock(s.clockElapsed, dt);
-
-    let expired = 0;
-    const aged = s.waitingByStop.map((q) =>
-      q
-        .map((p) => ({ ...p, patience: p.patience - dt }))
-        .filter((p) => {
-          if (p.patience <= 0) {
-            expired++;
-            return false;
-          }
-          return true;
-        }),
-    );
-
-    let spawned = { waitingByStop: aged, seed: s.seed, nextId: s.nextId };
-    let spawnTimer = s.spawnTimer + dt;
-    while (spawnTimer >= SPAWN_INTERVAL_S) {
-      spawnTimer -= SPAWN_INTERVAL_S;
-      spawned = spawn(spawned);
-    }
-
-    set({
+    const patch: Partial<GameState> = {
       clockElapsed: clock.elapsedRealS,
-      signalTime: s.signalTime + dt,
       hour: clock.hour,
-      waitingByStop: spawned.waitingByStop,
-      seed: spawned.seed,
-      nextId: spawned.nextId,
-      spawnTimer,
-      expiredPassengers: s.expiredPassengers + expired,
+      signalTime: s.signalTime + dt,
       phase: clock.ended ? "ended" : "running",
-      doorOpen: clock.ended ? false : s.doorOpen,
-    });
+    };
 
-    if (!clock.ended && get().doorOpen) {
-      let timer = get().transferTimer + dt;
-      while (timer >= BOARD_INTERVAL_S) {
-        timer -= BOARD_INTERVAL_S;
-        get().transferStep();
+    let ride = tickRide(s.ride, dt);
+    if (ride !== s.ride) patch.ride = ride;
+
+    if (ride.phase === "online") {
+      // requests age, and a new one turns up every so often
+      let open = s.openRequests.map((r) => ({ ...r, expiresIn: r.expiresIn - dt })).filter((r) => r.expiresIn > 0);
+      let { seed, nextId, spawnTimer } = s;
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        if (open.length < MAX_OPEN) {
+          const n = nextRequest({ seed, nextId }, VEHICLES[s.vehicle], { x: busPose.x, z: busPose.z }, RIDE_WORLD);
+          open = [...open, n.request];
+          seed = n.seed;
+          nextId = n.nextId;
+        }
+        const d = spawnDelay(seed);
+        spawnTimer = d.delay;
+        seed = d.seed;
       }
-      set({ transferTimer: timer });
+      Object.assign(patch, { openRequests: open, seed, nextId, spawnTimer });
+    } else if (ride.phase === "toPickup") {
+      // the customer waits only so long
+      const left = s.pickupLeft - dt;
+      if (left <= 0) {
+        ride = IDLE_RIDE;
+        Object.assign(patch, { ride, expiredPickups: s.expiredPickups + 1, ...notice(s, "Customer got tired of waiting and left") });
+      } else {
+        patch.pickupLeft = left;
+      }
     }
+
+    set(patch);
   },
 }));

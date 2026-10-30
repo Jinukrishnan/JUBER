@@ -9,8 +9,8 @@ import { speakLine } from "./voice";
 
 // One place that turns "the bus hit this person" into everything that follows:
 // the fine, the thump and the cry, the bus losing speed, and a casualty who
-// falls where they are thrown. Pedestrians, strollers, people queueing at a
-// shelter and people boarding or alighting all report through here.
+// falls where they are thrown. Pedestrians, strollers and the customer waiting
+// at a pickup all report through here.
 export function hashKey(key: string): number {
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
@@ -21,7 +21,7 @@ export function reportHit(
   personKey: string,
   at: { x: number; z: number; y: number },
   side: 1 | -1,
-  queued?: { stop: number; passengerId: string },
+  waitingCustomer = false,
 ) {
   const d = throwDirection(busPose, side);
   const h = hashKey(personKey);
@@ -31,6 +31,6 @@ export function reportHit(
   playYelp(0.8 + (h % 7) / 10);
   // they shout the same line that appears in their speech bubble, in their own pitch
   speakLine(accidentLine(h), 0.9 + (h % 5) / 10);
-  if (queued) useGame.getState().hitWaiting(queued.stop, queued.passengerId, casualty);
+  if (waitingCustomer) useGame.getState().hitCustomer(casualty);
   else useGame.getState().injure(casualty);
 }

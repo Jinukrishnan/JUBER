@@ -68,9 +68,11 @@ export function Vehicle() {
     if (game.phase === "running") {
       const k = keys.current;
       const before = state.current;
+      const holding = game.ride.phase === "atPickup" || game.ride.phase === "boarding" || game.ride.phase === "alighting";
       const r = stepVehicle(
         before,
-        { throttle: k.throttle, steer: k.steer, handbrake: k.handbrake },
+        // the vehicle stays put while the customer talks, gets in or gets out
+        { throttle: holding ? 0 : k.throttle, steer: k.steer, handbrake: k.handbrake || holding },
         dt,
         roadHalfWidthAt(before.x),
         roadCenterZ(before.x),
@@ -95,7 +97,7 @@ export function Vehicle() {
         edgeCooldown.current = 1;
         game.registerHarsh();
       }
-      game.setBusState(r.state.x, Math.abs(r.state.speed), null);
+      game.setVehicleState({ x: r.state.x, z: r.state.z, speed: r.state.speed });
     }
 
     const v = state.current;

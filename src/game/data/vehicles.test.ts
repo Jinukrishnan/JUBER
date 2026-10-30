@@ -35,3 +35,25 @@ describe("isVehicleKind", () => {
     expect(isVehicleKind(3)).toBe(false);
   });
 });
+
+describe("rider seats", () => {
+  it("has one seat for every passenger the vehicle holds", () => {
+    for (const k of VEHICLE_KINDS) expect(VEHICLES[k].riderSeats).toHaveLength(VEHICLES[k].capacity);
+  });
+  it("keeps every seat inside the vehicle's body", () => {
+    for (const k of VEHICLE_KINDS) {
+      const v = VEHICLES[k];
+      for (const [x, y, z] of v.riderSeats) {
+        expect(Math.abs(x)).toBeLessThanOrEqual(v.length / 2);
+        expect(Math.abs(z)).toBeLessThanOrEqual(v.width / 2);
+        expect(y).toBeGreaterThan(0.4);
+      }
+    }
+  });
+  it("seats nobody twice in the same place", () => {
+    for (const k of VEHICLE_KINDS) {
+      const keys = VEHICLES[k].riderSeats.map((s) => s.join(","));
+      expect(new Set(keys).size).toBe(keys.length);
+    }
+  });
+});

@@ -8,7 +8,10 @@ import { roadAngle } from "@/game/logic/road";
 import { nextSignalAhead, type SignalAhead } from "@/game/logic/signalAhead";
 import { useGame } from "@/game/state/store";
 import { JUNCTIONS } from "@/game/world";
+import { ConversationCard } from "./ConversationCard";
 import { Minimap } from "./Minimap";
+import { RequestBoard } from "./RequestBoard";
+import { RideStrip } from "./RideStrip";
 
 const NOTICE_MS = 4000;
 
@@ -48,7 +51,7 @@ function AccidentBanner() {
   return (
     <div
       role="alert"
-      className="absolute left-1/2 top-20 -translate-x-1/2 rounded-xl border-2 border-red-700 bg-red-600 px-5 py-3 text-center font-bold text-white shadow-xl"
+      className="absolute left-1/2 top-[42%] -translate-x-1/2 rounded-xl border-2 border-red-700 bg-red-600 px-5 py-3 text-center font-bold text-white shadow-xl"
     >
       {notice.text}
     </div>
@@ -78,6 +81,7 @@ export function Hud() {
   const net = useGame((s) => s.net);
   const hour = useGame((s) => s.hour);
   const vehicle = VEHICLES[useGame((s) => s.vehicle)];
+  const aboard = useGame((s) => (s.ride.request && (s.ride.phase === "riding" || s.ride.phase === "alighting") ? s.ride.request.group : 0));
   const muted = useGame((s) => s.muted);
   const headlights = useGame((s) => s.headlights);
 
@@ -91,7 +95,7 @@ export function Hud() {
         </div>
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-2 shadow">
           <div className="text-xs uppercase tracking-wide opacity-60">{vehicle.name}</div>
-          <div className="text-lg font-semibold tabular-nums">0 / {vehicle.capacity}</div>
+          <div className="text-lg font-semibold tabular-nums">{aboard} / {vehicle.capacity}</div>
         </div>
         {signal && (
           <div className="rounded-xl border border-line bg-cream/90 px-4 py-2 shadow">
@@ -115,6 +119,9 @@ export function Hud() {
       </div>
 
       <AccidentBanner />
+      <RequestBoard />
+      <RideStrip />
+      <ConversationCard />
     </div>
   );
 }

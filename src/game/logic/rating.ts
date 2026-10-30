@@ -1,25 +1,21 @@
 export type RatingEvents = {
-  missedStops: number;
-  expiredPassengers: number;
-  harshEvents: number;
-  carried: number;
-  accidents?: number;
-  violations?: number;
+  harshEvents: number; // scrapes against the kerb
+  expiredPickups: number; // accepted customers who gave up waiting
+  accidents: number;
+  violations: number; // red lights
 };
 
-// Passengers who give up waiting are mostly down to the timetable, not the
-// driver, so they weigh far less than a stop the driver actually skipped.
-const EXPIRED_WEIGHT = 0.02;
-const EXPIRED_MAX = 0.5; // even a long day of unserved queues costs at most half a star
+const EXPIRED_PICKUP_WEIGHT = 0.25;
+const EXPIRED_PICKUP_MAX = 1;
 
+// Five stars, less a penalty for each thing that went wrong, in half-star steps.
 export function computeRating(e: RatingEvents): number {
   const raw =
     5 -
-    0.5 * e.missedStops -
-    Math.min(EXPIRED_MAX, EXPIRED_WEIGHT * e.expiredPassengers) -
-    0.1 * e.harshEvents -
-    (e.accidents ?? 0) -
-    0.5 * (e.violations ?? 0);
+    e.accidents -
+    0.5 * e.violations -
+    Math.min(EXPIRED_PICKUP_MAX, EXPIRED_PICKUP_WEIGHT * e.expiredPickups) -
+    0.1 * e.harshEvents;
   const clamped = Math.min(5, Math.max(1, raw));
   return Math.round(clamped * 2) / 2;
 }

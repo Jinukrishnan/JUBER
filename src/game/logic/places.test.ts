@@ -78,3 +78,40 @@ describe("placesAreValid", () => {
     expect(placesAreValid(bad, JUNCTIONS)[0]).toMatch(/arm/i);
   });
 });
+
+import { FOOTPATH_WIDTH, ROAD_HALF_WIDTH, groundY } from "./road";
+import { customerSpot } from "./places";
+
+describe("customerSpot", () => {
+  it("stands main-road customers on the footpath on their kerb", () => {
+    for (const p of PLACES.filter((q) => q.at.kind === "main")) {
+      for (let k = 0; k < 3; k++) {
+        const c = customerSpot(p, JUNCTIONS, k);
+        const x = (p.at as { x: number }).x;
+        const lateral = Math.abs(c.z - roadCenterZ(c.x));
+        expect(lateral).toBeGreaterThan(ROAD_HALF_WIDTH);
+        expect(lateral).toBeLessThan(ROAD_HALF_WIDTH + FOOTPATH_WIDTH);
+        expect(Math.abs(c.x - x)).toBeLessThanOrEqual(1.5);
+        expect(groundY(c.x, c.z)).toBeCloseTo(0.15);
+        const side = (p.at as { side: string }).side;
+        expect(c.z < roadCenterZ(c.x)).toBe(side === "left");
+      }
+    }
+  });
+  it("stands side-road customers on the footpath beside the arm, off the carriageway", () => {
+    for (const p of PLACES.filter((q) => q.at.kind === "arm")) {
+      for (let k = 0; k < 3; k++) {
+        const c = customerSpot(p, JUNCTIONS, k);
+        expect(drivable(JUNCTIONS, c.x, c.z)).toBe(false);
+        const spot = placeSpot(p, JUNCTIONS);
+        expect(Math.hypot(c.x - spot.x, c.z - spot.z)).toBeLessThan(6);
+      }
+    }
+  });
+  it("spreads a group out so nobody stands on anyone", () => {
+    const p = PLACES[0];
+    const a = customerSpot(p, JUNCTIONS, 0);
+    const b = customerSpot(p, JUNCTIONS, 1);
+    expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThan(0.6);
+  });
+});

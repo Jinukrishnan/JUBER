@@ -12,15 +12,15 @@ export function DaySummary() {
   const dayId = useGame((s) => s.dayId);
   const net = useGame((s) => s.net);
   const goal = VEHICLES[useGame((s) => s.vehicle)].goal;
-  const carried = useGame((s) => s.carried);
-  const missedStops = useGame((s) => s.missedStops);
-  const expiredPassengers = useGame((s) => s.expiredPassengers);
+  const ridesDone = useGame((s) => s.ridesDone);
+  const distanceDone = useGame((s) => s.distanceDone);
+  const expiredPickups = useGame((s) => s.expiredPickups);
   const harshEvents = useGame((s) => s.harshEvents);
   const accidents = useGame((s) => s.accidents);
   const violations = useGame((s) => s.violations);
   const saved = useRef<number | null>(null);
 
-  const rating = computeRating({ missedStops, expiredPassengers, harshEvents, carried, accidents, violations });
+  const rating = computeRating({ expiredPickups, harshEvents, accidents, violations });
 
   // record the finished day exactly once per day
   useEffect(() => {
@@ -45,8 +45,10 @@ export function DaySummary() {
           <dd className="text-right font-semibold tabular-nums">Rs. {net}</dd>
           <dt className="opacity-70">Goal</dt>
           <dd className="text-right tabular-nums">Rs. {goal}</dd>
-          <dt className="opacity-70">Passengers carried</dt>
-          <dd className="text-right tabular-nums">{carried}</dd>
+          <dt className="opacity-70">Rides completed</dt>
+          <dd className="text-right tabular-nums">{ridesDone}</dd>
+          <dt className="opacity-70">Distance driven with customers</dt>
+          <dd className="text-right tabular-nums">{distanceDone} m</dd>
           <dt className="opacity-70">Rating</dt>
           <dd className="text-right tabular-nums">{rating.toFixed(1)} / 5</dd>
           <dt className="opacity-70">Best day</dt>

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { busPose } from "@/game/busPose";
-import { ROUTE_V1 } from "@/game/data/route-v1";
+import { PLACES } from "@/game/data/places-v1";
 import { armSigns, localToWorld } from "@/game/logic/junction";
-import { DEFAULT_RANGE_INDEX, RADAR_RANGES, dropSummary, toRadar, toRadarRaw, type RadarView } from "@/game/logic/radar";
+import { DEFAULT_RANGE_INDEX, RADAR_RANGES, toRadar, toRadarRaw, type RadarView } from "@/game/logic/radar";
 import { roadCenterZ } from "@/game/logic/road";
+import type { Ride } from "@/game/logic/ride";
+import { spotOf } from "@/game/rideWorld";
 import { approachLight } from "@/game/logic/signals";
 import { useGame } from "@/game/state/store";
 import { useKeyPress } from "@/game/useKeys";
@@ -15,13 +17,15 @@ const SIZE = 176; // px across the round radar
 const R = SIZE / 2;
 const LIGHT = { red: "#ff3b2a", yellow: "#ffc21a", green: "#2fe06a" } as const;
 
-type Drawn = { onboard: { destination: number }[]; signalTime: number };
+type Drawn = { ride: Ride; signalTime: number };
 
 function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
   const view: RadarView = { x: busPose.x, z: busPose.z, heading: busPose.heading };
   const k = R / rangeM;
   const at = (p: { x: number; z: number }) => toRadarRaw(view, p, k);
-  const dropIdx = new Set(g.onboard.map((p) => p.destination));
+  // where the driver is headed: the pickup, then the drop
+  const targetId = g.ride.request ? (g.ride.phase === "toPickup" || g.ride.phase === "atPickup" || g.ride.phase === "boarding" ? g.ride.request.pickup.id : g.ride.request.drop.id) : null;
+  const toDrop = g.ride.phase === "riding" || g.ride.phase === "alighting";
 
   ctx.clearRect(0, 0, SIZE, SIZE);
   ctx.save();
@@ -71,38 +75,35 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
   }
   ctx.restore();
 
-  // bus stops: blue squares; green with a ring where someone is getting off
+  // places: small blue squares; the one you are headed to is big, with its name
+  // (blue to pick up, green to drop off)
   ctx.save();
   ctx.translate(R, R);
   ctx.font = "600 10px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ROUTE_V1.forEach((s, i) => {
-    const p = toRadar(view, { x: s.position, z: roadCenterZ(s.position) }, rangeM, R - 8);
-    const drop = dropIdx.has(i);
-    if (!p.inside && !drop) return;
-    ctx.fillStyle = drop ? "#2fe06a" : "#4aa3ff";
+  for (const place of PLACES) {
+    const spot = spotOf(place);
+    const p = toRadar(view, spot, rangeM, R - 8);
+    const target = place.id === targetId;
+    if (!p.inside && !target) continue;
+    ctx.fillStyle = target ? (toDrop ? "#2fe06a" : "#4aa3ff") : "#8fb4d8";
     ctx.strokeStyle = "#0b1a10";
     ctx.lineWidth = 1.5;
-    if (p.inside) {
-      ctx.fillRect(p.px - 4, p.py - 4, 8, 8);
-      ctx.strokeRect(p.px - 4, p.py - 4, 8, 8);
-      if (drop) {
-        ctx.beginPath();
-        ctx.arc(p.px, p.py, 9, 0, Math.PI * 2);
-        ctx.strokeStyle = "#2fe06a";
-        ctx.stroke();
-        ctx.fillStyle = "#fff";
-        ctx.fillText(s.name.split(" ")[0], p.px, p.py - 13);
-      }
-    } else {
-      // a drop beyond the circle: a dot on the rim, the way to go
+    if (target) {
       ctx.beginPath();
-      ctx.arc(p.px, p.py, 5, 0, Math.PI * 2);
+      ctx.arc(p.px, p.py, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+      if (p.inside) {
+        ctx.fillStyle = "#fff";
+        ctx.fillText(place.name.split(" ")[0], p.px, p.py - 11);
+      }
+    } else {
+      ctx.fillRect(p.px - 3, p.py - 3, 6, 6);
+      ctx.strokeRect(p.px - 3, p.py - 3, 6, 6);
     }
-  });
-  // the bus: always at the centre, nose up
+  }
+  // the vehicle: always at the centre, nose up
   ctx.beginPath();
   ctx.moveTo(0, -8);
   ctx.lineTo(6, 7);
@@ -130,9 +131,7 @@ export function Minimap() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(DEFAULT_RANGE_INDEX);
   const range = RADAR_RANGES[zoom];
-  const onboard = useGame((s) => s.onboard);
-  const direction = useGame((s) => s.direction);
-  const slot = useGame((s) => Math.round(s.busPosition / 25));
+  const ride = useGame((s) => s.ride);
 
   useKeyPress(["KeyZ"], () => setZoom((z) => (z + 1) % RADAR_RANGES.length));
 
@@ -141,12 +140,14 @@ export function Minimap() {
     if (!ctx) return;
     const id = setInterval(() => {
       const g = useGame.getState();
-      draw(ctx, range, { onboard: g.onboard, signalTime: g.signalTime });
+      draw(ctx, range, { ride: g.ride, signalTime: g.signalTime });
     }, 100);
     return () => clearInterval(id);
   }, [range]);
 
-  const drops = useMemo(() => dropSummary(onboard, ROUTE_V1, direction, slot * 25), [onboard, direction, slot]);
+  const request = ride.request;
+  const heading = request ? (ride.phase === "riding" || ride.phase === "alighting" ? "Drop" : "Pickup") : null;
+  const place = request ? (heading === "Drop" ? request.drop : request.pickup) : null;
 
   return (
     <div className="rounded-2xl border border-line bg-cream/90 p-2 shadow">
@@ -160,17 +161,8 @@ export function Minimap() {
         Zoom {range >= 1000 ? `${range / 1000} km` : `${range} m`} <span className="opacity-60">Z</span>
       </button>
       <div className="mt-1 text-xs">
-        <div className="font-semibold opacity-70">Getting off</div>
-        {drops.length === 0 ? (
-          <div className="opacity-60">Nobody on board</div>
-        ) : (
-          drops.slice(0, 4).map((d) => (
-            <div key={d.index} className="flex justify-between gap-2">
-              <span className="truncate">{d.name}</span>
-              <span className="tabular-nums font-semibold">{d.count}</span>
-            </div>
-          ))
-        )}
+        <div className="font-semibold opacity-70">{heading ?? "Ride"}</div>
+        {place ? <div className="truncate font-semibold">{place.name}</div> : <div className="opacity-60">No ride yet</div>}
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ import { CameraRig } from "./CameraRig";
 import { Ground } from "./Ground";
 import { Junctions } from "./Junctions";
 import { Pedestrians } from "./Pedestrians";
+import { Places } from "./Places";
+import { Riders } from "./Riders";
 import { Road } from "./Road";
 import { SignalHeads } from "./SignalHeads";
 import { Signs } from "./Signs";
@@ -14,7 +16,6 @@ import { Stops } from "./Stops";
 import type { VehicleKind } from "./data/vehicles";
 import { useGame } from "./state/store";
 import { Vehicle } from "./Vehicle";
-import { Walkers } from "./Walkers";
 import { Weather } from "./Weather";
 
 function GameLoop() {
@@ -42,10 +43,11 @@ export default function GameCanvas({ vehicle }: { vehicle?: VehicleKind }) {
       <SignalHeads />
       <Signs />
       <Stops />
+      <Places />
       <Pedestrians />
       <Casualties />
       <Vehicle />
-      <Walkers />
+      <Riders />
       <CameraRig />
       <GameLoop />
     </Canvas>

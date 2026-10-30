@@ -1,3 +1,4 @@
+import type { Place } from "../data/places-v1";
 import { speedBonus, targetTimeS, type Request } from "./requests";
 
 // One ride from request to payment, as pure steps. Every step returns the same
@@ -51,4 +52,10 @@ export function cancelRide(r: Ride): Ride {
 // Ride time counts only while the customer is in the vehicle.
 export function tickRide(r: Ride, dt: number): Ride {
   return r.phase === "riding" ? { ...r, elapsed: r.elapsed + dt } : r;
+}
+
+// The place the driver is headed for: the pickup until the customer is in, then the drop.
+export function targetPlace(r: Ride): Place | null {
+  if (!r.request) return null;
+  return r.phase === "riding" || r.phase === "alighting" ? r.request.drop : r.request.pickup;
 }

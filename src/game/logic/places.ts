@@ -1,7 +1,7 @@
 import type { Place } from "../data/places-v1";
 import { BAY_OFFSET } from "./bay";
 import { armSigns, localToWorld, type ResolvedJunction } from "./junction";
-import { roadAngle, roadCenterZ } from "./road";
+import { FOOTPATH_WIDTH, ROAD_HALF_WIDTH, roadAngle, roadCenterZ } from "./road";
 
 export type { Place } from "../data/places-v1";
 
@@ -40,4 +40,22 @@ export function placesAreValid(places: Place[], junctions: ResolvedJunction[]): 
     }
   }
   return problems;
+}
+
+const GROUP_SPACING = 0.9; // metres between people in a group
+const KERB_STANDING = 1.8; // how far onto the footpath they stand, from the road edge
+
+// Where the k-th member of a group waits (and is dropped): on the footpath on
+// the place's kerb, spread out along it.
+export function customerSpot(place: Place, junctions: ResolvedJunction[], k: number): { x: number; z: number } {
+  const along = (k - 1) * GROUP_SPACING;
+  const at = place.at;
+  if (at.kind === "main") {
+    const x = at.x + along;
+    const off = ROAD_HALF_WIDTH + Math.min(KERB_STANDING, FOOTPATH_WIDTH - 0.5);
+    return { x, z: roadCenterZ(x) + (at.side === "left" ? -off : off) };
+  }
+  const j = junctions.find((r) => r.id === at.junctionId);
+  if (!j) throw new Error(`No junction "${at.junctionId}" for place "${place.id}"`);
+  return localToWorld(j, at.side * (j.armHalfWidth + KERB_STANDING), at.side * (at.distance + along));
 }

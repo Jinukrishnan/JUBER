@@ -4,20 +4,17 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import type { Group } from "three";
 import { busPose } from "./busPose";
-import { reportHit } from "./hit";
 import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
+import { PLACES } from "./data/places-v1";
 import { ROUTE_V1 } from "./data/route-v1";
 import { BAY_LENGTH, BAY_OFFSET, BAY_WIDTH, type Side } from "./logic/bay";
-import { busHitsPerson } from "./logic/collision";
-import { travelSide } from "./logic/boarding";
+import { targetPlace } from "./logic/ride";
 import { personFor, type PersonSpec } from "./logic/people";
 import { roadAngle, roadCenterZ } from "./logic/road";
 import type { Stop } from "./logic/route";
-import { Person } from "./Person";
 import { useGame } from "./state/store";
 
 const SIDES: Side[] = ["forward", "backward"];
-const MAX_VISIBLE = 6; // people drawn per shelter
 const DRAW_RANGE = 170; // only stops this close to the bus are drawn
 const SHELTER_GAP = 2.2; // shelter set back from the bay's outer edge
 export const FOOTPATH_HEIGHT = 0.15;
@@ -230,72 +227,38 @@ function Bay({ stopPos, side, occupied }: { stopPos: number; side: Side; occupie
   );
 }
 
+// The shelters and painted bays at the main-road places. The bay turns green
+// where the driver is headed.
 export function Stops() {
-  // The store rebuilds the waiting lists every frame to count patience down, so
-  // subscribe to who is waiting (ids) rather than the arrays themselves.
-  useGame((s) => s.waitingByStop.map((q) => q.slice(0, 40).map((p) => p.id).join(",")).join("|"));
-  const waiting = useGame.getState().waitingByStop;
-  const parked = useGame((s) => s.parked);
+  const ride = useGame((s) => s.ride);
   const groups = useRef<(Group | null)[]>([]);
+  const target = targetPlace(ride);
 
-  // draw only the stops near the bus; a bus line is long and people are not cheap
+  // draw only the shelters near the vehicle
   useFrame(() => {
-    const game = useGame.getState();
     ROUTE_V1.forEach((stop, i) => {
       const g = groups.current[i];
-      const dist = Math.abs(stop.position - busPose.x);
-      if (g) g.visible = dist < DRAW_RANGE;
-      // a bus that mounts the kerb at speed can hit the people queueing at the shelter
-      if (dist > 30 || game.phase !== "running") return;
-      for (const side of SIDES) {
-        const here = (game.waitingByStop[i] ?? []).filter((p) => travelSide(p) === side).slice(0, MAX_VISIBLE);
-        for (let k = 0; k < here.length; k++) {
-          const slot = queueSlot(k);
-          const at = shelterToWorld(stop.position, side, slot.x, slot.z);
-          const hit = busHitsPerson(busPose, at);
-          if (hit) {
-            reportHit(here[k].id, { ...at, y: FOOTPATH_HEIGHT + 0.12 }, hit.side, { stop: i, passengerId: here[k].id });
-            return;
-          }
-        }
-      }
+      if (g) g.visible = Math.abs(stop.position - busPose.x) < DRAW_RANGE;
     });
   });
 
   return (
     <group>
       {ROUTE_V1.map((stop, i) => {
-        const queue = waiting[i] ?? [];
+        const place = PLACES.find((p) => p.id === stop.id);
+        const targetSide: Side | null = target && target.id === stop.id && place?.at.kind === "main" ? (place.at.side === "left" ? "forward" : "backward") : null;
+        const edge = BAY_OFFSET + BAY_WIDTH / 2 + SHELTER_GAP;
+        const cz = roadCenterZ(stop.position);
         return (
           <group key={stop.id} ref={(g) => { groups.current[i] = g; }}>
-            {SIDES.map((side) => {
-              const here = queue.filter((p) => travelSide(p) === side).slice(0, MAX_VISIBLE);
-              const edge = BAY_OFFSET + BAY_WIDTH / 2 + SHELTER_GAP;
-              const cz = roadCenterZ(stop.position);
-              return (
-                <group key={side}>
-                  <Bay
-                    stopPos={stop.position}
-                    side={side}
-                    occupied={parked !== null && parked.stop === i && parked.side === side}
-                  />
-                  <group
-                    position={[stop.position, FOOTPATH_HEIGHT, side === "forward" ? cz - edge : cz + edge]}
-                    rotation={[0, side === "forward" ? 0 : Math.PI, 0]}
-                  >
-                    <Shelter stop={stop} />
-                    {here.map((p, k) => {
-                      const slot = queueSlot(k);
-                      return (
-                        <group key={p.id} position={[slot.x, 0.12, slot.z]}>
-                          <Person spec={specFor(p.id)} />
-                        </group>
-                      );
-                    })}
-                  </group>
+            {SIDES.map((side) => (
+              <group key={side}>
+                <Bay stopPos={stop.position} side={side} occupied={targetSide === side} />
+                <group position={[stop.position, FOOTPATH_HEIGHT, side === "forward" ? cz - edge : cz + edge]} rotation={[0, side === "forward" ? 0 : Math.PI, 0]}>
+                  <Shelter stop={stop} />
                 </group>
-              );
-            })}
+              </group>
+            ))}
           </group>
         );
       })}
