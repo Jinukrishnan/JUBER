@@ -1,4 +1,4 @@
-export type Stop = { id: string; name: string; position: number };
+export type Stop = { id: string; name: string; ml: string; position: number };
 export type Direction = "forward" | "backward";
 
 export function flipDirection(dir: Direction): Direction {

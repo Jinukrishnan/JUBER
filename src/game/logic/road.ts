@@ -29,3 +29,6 @@ export function roadHalfWidthAt(x: number): number {
   const eased = t * t * (3 - 2 * t);
   return ROAD_HALF_WIDTH + (TURN_HALF_WIDTH - ROAD_HALF_WIDTH) * eased;
 }
+
+// Raised footpath on each side of the carriageway, metres wide.
+export const FOOTPATH_WIDTH = 3.6;

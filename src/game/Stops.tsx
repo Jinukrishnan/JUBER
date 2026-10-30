@@ -1,18 +1,24 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { Group } from "three";
 import { busPose } from "./busPose";
+import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
 import { ROUTE_V1 } from "./data/route-v1";
 import { BAY_LENGTH, BAY_OFFSET, BAY_WIDTH, type Side } from "./logic/bay";
 import { travelSide } from "./logic/boarding";
 import { personFor, type PersonSpec } from "./logic/people";
 import { roadAngle, roadCenterZ } from "./logic/road";
+import type { Stop } from "./logic/route";
 import { Person } from "./Person";
 import { useGame } from "./state/store";
 
 const SIDES: Side[] = ["forward", "backward"];
+const MAX_VISIBLE = 6; // people drawn per shelter
+const DRAW_RANGE = 170; // only stops this close to the bus are drawn
+const SHELTER_GAP = 2.2; // shelter set back from the bay's outer edge
+export const FOOTPATH_HEIGHT = 0.15;
 
 // A person never changes look, so build each spec once.
 const specs = new Map<string, PersonSpec>();
@@ -24,9 +30,6 @@ export function specFor(id: string): PersonSpec {
   }
   return s;
 }
-const MAX_VISIBLE = 6; // people drawn per shelter
-const DRAW_RANGE = 170; // only stops this close to the bus are drawn
-const SHELTER_GAP = 2.2; // shelter set back from the bay's outer edge
 
 // Where the k-th person in a shelter queue stands, in the shelter's local frame
 // (+z toward the road).
@@ -43,34 +46,165 @@ export function shelterToWorld(stopPos: number, side: Side, lx: number, lz: numb
     : { x: stopPos - lx, z: cz + edge - lz };
 }
 
-function Shelter() {
+const CONCRETE = "#cfcabd";
+const CREAM = "#efe6cf";
+const GREEN = "#2f7d4a";
+const TILE = "#b5412b";
+
+function boardDrawer(stop: Stop): Draw {
+  return (g, w, h) => {
+    g.fillStyle = "#fffaf0";
+    g.fillRect(0, 0, w, h);
+    g.strokeStyle = "#14532d";
+    g.lineWidth = 10;
+    g.strokeRect(5, 5, w - 10, h - 10);
+    g.fillStyle = "#b3302a";
+    g.fillRect(10, h - 34, w - 20, 24);
+    g.fillStyle = "#fffaf0";
+    g.font = "bold 18px Arial, sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText("KSRTC  ·  BUS STOP", w / 2, h - 22);
+    g.fillStyle = "#14532d";
+    g.font = malayalamFont(800, 88);
+    g.fillText(stop.ml, w / 2, 62);
+    g.fillStyle = "#222";
+    g.font = "bold 34px Arial, sans-serif";
+    g.fillText(stop.name.toUpperCase(), w / 2, 122);
+  };
+}
+
+export const drawStopSign: Draw = (g, w, h) => {
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#fff";
+  g.beginPath();
+  g.arc(w / 2, h / 2, w / 2 - 2, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#1565c0";
+  g.beginPath();
+  g.arc(w / 2, h / 2, w / 2 - 10, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#fff";
+  g.fillRect(w * 0.27, h * 0.3, w * 0.46, h * 0.3);
+  g.fillStyle = "#1565c0";
+  g.fillRect(w * 0.31, h * 0.34, w * 0.38, h * 0.12);
+  g.fillStyle = "#fff";
+  g.beginPath();
+  g.arc(w * 0.36, h * 0.64, w * 0.05, 0, Math.PI * 2);
+  g.arc(w * 0.64, h * 0.64, w * 0.05, 0, Math.PI * 2);
+  g.fill();
+  g.font = "bold 22px Arial, sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText("BUS STOP", w / 2, h * 0.8);
+};
+
+// A Kerala-style waiting shed: concrete pillars, clay-tile roof, green-banded
+// back wall, a bench, and a name board in Malayalam with the English below.
+function Shelter({ stop }: { stop: Stop }) {
+  const draw = useMemo(() => boardDrawer(stop), [stop]);
+  const board = useCanvasTexture(1024, 192, draw, stop.ml);
+  const sign = useCanvasTexture(128, 128, drawStopSign);
+
   return (
     <group>
-      <mesh position={[0, 2.6, 0]} castShadow>
-        <boxGeometry args={[6, 0.2, 2.4]} />
-        <meshStandardMaterial color="#c8281a" />
+      {/* plinth */}
+      <mesh position={[0, 0.06, 0]}>
+        <boxGeometry args={[6.8, 0.12, 2.7]} />
+        <meshStandardMaterial color={CONCRETE} />
       </mesh>
-      {[-2.8, 2.8].map((x) => (
-        <mesh key={x} position={[x, 1.3, 1]}>
-          <boxGeometry args={[0.15, 2.6, 0.15]} />
+      {/* pillars: concrete with a red band */}
+      {[-3.0, 3.0].map((x) =>
+        [-1.05, 1.05].map((z) => (
+          <group key={`${x}${z}`} position={[x, 0, z]}>
+            <mesh position={[0, 1.4, 0]} castShadow>
+              <boxGeometry args={[0.2, 2.8, 0.2]} />
+              <meshStandardMaterial color={CREAM} />
+            </mesh>
+            <mesh position={[0, 0.35, 0]}>
+              <boxGeometry args={[0.215, 0.5, 0.215]} />
+              <meshStandardMaterial color={TILE} />
+            </mesh>
+          </group>
+        )),
+      )}
+      {/* back and side walls */}
+      <mesh position={[0, 1.2, -1.08]}>
+        <boxGeometry args={[6.0, 2.2, 0.14]} />
+        <meshStandardMaterial color={CREAM} />
+      </mesh>
+      <mesh position={[0, 0.55, -1.0]}>
+        <boxGeometry args={[6.0, 0.9, 0.16]} />
+        <meshStandardMaterial color={GREEN} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * 2.98, 1.2, -0.1]}>
+          <boxGeometry args={[0.12, 2.2, 2.1]} />
+          <meshStandardMaterial color={CREAM} />
+        </mesh>
+      ))}
+      {/* clay-tile roof, sloping back, with a white fascia */}
+      <mesh position={[0, 2.92, 0]} rotation={[0.08, 0, 0]} castShadow>
+        <boxGeometry args={[7.0, 0.14, 3.4]} />
+        <meshStandardMaterial color={TILE} />
+      </mesh>
+      {[-0.9, -0.3, 0.3, 0.9].map((z) => (
+        <mesh key={z} position={[0, 3.0, z]} rotation={[0.08, 0, 0]}>
+          <boxGeometry args={[7.0, 0.04, 0.05]} />
+          <meshStandardMaterial color="#8a2f1d" />
+        </mesh>
+      ))}
+      <mesh position={[0, 2.78, 1.66]}>
+        <boxGeometry args={[7.0, 0.26, 0.1]} />
+        <meshStandardMaterial color="#f2ece0" />
+      </mesh>
+      {/* the name board, hung under the roof edge and facing the road */}
+      <mesh position={[0, 2.22, 1.68]}>
+        <boxGeometry args={[5.5, 0.98, 0.06]} />
+        <meshStandardMaterial color="#14532d" />
+      </mesh>
+      <mesh position={[0, 2.22, 1.715]}>
+        <planeGeometry args={[5.4, 0.9]} />
+        <meshBasicMaterial map={board} />
+      </mesh>
+      {[-2.5, 2.5].map((x) => (
+        <mesh key={x} position={[x, 2.62, 1.66]}>
+          <boxGeometry args={[0.06, 0.4, 0.06]} />
           <meshStandardMaterial color="#555" />
         </mesh>
       ))}
-      <mesh position={[0, 1.2, -1.1]}>
-        <boxGeometry args={[6, 2.4, 0.1]} />
-        <meshStandardMaterial color="#cfd8dc" transparent opacity={0.55} />
-      </mesh>
-      <mesh position={[0, 0.5, -0.7]}>
-        <boxGeometry args={[4, 0.12, 0.7]} />
+      {/* bench */}
+      <mesh position={[0, 0.5, -0.55]}>
+        <boxGeometry args={[4.4, 0.07, 0.5]} />
         <meshStandardMaterial color="#8a6a42" />
       </mesh>
-      <mesh position={[3.6, 1.8, 0.9]}>
-        <boxGeometry args={[0.1, 3.6, 0.1]} />
-        <meshStandardMaterial color="#444" />
+      <mesh position={[0, 0.85, -0.84]}>
+        <boxGeometry args={[4.4, 0.42, 0.06]} />
+        <meshStandardMaterial color="#8a6a42" />
       </mesh>
-      <mesh position={[3.6, 3.4, 0.9]}>
-        <boxGeometry args={[0.9, 0.9, 0.08]} />
-        <meshStandardMaterial color="#1565c0" />
+      {[-2.0, 0, 2.0].map((x) => (
+        <mesh key={x} position={[x, 0.28, -0.55]}>
+          <boxGeometry args={[0.08, 0.44, 0.45]} />
+          <meshStandardMaterial color="#444" />
+        </mesh>
+      ))}
+      {/* waste bin */}
+      <mesh position={[2.4, 0.4, 0.5]}>
+        <cylinderGeometry args={[0.22, 0.2, 0.7, 12]} />
+        <meshStandardMaterial color="#2e7d32" />
+      </mesh>
+      {/* round bus-stop sign on a post, facing the traffic that approaches */}
+      <mesh position={[3.9, 1.7, 0.9]}>
+        <boxGeometry args={[0.07, 3.4, 0.07]} />
+        <meshStandardMaterial color="#555" />
+      </mesh>
+      <mesh position={[3.9, 3.2, 0.9]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[0.8, 0.8]} />
+        <meshBasicMaterial map={sign} transparent alphaTest={0.05} />
+      </mesh>
+      <mesh position={[3.9, 3.2, 0.9]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[0.8, 0.8]} />
+        <meshBasicMaterial map={sign} transparent alphaTest={0.05} />
       </mesh>
     </group>
   );
@@ -128,14 +262,14 @@ export function Stops() {
                     occupied={parked !== null && parked.stop === i && parked.side === side}
                   />
                   <group
-                    position={[stop.position, 0, side === "forward" ? cz - edge : cz + edge]}
+                    position={[stop.position, FOOTPATH_HEIGHT, side === "forward" ? cz - edge : cz + edge]}
                     rotation={[0, side === "forward" ? 0 : Math.PI, 0]}
                   >
-                    <Shelter />
+                    <Shelter stop={stop} />
                     {here.map((p, k) => {
                       const slot = queueSlot(k);
                       return (
-                        <group key={p.id} position={[slot.x, 0, slot.z]}>
+                        <group key={p.id} position={[slot.x, 0.12, slot.z]}>
                           <Person spec={specFor(p.id)} />
                         </group>
                       );

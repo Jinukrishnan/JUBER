@@ -19,8 +19,8 @@ const FOLLOW = {
 
 // Driver seat looks forward; while reversing the view moves to the rear window
 // and looks back. Offsets are bus-local: +x forward, +y up, +z right.
-const SEAT = { pos: [3.6, 2.7, 0.7], look: [40, 2.3, 0.7] } as const;
-const REAR = { pos: [-4.7, 2.8, 0.4], look: [-40, 2.2, 0.4] } as const;
+const SEAT = { pos: [3.6, 2.15, 0.7], look: [40, 1.9, 0.7] } as const;
+const REAR = { pos: [-4.7, 2.3, 0.4], look: [-40, 1.8, 0.4] } as const;
 
 function local(o: readonly [number, number, number], out: Vector3) {
   const c = Math.cos(busPose.heading);

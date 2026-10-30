@@ -19,6 +19,15 @@ describe("ROUTE_V1", () => {
   });
 });
 
+describe("stop names", () => {
+  it("gives every stop a Malayalam name for its board", () => {
+    for (const stop of ROUTE_V1) {
+      expect(stop.ml).toMatch(/[ഀ-ൿ]/);
+      expect(stop.ml.trim()).toBe(stop.ml);
+    }
+  });
+});
+
 describe("nextStopIndex", () => {
   it("finds the next stop ahead going forward", () => {
     expect(nextStopIndex(ROUTE_V1, 100, "forward")).toBe(1);

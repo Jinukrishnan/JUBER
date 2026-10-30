@@ -47,6 +47,18 @@ Flow: `/` landing -> `/login` driver ticket -> `/play` the game
 - Driving past a stop where someone wants to get off costs rating and refunds their fare.
 - The day runs 06:00-20:00 on a clock compressed to 8 real minutes.
 
+## The road
+
+A realistic Kerala road: asphalt with white edge lines, a dashed centre line that turns into a double
+yellow line before each zebra crossing, stop lines, raised footpaths with kerbs on both sides, dirt verges,
+coconut palms, tiled-roof houses, shops and electric poles. Roadside signs (speed limit, pedestrian crossing,
+bus stop, and Malayalam direction boards) are placed from the road layout in `src/game/logic/roadside.ts`.
+People only cross the road at the zebra crossings.
+
+Each bus stop is a Kerala-style waiting shed with a name board in Malayalam and English (names live in
+`src/game/data/route-v1.ts`). Passengers walk through the bus door and take a seat or standing place you can
+see through the windows; the number inside always matches the seat counter.
+
 ## Tuning
 
 All numbers live in `src/game/constants.ts` (capacity, rent, goal, day length,

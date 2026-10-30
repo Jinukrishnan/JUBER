@@ -12,6 +12,7 @@ import {
   STOP_SPEED_MAX,
 } from "../constants";
 import { ROUTE_V1 } from "../data/route-v1";
+import { firstFreeSeat } from "../logic/seats";
 import { planTransfer } from "../logic/boarding";
 import { advanceClock } from "../logic/clock";
 import { makePassenger, type Passenger } from "../logic/fares";
@@ -221,8 +222,10 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
 
       if (plan.board.length > 0) {
         const p = plan.board[0];
+        const seat = firstFreeSeat(s.onboard.map((o) => o.seat ?? -1));
+        if (seat === null) return {};
         return {
-          onboard: [...s.onboard, p],
+          onboard: [...s.onboard, { ...p, seat }],
           waitingByStop: s.waitingByStop.map((q, i) =>
             i === zone ? q.filter((x) => x.id !== p.id) : q,
           ),

@@ -56,10 +56,11 @@ function Shoe({ spec }: { spec: PersonSpec }) {
   }
 }
 
-function Hair({ spec }: { spec: PersonSpec }) {
+// Hair around a head centred on the origin.
+export function Hair({ spec }: { spec: PersonSpec }) {
   const c = spec.hairColor;
   return (
-    <group position={[0, 1.66, 0]}>
+    <group>
       {spec.hairStyle === "thin" ? (
         <mesh position={[0, 0.03, -0.045]} scale={[1, 0.55, 0.9]}>
           <sphereGeometry args={[0.13, 10, 8]} />
@@ -249,7 +250,9 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
             <meshStandardMaterial color="#c0152b" />
           </mesh>
         )}
-        <Hair spec={spec} />
+        <group position={[0, 1.66, 0]}>
+          <Hair spec={spec} />
+        </group>
       </group>
     </group>
   );

@@ -6,6 +6,8 @@ export type Passenger = {
   destination: number;
   fare: number;
   patience: number;
+  // place in the bus once aboard (see logic/seats.ts)
+  seat?: number;
 };
 
 const BASE_FARE = 10;

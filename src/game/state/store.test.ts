@@ -224,6 +224,30 @@ describe("bay rules", () => {
   });
 });
 
+describe("seats", () => {
+  const boardAll = (n: number) => {
+    const crowd = Array.from({ length: n }, (_, i) => makePassenger(`s${i}`, 0, 6, 100));
+    useGame.setState({ waitingByStop: [crowd, ...ROUTE_V1.slice(1).map(() => [])] });
+    useGame.getState().setBusState(0, 0);
+    useGame.getState().toggleDoor();
+    for (let i = 0; i < n; i++) useGame.getState().transferStep();
+  };
+
+  it("gives each boarding passenger their own seat", () => {
+    boardAll(3);
+    expect(useGame.getState().onboard.map((p) => p.seat)).toEqual([0, 1, 2]);
+  });
+
+  it("lets the next passenger take a seat that was freed", () => {
+    boardAll(3);
+    useGame.setState({ onboard: useGame.getState().onboard.filter((p) => p.seat !== 1) });
+    const late = makePassenger("late", 0, 5, 100);
+    useGame.setState({ waitingByStop: [[late], ...ROUTE_V1.slice(1).map(() => [])] });
+    useGame.getState().transferStep();
+    expect(useGame.getState().onboard.find((p) => p.id === "late")?.seat).toBe(1);
+  });
+});
+
 describe("events", () => {
   it("records a board event with where the passenger is going", () => {
     const p = makePassenger("a", 0, 2, 100);
