@@ -4,6 +4,7 @@ export type RatingEvents = {
   harshEvents: number;
   carried: number;
   accidents?: number;
+  violations?: number;
 };
 
 // Passengers who give up waiting are mostly down to the timetable, not the
@@ -17,7 +18,8 @@ export function computeRating(e: RatingEvents): number {
     0.5 * e.missedStops -
     Math.min(EXPIRED_MAX, EXPIRED_WEIGHT * e.expiredPassengers) -
     0.1 * e.harshEvents -
-    (e.accidents ?? 0);
+    (e.accidents ?? 0) -
+    0.5 * (e.violations ?? 0);
   const clamped = Math.min(5, Math.max(1, raw));
   return Math.round(clamped * 2) / 2;
 }

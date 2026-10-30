@@ -122,3 +122,18 @@ describe("roadCenterZ", () => {
     }
   });
 });
+
+describe("stepVehicle with a bounds function", () => {
+  const start = { x: 0, z: 0, heading: 0, speed: 5, steerAngle: 0 };
+  it("lets the bounds replace the road edge", () => {
+    const r = stepVehicle({ ...start, z: 7 }, { throttle: 0, steer: 0, handbrake: false }, 0.1, 6, 0, (x, z) => ({ x, z, clamped: false }));
+    expect(r.hitEdge).toBe(false);
+    expect(r.state.z).toBeCloseTo(7);
+  });
+  it("moves the vehicle to the point the bounds give and scrubs speed", () => {
+    const r = stepVehicle(start, { throttle: 0, steer: 0, handbrake: false }, 0.1, 6, 0, (x) => ({ x, z: 3, clamped: true }));
+    expect(r.hitEdge).toBe(true);
+    expect(r.state.z).toBe(3);
+    expect(r.state.speed).toBeLessThan(5);
+  });
+});

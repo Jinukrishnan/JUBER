@@ -1,0 +1,59 @@
+import { describe, expect, it } from "vitest";
+import { approachLight, resolvePlan, signalAt, redAge } from "./signals";
+
+const plan = resolvePlan({}); // 28 / 3 / 2 / 14 / 3 / 2 = 52 s
+
+describe("signalAt", () => {
+  it("runs main green, main yellow, all red, cross green, cross yellow, all red", () => {
+    const at = (t: number) => signalAt(plan, t);
+    expect([at(0).main, at(0).cross]).toEqual(["green", "red"]);
+    expect([at(28).main, at(28).cross]).toEqual(["yellow", "red"]);
+    expect([at(31).main, at(31).cross]).toEqual(["red", "red"]);
+    expect([at(33).main, at(33).cross]).toEqual(["red", "green"]);
+    expect([at(47).main, at(47).cross]).toEqual(["red", "yellow"]);
+    expect([at(50).main, at(50).cross]).toEqual(["red", "red"]);
+    expect([at(52).main, at(52).cross]).toEqual(["green", "red"]);
+  });
+  it("never shows green to both roads", () => {
+    for (let t = 0; t < 200; t += 0.25) {
+      const s = signalAt(plan, t);
+      expect(s.main === "green" && s.cross === "green").toBe(false);
+      expect(s.main !== "red" && s.cross !== "red").toBe(false);
+    }
+  });
+  it("reports the seconds until the light changes", () => {
+    expect(signalAt(plan, 0).nextChange).toBeCloseTo(28);
+    expect(signalAt(plan, 27.5).nextChange).toBeCloseTo(0.5);
+    expect(signalAt(plan, 33).nextChange).toBeCloseTo(14);
+  });
+  it("starts later or earlier with an offset", () => {
+    const p = resolvePlan({ offset: 12 });
+    expect(signalAt(p, 0).main).toBe("green");
+    expect(signalAt(p, 0).nextChange).toBeCloseTo(16);
+    expect(signalAt(p, 40).main).toBe("green");
+  });
+  it("wraps for negative times without breaking", () => {
+    expect(signalAt(plan, -1).main).toBe("red");
+  });
+});
+
+describe("approachLight", () => {
+  const j = { id: "a", x: 0, arms: "both" as const };
+  it("gives the main road both directions the main light and the arms the cross light", () => {
+    expect(approachLight(j, 0, "mainForward")).toBe("green");
+    expect(approachLight(j, 0, "mainBackward")).toBe("green");
+    expect(approachLight(j, 0, "armLeft")).toBe("red");
+    expect(approachLight(j, 33, "armRight")).toBe("green");
+  });
+  it("is always green at a junction without a signal", () => {
+    expect(approachLight({ ...j, signal: false }, 0, "armLeft")).toBe("green");
+  });
+});
+
+describe("redAge", () => {
+  it("counts seconds since the light turned red", () => {
+    expect(redAge(plan, 31.5, "main")).toBeCloseTo(0.5);
+    expect(redAge(plan, 1, "cross")).toBeGreaterThan(1);
+    expect(redAge(plan, 10, "main")).toBe(0);
+  });
+});

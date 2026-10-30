@@ -1,4 +1,5 @@
 import { keepOutZones, overlaps, type Shape } from "./footprint";
+import type { ResolvedJunction } from "./junction";
 import { FOOTPATH_WIDTH, VERGE_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
 import type { RoadFeatures } from "./roadside";
 import type { Stop } from "./route";
@@ -179,12 +180,13 @@ export function layoutScenery(
   seed: number,
   stops: Stop[],
   features: RoadFeatures,
+  junctions: ResolvedJunction[] = [],
 ): {
   placements: Placement[];
   isGroundFree(x: number, z: number, radius: number): boolean;
 } {
   const r = mulberry32(seed);
-  const zones = keepOutZones(stops, features);
+  const zones = keepOutZones(stops, features, junctions);
   const placements: Placement[] = [];
   const zoneGrid = new Grid();
   zones.forEach((z) => zoneGrid.add(z));

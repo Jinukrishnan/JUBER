@@ -39,6 +39,7 @@ export function stepVehicle(
   dt: number,
   roadHalfWidth: number,
   centerZ = 0,
+  bounds?: (x: number, z: number) => { x: number; z: number; clamped: boolean },
 ): { state: VehicleState; hitEdge: boolean } {
   let speed = s.speed;
 
@@ -59,12 +60,21 @@ export function stepVehicle(
 
   const heading = s.heading + (speed / WHEELBASE) * Math.tan(steerAngle) * dt;
 
-  const x = s.x + Math.cos(heading) * speed * dt;
+  let x = s.x + Math.cos(heading) * speed * dt;
   let z = s.z + Math.sin(heading) * speed * dt;
 
   let hitEdge = false;
   const offset = z - centerZ;
-  if (Math.abs(offset) > roadHalfWidth) {
+  if (bounds) {
+    // the caller knows the paved area (main road plus side roads)
+    const b = bounds(x, z);
+    if (b.clamped) {
+      hitEdge = true;
+      x = b.x;
+      z = b.z;
+      speed *= EDGE_SCRUB;
+    }
+  } else if (Math.abs(offset) > roadHalfWidth) {
     hitEdge = true;
     z = centerZ + Math.sign(offset) * roadHalfWidth;
     speed *= EDGE_SCRUB;

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   ACCIDENT_FINE,
+  SIGNAL_FINE,
   BOARD_INTERVAL_S,
   CAPACITY,
   INITIAL_WAITING_PER_STOP,
@@ -55,6 +56,8 @@ export type GameState = {
   muted: boolean;
   headlights: boolean;
   accidents: number;
+  violations: number;
+  signalTime: number;
   // a short on-screen message (accident fines); a new id restarts its display
   notice: { id: number; text: string } | null;
   noticeSeq: number;
@@ -95,6 +98,7 @@ type Actions = {
   toggleMute: () => void;
   toggleHeadlights: () => void;
   registerAccident: () => void;
+  registerViolation: () => void;
   injure: (c: NewCasualty) => void;
   clearCasualty: (id: number) => void;
   hitWaiting: (stop: number, passengerId: string, c: NewCasualty) => void;
@@ -150,6 +154,8 @@ function initialState(): GameState {
     muted: false,
     headlights: false,
     accidents: 0,
+    violations: 0,
+    signalTime: 0,
     notice: null,
     noticeSeq: 0,
     casualties: [],
@@ -208,6 +214,13 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       accidents: s.accidents + 1,
       noticeSeq: s.noticeSeq + 1,
       notice: { id: s.noticeSeq + 1, text: `Accident! Fine Rs. ${ACCIDENT_FINE}` },
+    })),
+  registerViolation: () =>
+    set((s) => ({
+      net: s.net - SIGNAL_FINE,
+      violations: s.violations + 1,
+      noticeSeq: s.noticeSeq + 1,
+      notice: { id: s.noticeSeq + 1, text: `Jumped a red signal! Fine Rs. ${SIGNAL_FINE}` },
     })),
   injure: (c) => {
     get().registerAccident();
@@ -320,6 +333,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
 
     set({
       clockElapsed: clock.elapsedRealS,
+      signalTime: s.signalTime + dt,
       hour: clock.hour,
       waitingByStop: spawned.waitingByStop,
       seed: spawned.seed,

@@ -1,4 +1,5 @@
 import { BAY_OFFSET, BAY_WIDTH } from "./bay";
+import { TURN_AROUND_RADIUS, armSigns, localToWorld, type ResolvedJunction } from "./junction";
 import { FOOTPATH_WIDTH, VERGE_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
 import { polePositions, type RoadFeatures } from "./roadside";
 import type { Stop } from "./route";
@@ -71,7 +72,7 @@ const SHELTER_EDGE = BAY_OFFSET + BAY_WIDTH / 2 + 2.2; // shelter centre, from t
 // Everything scenery must stay out of: the road, footpath and verge (including
 // the widened turn-around areas), every shelter and its sign post, every sign
 // pole and every electric pole.
-export function keepOutZones(stops: Stop[], features: RoadFeatures): Shape[] {
+export function keepOutZones(stops: Stop[], features: RoadFeatures, junctions: ResolvedJunction[] = []): Shape[] {
   const zones: Shape[] = [];
   const first = stops[0].position - 90;
   const last = stops[stops.length - 1].position + 110;
@@ -98,7 +99,16 @@ export function keepOutZones(stops: Stop[], features: RoadFeatures): Shape[] {
     const lat = roadHalfWidthAt(sign.x) + 0.9;
     zones.push({ kind: "circle", x: sign.x, z: roadCenterZ(sign.x) + (sign.side === "left" ? -lat : lat), r: 0.8 });
   }
-  for (const x of polePositions(stops)) {
+  for (const j of junctions) {
+    const across = 2 * (j.armHalfWidth + FOOTPATH_WIDTH + VERGE_WIDTH) + 0.8;
+    for (const side of armSigns(j.arms)) {
+      const mid = localToWorld(j, 0, side * (j.armLength / 2));
+      zones.push({ kind: "rect", x: mid.x, z: mid.z, w: j.armLength + 2, d: across, heading: j.angle + Math.PI / 2 });
+      const end = localToWorld(j, 0, side * j.armLength);
+      zones.push({ kind: "circle", x: end.x, z: end.z, r: TURN_AROUND_RADIUS + 4 });
+    }
+  }
+  for (const x of polePositions(stops, junctions)) {
     zones.push({ kind: "circle", x, z: roadCenterZ(x) + roadHalfWidthAt(x) + FOOTPATH_WIDTH + 0.9, r: 0.6 });
   }
   return zones;

@@ -1,3 +1,4 @@
+import type { ResolvedJunction } from "./junction";
 import type { Stop } from "./route";
 
 // Where the road furniture goes: zebra crossings, roadside signs and the
@@ -57,10 +58,14 @@ export function isSolidAt(f: RoadFeatures, x: number): boolean {
 }
 
 // x of every electric pole along the route: every 45 m, from 10 m past the depot to the last stop.
-export function polePositions(stops: Stop[]): number[] {
+export function polePositions(stops: Stop[], junctions: ResolvedJunction[] = []): number[] {
   const first = stops[0].position;
   const last = stops[stops.length - 1].position;
   const xs: number[] = [];
-  for (let x = first + 10; x <= last; x += 45) xs.push(x);
+  for (let x = first + 10; x <= last; x += 45) {
+    // no pole in the mouth of a side road
+    if (junctions.some((j) => Math.abs(x - j.x) < j.armHalfWidth + 6)) continue;
+    xs.push(x);
+  }
   return xs;
 }

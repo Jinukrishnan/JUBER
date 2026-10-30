@@ -4,6 +4,8 @@ import { BAY_OFFSET, BAY_WIDTH } from "./bay";
 import { keepOutZones, overlaps, type Shape } from "./footprint";
 import { FOOTPATH_WIDTH, roadCenterZ, roadHalfWidthAt } from "./road";
 import { polePositions, roadFeatures } from "./roadside";
+import { JUNCTIONS } from "../world";
+import { localToWorld } from "./junction";
 
 const circle = (x: number, z: number, r: number): Shape => ({ kind: "circle", x, z, r });
 const rect = (x: number, z: number, w: number, d: number, heading = 0): Shape => ({ kind: "rect", x, z, w, d, heading });
@@ -94,5 +96,42 @@ describe("keepOutZones", () => {
   it("leaves open ground well back from the road free", () => {
     expect(covered(500, roadCenterZ(500) + 30)).toBe(false);
     expect(covered(500, roadCenterZ(500) - 30)).toBe(false);
+  });
+});
+
+describe("keepOutZones with junctions", () => {
+  const features = roadFeatures(ROUTE_V1);
+  const zones = keepOutZones(ROUTE_V1, features, JUNCTIONS);
+  const covered = (x: number, z: number) => zones.some((s) => overlaps(s, circle(x, z, 0.1)));
+  const j = JUNCTIONS.find((r) => r.arms === "both")!;
+  const at = (u: number, v: number) => {
+    const w = localToWorld(j, u, v);
+    return [w.x, w.z] as const;
+  };
+
+  it("covers each arm, its corners and its turn-around, on both sides", () => {
+    for (const side of [-1, 1]) {
+      expect(covered(...at(0, side * 60))).toBe(true);
+      expect(covered(...at(9, side * 60))).toBe(true);
+      expect(covered(...at(10, side * 12))).toBe(true);
+      expect(covered(...at(10, side * (j.armLength + 5)))).toBe(true);
+    }
+  });
+  it("only covers the arms the junction has", () => {
+    const left = JUNCTIONS.find((r) => r.arms === "left")!;
+    const w = localToWorld(left, 0, 60);
+    const wr = localToWorld(left, 0, -60);
+    const zs = keepOutZones(ROUTE_V1, features, [left]);
+    const hit = (p: { x: number; z: number }) => zs.some((s) => overlaps(s, circle(p.x, p.z, 0.1)));
+    expect(hit(wr)).toBe(true);
+    expect(hit(w)).toBe(false);
+  });
+  it("leaves open ground beside an arm free", () => {
+    expect(covered(...at(40, 60))).toBe(false);
+  });
+  it("keeps poles out of junctions", () => {
+    for (const x of polePositions(ROUTE_V1, JUNCTIONS)) {
+      for (const r of JUNCTIONS) expect(Math.abs(x - r.x)).toBeGreaterThan(r.armHalfWidth + 6);
+    }
   });
 });

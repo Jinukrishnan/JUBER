@@ -362,3 +362,33 @@ describe("events", () => {
     expect(useGame.getState().events).toHaveLength(30);
   });
 });
+
+describe("red-light violations", () => {
+  it("fine the driver, count it and show a notice", () => {
+    useGame.getState().startDay();
+    const before = useGame.getState().net;
+    useGame.getState().registerViolation();
+    const s = useGame.getState();
+    expect(s.net).toBe(before - 100);
+    expect(s.violations).toBe(1);
+    expect(s.notice?.text).toBe("Jumped a red signal! Fine Rs. 100");
+  });
+  it("start again at zero on a new day", () => {
+    useGame.getState().registerViolation();
+    useGame.getState().startDay();
+    expect(useGame.getState().violations).toBe(0);
+    expect(useGame.getState().signalTime).toBe(0);
+  });
+});
+
+describe("signal clock", () => {
+  it("advances while the day runs and holds while paused", () => {
+    useGame.getState().startDay();
+    useGame.getState().tick(0.5);
+    useGame.getState().tick(0.5);
+    expect(useGame.getState().signalTime).toBeCloseTo(1);
+    useGame.getState().pause();
+    useGame.getState().tick(0.5);
+    expect(useGame.getState().signalTime).toBeCloseTo(1);
+  });
+});

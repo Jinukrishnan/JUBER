@@ -13,15 +13,16 @@ import {
 } from "./layout";
 import { FOOTPATH_WIDTH, VERGE_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
 import { roadFeatures } from "./roadside";
+import { JUNCTIONS } from "../world";
 
 const SEED = 20261030;
 const features = roadFeatures(ROUTE_V1);
-const zones = keepOutZones(ROUTE_V1, features);
+const zones = keepOutZones(ROUTE_V1, features, JUNCTIONS);
 let layout: ReturnType<typeof layoutScenery>;
 let placements: Placement[];
 
 beforeAll(() => {
-  layout = layoutScenery(SEED, ROUTE_V1, features);
+  layout = layoutScenery(SEED, ROUTE_V1, features, JUNCTIONS);
   placements = layout.placements;
 });
 
@@ -33,10 +34,10 @@ const lateral = (p: { x: number; z: number }) => Math.abs(p.z - roadCenterZ(p.x)
 
 describe("layoutScenery determinism", () => {
   it("gives the same layout for the same seed", () => {
-    expect(layoutScenery(SEED, ROUTE_V1, features).placements).toEqual(placements);
+    expect(layoutScenery(SEED, ROUTE_V1, features, JUNCTIONS).placements).toEqual(placements);
   });
   it("gives a different layout for a different seed", () => {
-    expect(layoutScenery(SEED + 1, ROUTE_V1, features).placements).not.toEqual(placements);
+    expect(layoutScenery(SEED + 1, ROUTE_V1, features, JUNCTIONS).placements).not.toEqual(placements);
   });
 });
 
@@ -209,7 +210,7 @@ describe("the village is balanced", () => {
     const species = (k: string) => placements.filter((p) => p.kind === k).length;
     expect(placements.filter(isFlowers).length).toBeGreaterThanOrEqual(40);
     expect(species("gulmohar")).toBeGreaterThanOrEqual(12);
-    expect(species("mango")).toBeGreaterThanOrEqual(30);
+    expect(species("mango")).toBeGreaterThanOrEqual(24); // side roads take some roadside
     expect(placements.filter(isTree).length).toBeGreaterThanOrEqual(buildings().length * 1.4);
   });
 });
