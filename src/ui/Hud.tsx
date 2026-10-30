@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { CAPACITY, GOAL } from "@/game/constants";
 import { ROUTE_V1 } from "@/game/data/route-v1";
+import { busPose } from "@/game/busPose";
 import { formatClock } from "@/game/logic/clock";
+import { stopGuidance } from "@/game/logic/guidance";
 import { nextStopIndex } from "@/game/logic/route";
 import { useGame } from "@/game/state/store";
 
@@ -54,7 +56,25 @@ function AccidentBanner() {
   );
 }
 
+// What to do next at a stop, refreshed a few times a second from the live bus pose.
+function useStopHint(): string | null {
+  const [hint, setHint] = useState<string | null>(null);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const g = useGame.getState();
+      setHint(
+        g.phase !== "running"
+          ? null
+          : stopGuidance({ stops: ROUTE_V1, direction: g.direction, doorOpen: g.doorOpen, speed: Math.abs(busPose.speed), x: busPose.x, z: busPose.z, heading: busPose.heading }),
+      );
+    }, 150);
+    return () => clearInterval(id);
+  }, []);
+  return hint;
+}
+
 export function Hud() {
+  const stopHint = useStopHint();
   const net = useGame((s) => s.net);
   const hour = useGame((s) => s.hour);
   const onboard = useGame((s) => s.onboard.length);
@@ -98,6 +118,12 @@ export function Hud() {
       </div>
 
       <AccidentBanner />
+
+      {stopHint && (
+        <div className="absolute inset-x-0 bottom-28 mx-auto w-fit max-w-[92vw] rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow">
+          {stopHint}
+        </div>
+      )}
 
       <div className="absolute inset-x-0 bottom-4 mx-auto w-[min(640px,92vw)] rounded-xl border border-line bg-cream/90 px-4 py-3 shadow">
         <div className="flex items-baseline justify-between text-sm">
