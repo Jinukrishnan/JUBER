@@ -67,3 +67,28 @@ describe("RideStrip", () => {
     expect(screen.getByTestId("ride-strip")).toHaveTextContent(/getting out/i);
   });
 });
+
+import { GRAPH } from "@/game/rideWorld";
+import { route as planRoute } from "@/game/logic/roadgraph";
+import { roadAngle } from "@/game/logic/road";
+
+describe("RideStrip directions", () => {
+  it("tells the driver the next turn or the arrival", () => {
+    busPose.heading = roadAngle(busPose.x);
+    const ride = acceptRequest(IDLE_RIDE, req);
+    useGame.setState({ ride, route: planRoute(GRAPH, { x: busPose.x, z: busPose.z, heading: busPose.heading }, req.pickup) });
+    render(<RideStrip />);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(screen.getByTestId("ride-directions")).toHaveTextContent(/Thennalpadi.* in 1\d\d m/);
+  });
+  it("shows no directions without a route", () => {
+    useGame.setState({ ride: acceptRequest(IDLE_RIDE, req), route: null });
+    render(<RideStrip />);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(screen.queryByTestId("ride-directions")).toBeNull();
+  });
+});

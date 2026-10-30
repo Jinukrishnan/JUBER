@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { busPose } from "@/game/busPose";
+import { arrowFor, describeStep } from "@/game/logic/navtext";
+import { nextStep } from "@/game/logic/roadgraph";
 import { spotOf } from "@/game/rideWorld";
 import { useGame } from "@/game/state/store";
 
@@ -10,6 +12,7 @@ import { useGame } from "@/game/state/store";
 export function RideStrip() {
   const ride = useGame((s) => s.ride);
   const [metres, setMetres] = useState(0);
+  const [nav, setNav] = useState<{ text: string; arrow: string } | null>(null);
 
   const request = ride.request;
   const target = request ? (ride.phase === "toPickup" ? request.pickup : request.drop) : null;
@@ -19,6 +22,9 @@ export function RideStrip() {
     const id = setInterval(() => {
       const s = spotOf(target);
       setMetres(Math.round(Math.hypot(s.x - busPose.x, s.z - busPose.z)));
+      const g = useGame.getState();
+      const next = g.route && (g.ride.phase === "toPickup" || g.ride.phase === "riding") ? nextStep(g.route, busPose) : null;
+      setNav(next ? { text: describeStep(next.step, next.distance, target.name), arrow: arrowFor(next.step.turn) } : null);
     }, 200);
     return () => clearInterval(id);
   }, [target]);
@@ -47,11 +53,18 @@ export function RideStrip() {
   }
 
   return (
-    <div
-      data-testid="ride-strip"
-      className="absolute inset-x-0 top-4 mx-auto w-fit max-w-[min(560px,calc(100vw-30rem))] rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow"
-    >
-      {text}
+    <div className="absolute inset-x-0 top-4 mx-auto flex w-fit max-w-[min(560px,calc(100vw-30rem))] flex-col items-center gap-1">
+      <div data-testid="ride-strip" className="rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow">
+        {text}
+      </div>
+      {nav && (ride.phase === "toPickup" || ride.phase === "riding") && (
+        <div data-testid="ride-directions" className="flex items-center gap-2 rounded-full bg-ink px-4 py-1.5 text-sm font-semibold text-cream shadow">
+          <span aria-hidden="true" className="text-lg leading-none">
+            {nav.arrow}
+          </span>
+          {nav.text}
+        </div>
+      )}
     </div>
   );
 }

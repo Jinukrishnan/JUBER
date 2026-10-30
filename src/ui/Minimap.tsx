@@ -7,6 +7,7 @@ import { armSigns, localToWorld } from "@/game/logic/junction";
 import { DEFAULT_RANGE_INDEX, RADAR_RANGES, toRadar, toRadarRaw, type RadarView } from "@/game/logic/radar";
 import { roadCenterZ } from "@/game/logic/road";
 import type { Ride } from "@/game/logic/ride";
+import type { Route } from "@/game/logic/roadgraph";
 import { spotOf } from "@/game/rideWorld";
 import { approachLight } from "@/game/logic/signals";
 import { useGame } from "@/game/state/store";
@@ -17,7 +18,7 @@ const SIZE = 176; // px across the round radar
 const R = SIZE / 2;
 const LIGHT = { red: "#ff3b2a", yellow: "#ffc21a", green: "#2fe06a" } as const;
 
-type Drawn = { ride: Ride; signalTime: number };
+type Drawn = { ride: Ride; route: Route | null; signalTime: number };
 
 function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
   const view: RadarView = { x: busPose.x, z: busPose.z, heading: busPose.heading };
@@ -54,6 +55,21 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
   const main: { x: number; z: number }[] = [];
   for (let x = busPose.x - rangeM * 1.2; x <= busPose.x + rangeM * 1.2; x += step) main.push({ x, z: roadCenterZ(x) });
   road(main, 12);
+
+  // the route to follow: blue to the customer, green to the drop
+  if (g.route && g.route.points.length > 1) {
+    ctx.beginPath();
+    g.route.points.forEach((p, i) => {
+      const q = at(p);
+      if (i === 0) ctx.moveTo(q.px, q.py);
+      else ctx.lineTo(q.px, q.py);
+    });
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = toDrop ? "#2fe06a" : "#4aa3ff";
+    ctx.stroke();
+  }
 
   // side roads and signals
   for (const j of JUNCTIONS) {
@@ -140,7 +156,7 @@ export function Minimap() {
     if (!ctx) return;
     const id = setInterval(() => {
       const g = useGame.getState();
-      draw(ctx, range, { ride: g.ride, signalTime: g.signalTime });
+      draw(ctx, range, { ride: g.ride, route: g.route, signalTime: g.signalTime });
     }, 100);
     return () => clearInterval(id);
   }, [range]);

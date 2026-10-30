@@ -97,7 +97,7 @@ export function Vehicle() {
         edgeCooldown.current = 1;
         game.registerHarsh();
       }
-      game.setVehicleState({ x: r.state.x, z: r.state.z, speed: r.state.speed });
+      game.setVehicleState({ x: r.state.x, z: r.state.z, speed: r.state.speed, heading: r.state.heading });
     }
 
     const v = state.current;

@@ -17,7 +17,8 @@ import {
   tickRide,
   type Ride,
 } from "../logic/ride";
-import { RIDE_WORLD, spotOf } from "../rideWorld";
+import { offRoute, route as planRoute, type Route } from "../logic/roadgraph";
+import { GRAPH, RIDE_WORLD, spotOf } from "../rideWorld";
 
 // Someone the vehicle has hit, lying where they landed, until they are tidied away.
 export type Casualty = {
@@ -62,6 +63,7 @@ export type GameState = {
   expiredPickups: number;
   harshEvents: number;
   pickupLeft: number; // seconds the accepted customer will still wait
+  route: Route | null; // the way to the pickup, then to the drop
   // internal timers / rng
   spawnTimer: number;
   seed: number;
@@ -73,7 +75,7 @@ type Actions = {
   pause: () => void;
   resume: () => void;
   tick: (dt: number) => void;
-  setVehicleState: (pose: { x: number; z: number; speed: number }) => void;
+  setVehicleState: (pose: { x: number; z: number; speed: number; heading?: number }) => void;
   accept: (id: string) => void;
   skip: (id: string) => void;
   confirmRide: () => void;
@@ -127,6 +129,7 @@ function initialState(vehicle: VehicleKind): GameState {
     expiredPickups: 0,
     harshEvents: 0,
     pickupLeft: 0,
+    route: null,
     spawnTimer: first.delay,
     seed: first.seed,
     nextId,
@@ -176,7 +179,10 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
   // the customer waiting at the pickup was hit: they are hurt and the booking is off
   hitCustomer: (c) => {
     get().injure(c);
-    set((s) => ({ ride: cancelRide(s.ride) }));
+    set((s) => {
+      const ride = cancelRide(s.ride);
+      return ride === s.ride ? {} : { ride, route: null };
+    });
   },
   clearCasualty: (id) => set((s) => ({ casualties: s.casualties.filter((c) => c.id !== id) })),
   registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1 })),
@@ -192,6 +198,12 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       if (s.ride.phase === "riding" && inZone(pose, spotOf(s.ride.request.drop))) {
         return { ride: arriveDrop(s.ride) };
       }
+      // left the road the route follows: work out the way again from here
+      const heading = pose.heading ?? busPose.heading;
+      if (s.route && (s.ride.phase === "toPickup" || s.ride.phase === "riding") && offRoute(s.route, pose)) {
+        const to = s.ride.phase === "toPickup" ? s.ride.request.pickup : s.ride.request.drop;
+        return { route: planRoute(GRAPH, { x: pose.x, z: pose.z, heading }, to) };
+      }
       return {};
     }),
 
@@ -203,17 +215,24 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
         ride: acceptRequest(s.ride, request),
         openRequests: s.openRequests.filter((r) => r.id !== id),
         pickupLeft: PICKUP_PATIENCE_S,
+        route: planRoute(GRAPH, { x: busPose.x, z: busPose.z, heading: busPose.heading }, request.pickup),
       };
     }),
   skip: (id) => set((s) => (s.ride.phase === "online" ? { openRequests: s.openRequests.filter((r) => r.id !== id) } : {})),
   confirmRide: () => set((s) => ({ ride: acceptRide(s.ride) })),
-  finishBoarding: () => set((s) => ({ ride: boarded(s.ride) })),
+  finishBoarding: () =>
+    set((s) => {
+      const ride = boarded(s.ride);
+      if (ride === s.ride || !ride.request) return {};
+      return { ride, route: planRoute(GRAPH, { x: busPose.x, z: busPose.z, heading: busPose.heading }, ride.request.drop) };
+    }),
   finishAlighting: () =>
     set((s) => {
       const done = payRide(s.ride);
       if (done.paid === 0 || !s.ride.request) return {};
       return {
         ride: done.ride,
+        route: null,
         net: s.net + done.paid,
         ridesDone: s.ridesDone + 1,
         distanceDone: s.distanceDone + s.ride.request.distance,
@@ -256,7 +275,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       const left = s.pickupLeft - dt;
       if (left <= 0) {
         ride = IDLE_RIDE;
-        Object.assign(patch, { ride, expiredPickups: s.expiredPickups + 1, ...notice(s, "Customer got tired of waiting and left") });
+        Object.assign(patch, { ride, route: null, expiredPickups: s.expiredPickups + 1, ...notice(s, "Customer got tired of waiting and left") });
       } else {
         patch.pickupLeft = left;
       }

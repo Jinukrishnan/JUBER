@@ -303,3 +303,54 @@ describe("tick", () => {
     expect(g().clockElapsed).toBe(t);
   });
 });
+
+describe("navigation route", () => {
+  it("has none until a ride is accepted", () => {
+    expect(g().route).toBeNull();
+  });
+  it("leads to the pickup once accepted", () => {
+    const r = first();
+    g().accept(r.id);
+    const route = g().route!;
+    const s = spotOf(r, "pickup");
+    const end = route.points[route.points.length - 1];
+    expect(Math.hypot(end.x - s.x, end.z - s.z)).toBeLessThan(2);
+  });
+  it("switches to the drop once the customer is in", () => {
+    const r = first();
+    g().accept(r.id);
+    park(r, "pickup");
+    g().confirmRide();
+    g().finishBoarding();
+    const route = g().route!;
+    const s = spotOf(r, "drop");
+    const end = route.points[route.points.length - 1];
+    expect(Math.hypot(end.x - s.x, end.z - s.z)).toBeLessThan(2);
+  });
+  it("is cleared when the ride is paid", () => {
+    const r = first();
+    g().accept(r.id);
+    park(r, "pickup");
+    g().confirmRide();
+    g().finishBoarding();
+    park(r, "drop");
+    g().finishAlighting();
+    expect(g().route).toBeNull();
+  });
+  it("is cleared when the customer gives up", () => {
+    g().accept(first().id);
+    for (let i = 0; i < PICKUP_PATIENCE_S + 5; i++) g().tick(1);
+    expect(g().route).toBeNull();
+  });
+  it("is worked out again when the vehicle leaves the road it follows", () => {
+    const r = first();
+    g().accept(r.id);
+    const before = g().route!;
+    const p = before.points[Math.floor(before.points.length / 2)];
+    g().setVehicleState({ x: p.x, z: p.z + 6, speed: 5 }); // still near the line
+    expect(g().route).toBe(before);
+    g().setVehicleState({ x: p.x, z: p.z + 40, speed: 5 }); // well off it
+    expect(g().route).not.toBe(before);
+    expect(g().route!.points[0].z).toBeCloseTo(p.z + 40);
+  });
+});
