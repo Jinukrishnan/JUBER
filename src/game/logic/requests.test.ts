@@ -18,9 +18,9 @@ const origin = { x: 600, z: 0 };
 
 describe("fareFor", () => {
   it("is the base fare plus the rate for every 100 m", () => {
-    expect(fareFor(VEHICLES.auto, 400)).toBe(45);
-    expect(fareFor(VEHICLES.bike, 400)).toBe(27);
-    expect(fareFor(VEHICLES.car, 400)).toBe(63);
+    expect(fareFor(VEHICLES.auto, 400)).toBe(80 + 38 * 4);
+    expect(fareFor(VEHICLES.bike, 400)).toBe(40 + 15 * 4);
+    expect(fareFor(VEHICLES.car, 400)).toBe(78 + 39 * 4);
   });
   it("rounds to a whole rupee", () => {
     expect(Number.isInteger(fareFor(VEHICLES.auto, 333))).toBe(true);
@@ -139,5 +139,34 @@ describe("spawnDelay", () => {
   });
   it("allows at most three open requests", () => {
     expect(MAX_OPEN).toBe(3);
+  });
+});
+
+describe("short rides are preferred", () => {
+  it("keeps rides to 900 m or less when the world allows it", () => {
+    let state = { seed: 31, nextId: 1 };
+    for (let i = 0; i < 200; i++) {
+      const r = nextRequest(state, VEHICLES.auto, origin, world);
+      state = { seed: r.seed, nextId: r.nextId };
+      expect(r.request.distance).toBeLessThanOrEqual(900);
+    }
+  });
+  it("still finds a ride when no other place is within 900 m", () => {
+    const far = { ...world, distance: () => 1500 };
+    expect(nextRequest({ seed: 3, nextId: 1 }, VEHICLES.auto, origin, far).request.distance).toBe(1500);
+  });
+  it("prefers a pickup within 400 m of the vehicle when there is one", () => {
+    const here = world.spot(PLACES[3]);
+    let state = { seed: 17, nextId: 1 };
+    const nearby = PLACES.filter((p) => {
+      const s = world.spot(p);
+      return p.id !== PLACES[3].id && Math.hypot(s.x - here.x, s.z - here.z) <= 400 && Math.hypot(s.x - here.x, s.z - here.z) > 30;
+    }).map((p) => p.id);
+    expect(nearby.length).toBeGreaterThan(0);
+    for (let i = 0; i < 100; i++) {
+      const r = nextRequest(state, VEHICLES.auto, here, world);
+      state = { seed: r.seed, nextId: r.nextId };
+      expect(nearby).toContain(r.request.pickup.id);
+    }
   });
 });

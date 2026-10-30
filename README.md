@@ -1,8 +1,9 @@
 # Aanawadi (ആനവണ്ടി)
 
-A 3D browser game: drive a KSRTC-style bus along a fixed route, pick up and drop
-off many passengers at every stop, and finish the day with Rs. 800 net.
-Inspired by a one-passenger auto-rickshaw game; here the bus carries up to 40.
+A 3D browser game: be the driver your Kerala town calls. Pick a vehicle (a Yamaha R15 bike, an
+auto-rickshaw or a Maruti Swift Dzire car), accept ride requests, pick the customer up, hear in
+Malayalam where they want to go, follow the radar route, drop them off and finish the day in profit.
+Inspired by a one-passenger auto-rickshaw game.
 
 Built with Next.js (App Router), TypeScript, Tailwind, React Three Fiber and Zustand.
 No backend: the driver profile and records live in `localStorage`.
@@ -16,8 +17,20 @@ npm test         # unit + integration tests (Vitest)
 npm run build    # production build
 ```
 
-Flow: `/` landing -> `/login` driver ticket -> `/play` the game
+Flow: `/` landing -> `/login` driver ticket and vehicle -> `/play` the game
 (`/play` redirects to `/login` when there is no saved profile).
+
+## The three vehicles
+
+| | Bike | Auto-rickshaw | Car |
+|---|---|---|---|
+| Model | Yamaha R15 style, red and black | Yellow roof, green body | Swift Dzire style, white |
+| Passengers | 1 | up to 2 | up to 3 |
+| Top speed | 22 m/s, nimble | 14 m/s, slow and wide | 18 m/s |
+| Rent / daily goal | Rs. 100 / 500 | Rs. 200 / 700 | Rs. 300 / 900 |
+
+Each handles differently (acceleration, turning, grip) and has its own engine sound. A request never
+asks for a group bigger than your vehicle holds. All the numbers live in `src/game/data/vehicles.ts`.
 
 ## Controls
 
@@ -28,75 +41,116 @@ Flow: `/` landing -> `/login` driver ticket -> `/play` the game
 | Space | Hand brake |
 | H | Horn |
 | L | Headlights (also the button on the left) |
-| E | Open / close door (stopped inside a stop zone) |
+| 1 / 2 / 3 | Accept the first, second or third request |
+| X | Skip the first request |
+| Enter | Accept the ride when the customer is waiting |
+| Z | Radar zoom: 150 m · 400 m · 1 km |
 | C | Camera: chase · high · driver seat |
 | R | Monsoon rain |
 | M | Sound on/off (also the button on the right) |
 | P / Esc | Pause menu |
 
-## How a shift works
+## How a day works
 
-- You start the day Rs. 250 down (diesel + depot rent) and need to reach Rs. 800 net.
-- The route has 7 stops, each with a yellow bus-length bay on both kerbs (traffic keeps left: forward
-  trips use one kerb, return trips the other). Park the bus completely inside the bay, lined up with the
-  road, until it turns green, then press **E**. Passengers walk to the door and board, and riders for
-  that stop step off, one by one. Fares grow with the stops ridden.
-- Each end of the line has a wide turn-around area: after the last stop, turn the bus round and pull
-  into the other kerb's bay to pick up the return passengers.
-- Steering follows a real turning circle (slow to turn the wheel, tighter at low speed), so brake
-  before corners.
-- Driving past a stop where someone wants to get off costs rating and refunds their fare.
-- The day runs 06:00-20:00 on a clock compressed to 8 real minutes.
+1. You start Rs. 100 / 200 / 300 down (the vehicle's rent) and need to reach the vehicle's goal.
+2. Up to three **requests** are open at once: customer, pickup, drop, group size, distance and fare.
+   Accept one (**1 2 3** or the button) or skip it (**X**). Requests expire after 45 seconds.
+3. The **radar** shows a blue route to the customer, with turn-by-turn text at the top of the screen
+   ("Turn left in 80 m"). A blue beacon marks the pickup.
+4. Stop at the pickup (within 6 m of the kerb spot, under 1.5 m/s). The customer speaks, out loud in
+   Malayalam when your device has a Malayalam voice, and the card shows the Malayalam and English.
+   Press **Enter** to accept the ride. They walk to your vehicle and get in.
+5. The route turns green and leads to the drop. Stop there and they get out and walk off; you are paid
+   the distance fare plus up to 20% for a fast ride.
+6. A customer you accepted but never reached gives up after 2.5 minutes (a quarter star off).
+7. The day runs 06:00-20:00 on a clock compressed to 8 real minutes.
+
+Fares are a base plus a rate per 100 m of road, by vehicle. Rating starts at 5 stars: 1 off per
+accident, half a star per red light, a quarter per customer who gave up (at most 1) and a little per
+scrape against the kerb.
 
 ## Sound, lights and accidents
 
-The bus has a synthesised diesel engine (idle, gear changes, load), tyre roar, a reversing beeper, a door
-hiss and an air horn. The **Sound** button on the right (or **M**) mutes everything. The **Headlights**
-button on the left (or **L**) turns on real beams.
+Each vehicle has a synthesised engine (idle, gear changes, load), tyre roar, a reversing beeper and an
+air horn. The **Sound** button on the right (or **M**) mutes everything, including the voices. The
+**Headlights** button on the left (or **L**) turns on real beams.
 
-When someone is hit they also shout their line aloud using the browser speech voice: Malayalam when the
-device has a Malayalam voice, otherwise the English line. The Sound button mutes it.
+Anyone you hit (pedestrians, people walking the footpaths, the customer waiting at a pickup) is thrown
+clear, lands on the road or the footpath, and cries out in a speech bubble and out loud ("അയ്യോ! Oh my
+God!"). It costs a Rs. 300 fine, slows you down and takes a star off. Hitting the waiting customer also
+cancels the booking.
 
-Anyone the bus hits (pedestrians, people walking the footpaths, the queue at a shelter, people boarding or
-alighting) is thrown clear, lands on the road or the footpath, cries out, and costs the same fine. Hit someone and they are thrown clear, fall, and cry out in a speech bubble ("അയ്യോ! Oh my God!",
-"എന്റമ്മേ! Help me!"). It costs a Rs. 300 fine, slows the bus, and takes a full star off the rating.
+## The places
 
-## Scenery
+There are 14 named places, each with an English and a Malayalam name: the seven old bus-stop shelters on
+the main road, and seven on the side roads (with their own name boards). They are data in
+`src/game/data/places-v1.ts`:
 
-The roadside is a Kerala village laid out once from a seed (src/game/logic/layout.ts): coconut palms, mango,
-gulmohar, banana and jackfruit trees, sunflower, hibiscus and marigold clusters, grass tufts and bushes, and
-Kerala houses (plinth, veranda, clay-tile roof) and multi-storey shops (balconies, shutters, water tanks,
-Malayalam signboards) each in a walled compound with a gate. Buildings follow the curve of the road and face it,
-and nothing is ever placed on the road, footpath, bus bays, shelters, signs or poles. Beyond the road are
-patchy grass, rice paddies and distant hills. Only the 100 m slices within 260 m of the bus are drawn.
-Shop names are placeholders in src/game/data/shopnames.ts.
+```ts
+{ id: "hospital", name: "Govt. Hospital", ml: "ഗവ. ആശുപത്രി",
+  at: { kind: "arm", junctionId: "j1300", side: -1, distance: 130 } },
+```
+
+To add a place on a side road, give it the junction's id, the side (-1 left, 1 right) and how many metres
+along the arm it stands (between 20 m and 20 m short of the arm's end). Main-road places are built from
+the stops in `src/game/data/route-v1.ts`. Places must stay at least 40 m apart.
+
+The customer's wording is in `src/game/logic/dialogue.ts` (invented everyday Malayalam; please have a
+native speaker check it).
 
 ## The road
 
 A realistic Kerala road: asphalt with white edge lines, a dashed centre line that turns into a double
 yellow line before each zebra crossing, stop lines, raised footpaths with kerbs on both sides, dirt verges,
-coconut palms, tiled-roof houses, shops and electric poles. Roadside signs (speed limit, pedestrian crossing,
+coconut palms, mango, gulmohar, banana and jackfruit trees, flowers, tiled-roof houses, shops with
+Malayalam and English signboards and electric poles. Roadside signs (speed limit, pedestrian crossing,
 bus stop, and Malayalam direction boards) are placed from the road layout in `src/game/logic/roadside.ts`.
 People only cross the road at the zebra crossings.
 
-Each bus stop is a Kerala-style waiting shed with a name board in Malayalam and English (names live in
-`src/game/data/route-v1.ts`). Passengers walk through the bus door and take a seat or standing place you can
-see through the windows; the number inside always matches the seat counter.
+## Junctions, signals and the radar
+
+Junctions are data. Open `src/game/data/junctions-v1.ts` and edit the list:
+
+```ts
+{ id: "j400", x: 400, arms: "both", signal: { offset: 0 } },
+```
+
+- `x` is where along the road the junction is. Change it to move the junction left or right.
+- `arms` is `"left"`, `"right"` or `"both"`: which side the side road goes.
+- `armLength` (default 200 m) is how far the side road runs before its turn-around circle.
+- `signal` sets the light timings (`offset`, `mainGreen`, `crossGreen`, `yellow`, `allRed`, in
+  seconds), or `false` for a junction without lights.
+
+The side road, kerbs, zebra crossings, stop lines, signals, scenery clearance, radar and rules all
+follow. A junction must be at least 90 m from a main-road place, 45 m from a zebra crossing and 150 m
+from another junction, and 60 m inside the ends of the road; a bad one is skipped and the reason is
+printed in the browser console. Places on a side road that is removed must be moved or removed too.
+
+You can turn left or right into any side road, drive to its end, turn round in the circle and come
+back. Crossing a stop line while that road's light is red costs Rs. 100, half a star and a red banner
+(yellow is allowed; a light that has only just turned red gets a 0.4 s grace).
+
+The round radar in the top-right corner shows the road turning around your vehicle, the side roads, each
+signal in its current colour, every place, and the route to follow (blue to the pickup, green to the
+drop). Press **Z** (or click the button) to zoom.
 
 ## Tuning
 
-All numbers live in `src/game/constants.ts` (capacity, rent, goal, day length,
-boarding speed, patience, spawn rate). The route is data in
-`src/game/data/route-v1.ts`; fares are in `src/game/logic/fares.ts`.
-The app name shown in the UI is `APP_NAME` in the same constants file.
+Vehicle numbers (speed, handling, fares, rent, goal) are in `src/game/data/vehicles.ts`; request pacing
+(how often, how long they last, how near the pickups) is in `src/game/logic/requests.ts`; the day length
+and fines are in `src/game/constants.ts`. `src/game/state/shift.sim.test.ts` plays whole days with a
+competent scripted driver for each vehicle and checks the goal is reachable on most days but not every
+one: change a fare, run `npm test`, and it tells you if the balance broke. The app name shown in the UI
+is `APP_NAME` in the constants file.
 
 ## Layout
 
 ```
 src/app/         routes (landing, login, play)
-src/game/        3D scene (Bus, Road, Stops, CameraRig, Weather) + store
-src/game/logic/  pure, unit-tested rules (route, fares, boarding, rating, clock, vehicle)
-src/ui/          HUD, pause menu, day summary, login card, stickers
+src/game/        3D scene (Vehicle, models, Road, Junctions, Places, Riders, CameraRig, Weather) + store
+src/game/data/   vehicles, places, junctions, road
+src/game/logic/  pure, unit-tested rules (requests, ride, roadgraph, dialogue, signals, rating, vehicle)
+src/ui/          HUD, request board, conversation card, radar, pause menu, day summary, login card
 src/lib/         localStorage profile
 ```
 
@@ -111,33 +165,7 @@ It is a standard Next.js app with no server dependencies, so it deploys as-is to
 ## Notes
 
 - Desktop keyboard only; touch devices get a "best on desktop" screen.
-- The route and stop names are invented. The bus uses an original livery and badge,
-  not the official KSRTC logo.
-
-## Junctions, signals and the radar
-
-Junctions are data. Open `src/game/data/junctions-v1.ts` and edit the list:
-
-```ts
-{ id: "j400", x: 400, arms: "both", signal: { offset: 0 } },
-```
-
-- `x` is where along the route the junction is (the bus stops are at 0, 250, 550, 850, ...).
-  Change it to move the junction left or right along the road.
-- `arms` is `"left"`, `"right"` or `"both"`: which side the side road goes.
-- `armLength` (default 200 m) is how far the side road runs before its turn-around circle.
-- `signal` sets the light timings (`offset`, `mainGreen`, `crossGreen`, `yellow`, `allRed`, in
-  seconds), or `false` for a junction without lights.
-
-The side road, kerbs, zebra crossings, stop lines, signals, scenery clearance, radar and rules all
-follow. A junction must be at least 90 m from a bus stop, 45 m from a zebra crossing and 150 m from
-another junction, and 60 m inside the first and last stop; a bad one is skipped and the reason is
-printed in the browser console.
-
-You can turn left or right into any side road, drive to its end, turn round in the circle and come
-back. Crossing a stop line while that road's light is red costs Rs. 100, half a star and a red banner
-(yellow is allowed; a light that has only just turned red gets a 0.4 s grace).
-
-The round radar in the top-right corner shows the road turning around the bus, the side roads, each
-signal in its current colour, every bus stop, and a green marker with the stop name wherever someone
-on board is getting off. Press **Z** (or click the button) to zoom between 150 m, 400 m and 1 km.
+- Place names and the Malayalam wording are invented. The vehicles are stylised models built from simple
+  shapes, not official brand artwork.
+- The voice uses the browser's speech synthesis: it speaks Malayalam only if the device has a Malayalam
+  voice, otherwise it speaks the English line.

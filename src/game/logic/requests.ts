@@ -15,8 +15,9 @@ export type Request = {
 
 export const REQUEST_TTL_S = 45;
 export const MAX_OPEN = 3;
-const NEAR_PICKUP_M = 700; // pickups are chosen within this of the vehicle when possible
+const NEAR_PICKUP_M = 400; // pickups are chosen within this of the vehicle when possible
 const MIN_RIDE_M = 150;
+const MAX_PREFERRED_RIDE_M = 900; // rides are kept to this when the world allows
 const NOT_ON_TOP_M = 30; // never a pickup this close to where the vehicle already is
 const TARGET_SPEED = 8; // m/s the speed bonus is measured against
 const TARGET_SLACK_S = 10;
@@ -79,7 +80,8 @@ export function nextRequest(
   const pickup = pick(near.length > 0 ? near : candidates);
 
   const farEnough = world.places.filter((p) => p.id !== pickup.id && world.distance(pickup, p) >= MIN_RIDE_M);
-  const drop = pick(farEnough);
+  const short = farEnough.filter((p) => world.distance(pickup, p) <= MAX_PREFERRED_RIDE_M);
+  const drop = pick(short.length > 0 ? short : farEnough);
   const group = (1 + Math.floor(rand(seed)[0] * vehicle.capacity)) as 1 | 2 | 3;
   seed = rand(seed)[1];
   const customer = pick(NAMES);
