@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { Instances, type Item } from "./Instances";
-import type { Placement, TreePlacement } from "./logic/layout";
+import type { FlowerPlacement, Placement, TreePlacement } from "./logic/layout";
+import { bushParts, flowerParts, tuftParts, vergeSpots } from "./plants";
 import { treeParts, type Detail } from "./trees";
 
 const isTree = (p: Placement): p is TreePlacement =>
@@ -43,6 +44,79 @@ export function Trees({ placements, detail }: { placements: Placement[]; detail:
       </Instances>
       <Instances items={parts.blossom}>
         <sphereGeometry args={[1, 6, 5]} />
+        <meshStandardMaterial />
+      </Instances>
+    </group>
+  );
+}
+
+// Sunflower, hibiscus and marigold clusters.
+export function Flowers({ placements }: { placements: Placement[] }) {
+  const parts = useMemo(() => {
+    const stem: Item[] = [];
+    const head: Item[] = [];
+    const bush: Item[] = [];
+    for (const p of placements) {
+      if (p.kind !== "flowers") continue;
+      const f = flowerParts(p as FlowerPlacement);
+      stem.push(...f.stem);
+      head.push(...f.head);
+      bush.push(...f.bush);
+    }
+    return { stem, head, bush };
+  }, [placements]);
+
+  return (
+    <group>
+      <Instances items={parts.stem}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial />
+      </Instances>
+      <Instances items={parts.head}>
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshStandardMaterial />
+      </Instances>
+      <Instances items={parts.bush}>
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshStandardMaterial />
+      </Instances>
+    </group>
+  );
+}
+
+// Grass tufts and the odd bush along both verges of one route slice, kept off
+// anything else that already stands there. Far slices get half the tufts.
+export function Grass({
+  slice,
+  detail,
+  isGroundFree,
+}: {
+  slice: number;
+  detail: Detail;
+  isGroundFree: (x: number, z: number, radius: number) => boolean;
+}) {
+  const parts = useMemo(() => {
+    const tufts: Item[] = [];
+    const bushes: Item[] = [];
+    for (const side of [-1, 1] as const) {
+      vergeSpots(slice, side).forEach((s, i) => {
+        if (detail === "lite" && i % 2) return;
+        if (!isGroundFree(s.x, s.z, 0.6)) return;
+        if (s.seed % 7 === 0) bushes.push(...bushParts(s.seed, s.x, s.z));
+        else tufts.push(...tuftParts(s.seed, s.x, s.z));
+      });
+    }
+    return { tufts, bushes };
+  }, [slice, detail, isGroundFree]);
+
+  return (
+    <group>
+      <Instances items={parts.tufts}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial side={2} />
+      </Instances>
+      <Instances items={parts.bushes}>
+        <sphereGeometry args={[1, 8, 6]} />
         <meshStandardMaterial />
       </Instances>
     </group>
