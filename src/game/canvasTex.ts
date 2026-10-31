@@ -26,7 +26,7 @@ function paint(c: HTMLCanvasElement, draw: Draw) {
 // A texture painted by `draw`. When `fontText` is given, the Malayalam web font
 // is loaded first and the texture repainted once it is ready, so signs never
 // stay stuck on a fallback or empty glyphs.
-export function useCanvasTexture(w: number, h: number, draw: Draw, fontText?: string): CanvasTexture {
+export function useCanvasTexture(w: number, h: number, draw: Draw, fontText?: string, repeat = false): CanvasTexture {
   const tex = useMemo(() => {
     const c = document.createElement("canvas");
     c.width = w;
@@ -35,8 +35,9 @@ export function useCanvasTexture(w: number, h: number, draw: Draw, fontText?: st
     const t = new CanvasTexture(c);
     t.colorSpace = SRGBColorSpace;
     t.anisotropy = 4;
+    if (repeat) t.wrapS = t.wrapT = RepeatWrapping; // tiles across a surface (building windows)
     return t;
-  }, [w, h, draw]);
+  }, [w, h, draw, repeat]);
 
   useEffect(() => {
     if (!fontText) return;

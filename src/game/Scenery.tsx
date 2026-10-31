@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import { busPose } from "./busPose";
 import { Buildings, useSignAtlas, type SignAtlas } from "./Buildings";
+import { CityBuildings } from "./CityBuildings";
 import { Flowers, Grass, Trees } from "./Foliage";
 import { Instances, type Item } from "./Instances";
 import { cellKey, cellsAround, groupByCell, isNearCell } from "./logic/cells";
@@ -54,6 +55,7 @@ function SceneCell({
       <Trees placements={placements} detail={detail} />
       <Flowers placements={placements} />
       <Buildings placements={placements} signs={signs} />
+      <CityBuildings placements={placements} detail={detail} />
       <Grass spots={grass} detail={detail} isGroundFree={isGroundFree} />
     </group>
   );
