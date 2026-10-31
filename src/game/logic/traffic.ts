@@ -66,7 +66,7 @@ function mulberry32(seed: number) {
 }
 
 // How many vehicles share the loop, and the mix: about 43 % cars, 21 % autos, 21 % bikes, 14 % buses.
-export const TRAFFIC_COUNT = 45;
+export const TRAFFIC_COUNT = 80;
 const SHARE: [AgentKind, number][] = [["car", 0.43], ["auto", 0.21], ["bike", 0.21], ["bus", 0.15]];
 
 export function trafficMix(count: number): AgentKind[] {
