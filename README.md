@@ -94,11 +94,18 @@ cancels the booking.
 
 ## The map
 
-The town is a **closed loop**: a ring road (about 800 m by 500 m, with rounded corners) and two cross
-roads, Station Road (north to south) and Temple Road (west to east). There is a signal at all five
-junctions: four T-junctions where a cross road meets the ring, and a four-way in the middle.
+The world is about **2.4 by 1.5 km**. The village is in the west: a ring road (800 m by 500 m, rounded
+corners) with Station Road (north to south) and Tech Avenue (west to east, running on into the city).
+Station Road reaches north to **Dam Road**, which runs along the top of the dam (z = -150) and joins the
+city, so the village and the city are connected twice. The tech city in the east is a street grid: five
+north-south streets (x = 1100, 1300, 1500, 1900, 2300) and three cross roads (z = 0, 550, 900) around
+Tech Avenue. There are about 28 junctions, all signalled, and 42 places (14 in the village, 4 on the
+dam, 24 in the city).
 
-The whole map is data in `src/game/data/network-v1.ts`:
+The whole map is data in `src/game/data/network-v2.ts` (the types and the small V1 map, kept as a test
+fixture, are in `network-v1.ts`). Junctions are not listed one by one: every crossing or T of the roads
+is found by `autoJunctions` (`src/game/logic/junctions.ts`), and `JUNCTION_RULES` names the ones that
+have turn rules. Places are in `src/game/data/places-v2.ts`. Roads must run along the axes. A snippet:
 
 ```ts
 { id: "ring", name: "Ring Road", ml: "റിംഗ് റോഡ്", closed: true, cornerRadius: 40, halfWidth: 6,
@@ -164,7 +171,7 @@ Customers, pedestrians and drivers are dressed from `src/game/logic/people.ts`: 
 
 ## Traffic
 
-You share the loop with 45 other vehicles (about 19 cars, 9 autos, 9 bikes and 7 buses; `TRAFFIC_COUNT` in `traffic.ts`), driving both ways on every road. They keep to the left lane,
+You share the roads with 80 other vehicles (cars, autos, bikes and buses; `TRAFFIC_COUNT` in `traffic.ts`), driving both ways on every road. They keep to the left lane,
 follow the vehicle in front (and you), queue at red lights, go on green and take any turn the junction allows;
 they slow down and curve smoothly through a junction on a turn, and they never make a turn you would be fined for. They show as small dots on the radar (a bus a little bigger, one
 waiting at a red light amber).
