@@ -290,7 +290,7 @@ export function layoutScenery(
     placements,
     isGroundFree: (x, z, radius) => {
       const probe: Shape = { kind: "circle", x, z, r: radius };
-      return !placedGrid.hits(probe);
+      return !placedGrid.hits(probe) && !zoneGrid.hits(probe);
     },
   };
 }

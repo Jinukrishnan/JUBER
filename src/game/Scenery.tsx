@@ -4,23 +4,20 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import { busPose } from "./busPose";
 import { Buildings, useSignAtlas, type SignAtlas } from "./Buildings";
-import { ROUTE_V1 } from "./data/route-v1";
 import { Flowers, Grass, Trees } from "./Foliage";
 import { Instances, type Item } from "./Instances";
-import { layoutScenery, type Placement } from "./logic/layout";
+import type { Placement } from "./logic/layout";
 import { FOOTPATH_WIDTH, roadCenterZ, roadHalfWidthAt } from "./logic/road";
-import { polePositions, roadFeatures } from "./logic/roadside";
 import { isNear, SLICE_LENGTH, slicesFor, sliceOf, visibleSlices } from "./logic/slices";
+import { buildScenery, scenePoles } from "./world";
 
-const SEED = 20261030;
-const FEATURES = roadFeatures(ROUTE_V1);
 
 // Electric poles along the right-hand verge, joined by three wires. They are
 // few enough to draw all the time.
 function buildPoles() {
   const poles: Item[] = [];
   const wires: Item[] = [];
-  const pts = polePositions(ROUTE_V1).map((x) => ({
+  const pts = scenePoles().map(({ x }) => ({
     x,
     z: roadCenterZ(x) + roadHalfWidthAt(x) + FOOTPATH_WIDTH + 0.9,
   }));
@@ -66,7 +63,7 @@ function SceneSlice({
 
 export function Scenery() {
   // the whole village is laid out once, then dealt into route slices
-  const layout = useMemo(() => layoutScenery(SEED, ROUTE_V1, FEATURES), []);
+  const layout = useMemo(() => buildScenery(), []);
   const bySlice = useMemo(() => {
     // each item lives in the slice it stands in; with 260 m of draw range and
     // items under ~10 m across, nothing is ever visible half-missing

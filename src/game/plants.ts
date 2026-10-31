@@ -119,3 +119,23 @@ export function vergeSpots(slice: number, side: Side, spacing = 3): Spot[] {
   }
   return spots;
 }
+
+// The tufts and bushes of one slice, after the filter the renderer applies:
+// far slices get half the tufts, and nothing grows where `isGroundFree` says no.
+export function grassParts(
+  slice: number,
+  detail: "full" | "lite",
+  isGroundFree: (x: number, z: number, radius: number) => boolean,
+): { tufts: Item[]; bushes: Item[] } {
+  const tufts: Item[] = [];
+  const bushes: Item[] = [];
+  for (const side of [-1, 1] as const) {
+    vergeSpots(slice, side).forEach((s, i) => {
+      if (detail === "lite" && i % 2) return;
+      if (!isGroundFree(s.x, s.z, 0.6)) return;
+      if (s.seed % 7 === 0) bushes.push(...bushParts(s.seed, s.x, s.z));
+      else tufts.push(...tuftParts(s.seed, s.x, s.z));
+    });
+  }
+  return { tufts, bushes };
+}

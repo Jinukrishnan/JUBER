@@ -225,6 +225,11 @@ describe("isGroundFree", () => {
   it("is false at the centre of a house", () => {
     const b = buildings()[0];
     expect(layout.isGroundFree(b.x, b.z, 0.5)).toBe(false);
-    expect(layout.isGroundFree(500, roadCenterZ(500), 1)).toBe(true);
+    expect(layout.isGroundFree(500, roadCenterZ(500) + 60, 1)).toBe(true);
+  });
+
+  it("is false on the road and in the mouth of a side road", () => {
+    expect(layout.isGroundFree(500, roadCenterZ(500), 1)).toBe(false);
+    expect(layout.isGroundFree(395, roadCenterZ(395) - 12, 0.6)).toBe(false);
   });
 });

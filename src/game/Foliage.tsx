@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Instances, type Item } from "./Instances";
 import type { FlowerPlacement, Placement, TreePlacement } from "./logic/layout";
-import { bushParts, flowerParts, tuftParts, vergeSpots } from "./plants";
+import { flowerParts, grassParts } from "./plants";
 import { treeParts, type Detail } from "./trees";
 
 const isTree = (p: Placement): p is TreePlacement =>
@@ -95,19 +95,7 @@ export function Grass({
   detail: Detail;
   isGroundFree: (x: number, z: number, radius: number) => boolean;
 }) {
-  const parts = useMemo(() => {
-    const tufts: Item[] = [];
-    const bushes: Item[] = [];
-    for (const side of [-1, 1] as const) {
-      vergeSpots(slice, side).forEach((s, i) => {
-        if (detail === "lite" && i % 2) return;
-        if (!isGroundFree(s.x, s.z, 0.6)) return;
-        if (s.seed % 7 === 0) bushes.push(...bushParts(s.seed, s.x, s.z));
-        else tufts.push(...tuftParts(s.seed, s.x, s.z));
-      });
-    }
-    return { tufts, bushes };
-  }, [slice, detail, isGroundFree]);
+  const parts = useMemo(() => grassParts(slice, detail, isGroundFree), [slice, detail, isGroundFree]);
 
   return (
     <group>
