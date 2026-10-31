@@ -1,32 +1,11 @@
 import { NETWORK_V1 } from "./data/network-v1";
 import { PLACES } from "./data/places-v1";
 import { validateNetwork } from "./logic/network";
-import { JUNCTIONS_V1 } from "./data/junctions-v1";
-import { ROUTE_V1 } from "./data/route-v1";
-import { validateJunctions } from "./logic/junction";
+import { usablePlaces } from "./logic/places";
 import { layoutScenery } from "./logic/layout";
-import { polePositions, roadFeatures } from "./logic/roadside";
+import { roadFeatures } from "./logic/roadside";
 
-// The junctions the game actually uses: the configured list with any bad entry
-// left out (and a message in the console saying why).
-export const JUNCTIONS = (() => {
-  const { problems, valid } = validateJunctions(JUNCTIONS_V1, ROUTE_V1, roadFeatures(ROUTE_V1));
-  for (const p of problems) console.warn(p);
-  return valid;
-})();
 
-export const SCENERY_SEED = 20261030;
-
-// The roadside layout the scene draws: built against the validated junctions,
-// so nothing is laid out on a side road.
-export function buildScenery() {
-  return layoutScenery(SCENERY_SEED, ROUTE_V1, roadFeatures(ROUTE_V1), JUNCTIONS);
-}
-
-// Electric pole positions, kept out of the mouths of the side roads.
-export function scenePoles(): { x: number }[] {
-  return polePositions(ROUTE_V1, JUNCTIONS).map((x) => ({ x }));
-}
 
 // The map the game uses: the configured network with any bad part left out (and
 // a message in the console saying why).
@@ -35,3 +14,19 @@ export const NETWORK = (() => {
   for (const p of problems) console.warn(p);
   return valid;
 })();
+
+// The places that fit this map (one that does not is left out, with a message).
+export const ACTIVE_PLACES = (() => {
+  const usable = usablePlaces(NETWORK, PLACES);
+  for (const p of PLACES) if (!usable.includes(p)) console.warn(`Place "${p.id}" does not fit the map and is left out`);
+  return usable;
+})();
+
+export const FEATURES = roadFeatures(NETWORK, ACTIVE_PLACES);
+
+export const SCENERY_SEED = 20261030;
+
+// The roadside layout the scene draws, built against the validated network.
+export function buildScenery() {
+  return layoutScenery(SCENERY_SEED, NETWORK, ACTIVE_PLACES, FEATURES);
+}

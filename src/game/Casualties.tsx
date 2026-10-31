@@ -3,7 +3,8 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef, useState } from "react";
 import type { Group } from "three";
-import { groundY } from "./logic/road";
+import { groundY } from "./logic/network";
+import { NETWORK } from "./world";
 import { accidentLine } from "./logic/speech";
 import { Person } from "./Person";
 import { Speech } from "./SpeechBubble";
@@ -26,7 +27,7 @@ function Fallen({ c }: { c: Casualty }) {
   const [speaking, setSpeaking] = useState(true);
   const landX = c.x + c.dx * THROWN_M;
   const landZ = c.z + c.dz * THROWN_M;
-  const landY = groundY(landX, landZ);
+  const landY = groundY(NETWORK, landX, landZ);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);

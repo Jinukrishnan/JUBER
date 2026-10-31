@@ -7,17 +7,18 @@ import type { RoadId } from "./network-v1";
 // Kerala-style.
 //
 // Keep a place at least 30 m from a junction box and 40 m from another place.
-export type Place = { id: string; name: string; ml: string; road: RoadId; s: number; side: -1 | 1 };
+// `shelter` places get a bus-stop style waiting shed and bay; the others a name board.
+export type Place = { id: string; name: string; ml: string; road: RoadId; s: number; side: -1 | 1; shelter?: true };
 
 export const PLACES: Place[] = [
   // the ring, east along the top, south down the right, west along the bottom, north up the left
-  { id: "depot", name: "Aanawadi Depot", ml: "ആനവാടി ഡിപ്പോ", road: "ring", s: 100, side: -1 },
-  { id: "thennalpadi", name: "Thennalpadi", ml: "തെന്നൽപ്പടി", road: "ring", s: 250, side: 1 },
-  { id: "mullakkunnu", name: "Mullakkunnu", ml: "മുല്ലക്കുന്ന്", road: "ring", s: 520, side: -1 },
-  { id: "karimbanam", name: "Karimbanam", ml: "കരിമ്പനം", road: "ring", s: 880, side: 1 },
-  { id: "vattakkulam", name: "Vattakkulam", ml: "വട്ടക്കുളം", road: "ring", s: 1100, side: -1 },
-  { id: "chembolimukku", name: "Chembolimukku", ml: "ചെമ്പോലിമുക്ക്", road: "ring", s: 1400, side: 1 },
-  { id: "nellimala", name: "Nellimala Junction", ml: "നെല്ലിമല ജംഗ്ഷൻ", road: "ring", s: 1800, side: -1 },
+  { id: "depot", name: "Aanawadi Depot", ml: "ആനവാടി ഡിപ്പോ", road: "ring", s: 100, side: -1, shelter: true },
+  { id: "thennalpadi", name: "Thennalpadi", ml: "തെന്നൽപ്പടി", road: "ring", s: 250, side: 1, shelter: true },
+  { id: "mullakkunnu", name: "Mullakkunnu", ml: "മുല്ലക്കുന്ന്", road: "ring", s: 520, side: -1, shelter: true },
+  { id: "karimbanam", name: "Karimbanam", ml: "കരിമ്പനം", road: "ring", s: 880, side: 1, shelter: true },
+  { id: "vattakkulam", name: "Vattakkulam", ml: "വട്ടക്കുളം", road: "ring", s: 1100, side: -1, shelter: true },
+  { id: "chembolimukku", name: "Chembolimukku", ml: "ചെമ്പോലിമുക്ക്", road: "ring", s: 1400, side: 1, shelter: true },
+  { id: "nellimala", name: "Nellimala Junction", ml: "നെല്ലിമല ജംഗ്ഷൻ", road: "ring", s: 1800, side: -1, shelter: true },
   { id: "panchayat", name: "Panchayat Office", ml: "പഞ്ചായത്ത് ഓഫീസ്", road: "ring", s: 2130, side: 1 },
   { id: "church", name: "St. Mary's Church", ml: "സെന്റ് മേരീസ് പള്ളി", road: "ring", s: 2400, side: -1 },
   // Station Road, north to south

@@ -9,6 +9,7 @@ import { Pedestrians } from "./Pedestrians";
 import { Places } from "./Places";
 import { Riders } from "./Riders";
 import { Road } from "./Road";
+import { Scenery } from "./Scenery";
 import { SignalHeads } from "./SignalHeads";
 import { Signs } from "./Signs";
 import { Stops } from "./Stops";
@@ -38,11 +39,12 @@ export default function GameCanvas({ vehicle }: { vehicle?: VehicleKind }) {
       <Weather />
       <Ground />
       <Road />
+      <Scenery />
       <SignalHeads />
-      {/* TODO(loop-map): Signs returns when it is moved onto the network */}
-      {/* TODO(loop-map): Stops returns when it is moved onto the network */}
+      <Signs />
+      <Stops />
       <Places />
-      {/* TODO(loop-map): Pedestrians returns when it is moved onto the network */}
+      <Pedestrians />
       <Casualties />
       <Vehicle />
       <Riders />

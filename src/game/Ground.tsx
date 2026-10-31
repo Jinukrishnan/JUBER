@@ -2,13 +2,13 @@
 
 import { useMemo } from "react";
 import { useNoiseTexture } from "./canvasTex";
-import { ROUTE_V1 } from "./data/route-v1";
 import { Instances, type Item } from "./Instances";
-import { roadCenterZ } from "./logic/road";
+import { nearest } from "./logic/network";
+import { NETWORK } from "./world";
 
-const FIRST = ROUTE_V1[0].position;
-const LAST = ROUTE_V1[ROUTE_V1.length - 1].position;
-const MID = (FIRST + LAST) / 2;
+// the middle of the map: the ring runs (0,0)-(800,500)
+const CX = 400;
+const CZ = 250;
 
 const GRASS = {
   size: 256,
@@ -40,10 +40,9 @@ function build() {
   const bunds: Item[] = [];
   const hills: Item[] = [];
 
-  for (let i = 0; i < 90; i++) {
-    const x = FIRST - 250 + r() * (LAST - FIRST + 500);
-    const side = r() < 0.5 ? -1 : 1;
-    const z = roadCenterZ(x) + side * (15 + r() * 260);
+  for (let i = 0; i < 140; i++) {
+    const x = CX - 700 + r() * 1400;
+    const z = CZ - 550 + r() * 1100;
     // each patch a hair higher than the last so overlapping ones never flicker
     patches.push({
       x, y: -0.06 + i * 0.0004, z,
@@ -52,15 +51,18 @@ function build() {
     });
   }
 
-  // rice paddies set well back from the road and the houses; some flooded
-  for (let i = 0; i < 16; i++) {
-    const x = FIRST - 100 + r() * (LAST - FIRST + 200);
-    const side = i % 2 === 0 ? -1 : 1;
+  // rice paddies set well back from every road and outside the ring (the blocks inside
+  // are kept clear for the town); some flooded
+  for (let i = 0, made = 0; i < 400 && made < 18; i++) {
+    const x = CX - 650 + r() * 1300;
+    const z = CZ - 520 + r() * 1040;
     const w = 50 + r() * 70;
     const d = 30 + r() * 40;
-    const z = roadCenterZ(x) + side * (60 + r() * 90);
+    const insideRing = x > -60 - w / 2 && x < 860 + w / 2 && z > -60 - d / 2 && z < 560 + d / 2;
+    if (insideRing || nearest(NETWORK, x, z).distance < 55 + Math.max(w, d) / 2) continue;
     const flooded = r() < 0.4;
-    paddies.push({ x, y: -0.045 + i * 0.0003, z, sx: w, sy: 1, sz: d, color: flooded ? "#7fb2b8" : "#76b043" });
+    const k = made++;
+    paddies.push({ x, y: -0.045 + k * 0.0003, z, sx: w, sy: 1, sz: d, color: flooded ? "#7fb2b8" : "#76b043" });
     // bunds: the low earth walls dividing a paddy into plots
     for (let k = 1; k < 4; k++) {
       bunds.push({ x: x - w / 2 + (w * k) / 4, y: -0.02, z, sx: 0.5, sy: 0.12, sz: d, color: "#8a7a55" });
@@ -71,13 +73,14 @@ function build() {
 
   // a haze of low hills on the horizon, further ones paler
   for (let i = 0; i < 44; i++) {
-    const side = i % 2 === 0 ? -1 : 1;
     const far = 650 + r() * 250;
-    const x = MID - 1000 + (i / 44) * 2200 + (r() - 0.5) * 60;
+    const a = (i / 44) * Math.PI * 2 + (r() - 0.5) * 0.1;
+    const x = CX + Math.cos(a) * (far + 200);
+    const z = CZ + Math.sin(a) * far;
     const h = 40 + r() * 70;
     const t = (far - 650) / 250;
     hills.push({
-      x, y: 0, z: side * far,
+      x, y: 0, z,
       sx: 150 + r() * 160, sy: h, sz: 120 + r() * 100,
       color: t < 0.5 ? "#4d7468" : "#6c8f88",
     });
@@ -91,8 +94,8 @@ export function Ground() {
   return (
     <group>
       {/* base ground, large enough that its edge is lost in the haze */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[MID, -0.07, 0]} receiveShadow>
-        <planeGeometry args={[7000, 2400]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[CX, -0.07, CZ]} receiveShadow>
+        <planeGeometry args={[6000, 5000]} />
         <meshStandardMaterial map={grass} />
       </mesh>
       <Instances items={g.patches}>

@@ -33,3 +33,19 @@ export function toRadarRaw(view: RadarView, p: { x: number; z: number }, pxPerM:
   const s = Math.sin(view.heading);
   return { px: (-dx * s + dz * c) * pxPerM, py: -(dx * c + dz * s) * pxPerM };
 }
+
+// Road polylines as seen on the radar (rotated to the vehicle, scaled to pixels, not
+// clamped to the rim). A road with no point within the range (plus a margin for the
+// stretches between points) is left out.
+export function roadsToRadar(
+  view: RadarView,
+  roads: { road: string; pts: { x: number; z: number }[] }[],
+  rangeM: number,
+  radiusPx: number,
+): { road: string; pts: { px: number; py: number }[] }[] {
+  const k = radiusPx / rangeM;
+  const reach = rangeM * 1.2 + 15;
+  return roads
+    .filter((r) => r.pts.some((p) => Math.hypot(p.x - view.x, p.z - view.z) <= reach))
+    .map((r) => ({ road: r.road, pts: r.pts.map((p) => toRadarRaw(view, p, k)) }));
+}

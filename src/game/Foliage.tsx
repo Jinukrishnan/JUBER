@@ -84,18 +84,18 @@ export function Flowers({ placements }: { placements: Placement[] }) {
   );
 }
 
-// Grass tufts and the odd bush along both verges of one route slice, kept off
+// Grass tufts and the odd bush along the verges of one cell, kept off
 // anything else that already stands there. Far slices get half the tufts.
 export function Grass({
-  slice,
+  spots,
   detail,
   isGroundFree,
 }: {
-  slice: number;
+  spots: { x: number; z: number; seed: number }[];
   detail: Detail;
   isGroundFree: (x: number, z: number, radius: number) => boolean;
 }) {
-  const parts = useMemo(() => grassParts(slice, detail, isGroundFree), [slice, detail, isGroundFree]);
+  const parts = useMemo(() => grassParts(spots, detail, isGroundFree), [spots, detail, isGroundFree]);
 
   return (
     <group>

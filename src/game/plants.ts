@@ -1,8 +1,5 @@
-import { ROUTE_V1 } from "./data/route-v1";
 import type { Item } from "./Instances";
-import type { FlowerPlacement, Side } from "./logic/layout";
-import { FOOTPATH_WIDTH, VERGE_WIDTH, roadCenterZ, roadHalfWidthAt } from "./logic/road";
-import { SLICE_LENGTH } from "./logic/slices";
+import type { FlowerPlacement } from "./logic/layout";
 
 // Small plants as instance data: flower clusters, grass tufts, bushes, and the
 // spots along the verge where tufts and bushes grow. Pure and seeded.
@@ -34,14 +31,17 @@ export function flowerParts(p: FlowerPlacement): FlowerParts {
 
   if (p.species === "sunflower") {
     // the flat axis of a head points along local z; turn it so it faces the road
-    const faceRoad = p.side === 1 ? Math.PI : 0;
+    const heading = p.heading ?? 0;
+    const faceRoad = (p.side === 1 ? Math.PI : 0) - heading;
+    const offX = p.side * 0.04 * Math.sin(heading);
+    const offZ = -p.side * 0.04 * Math.cos(heading);
     for (let i = 0; i < p.count; i++) {
       const { dx, dz } = inCluster(r);
       const h = 1.4 + r() * 1.0;
       const x = p.x + dx;
       const z = p.z + dz;
       out.stem.push({ x, y: h / 2, z, sx: 0.06, sy: h, sz: 0.06, color: "#4f8a2e" });
-      out.head.push({ x, y: h, z: z - p.side * 0.04, sx: 0.22, sy: 0.22, sz: 0.06, ry: faceRoad, color: "#4a2d12" });
+      out.head.push({ x: x + offX, y: h, z: z + offZ, sx: 0.22, sy: 0.22, sz: 0.06, ry: faceRoad, color: "#4a2d12" });
       out.head.push({ x, y: h, z, sx: 0.38, sy: 0.38, sz: 0.04, ry: faceRoad, color: i % 2 ? "#f2b705" : "#f7c61a" });
     }
     return out;
@@ -100,42 +100,20 @@ export function bushParts(seed: number, x: number, z: number): Item[] {
   return out;
 }
 
-export type Spot = { x: number; z: number; seed: number };
-
-// the road is drawn from 80 m behind the depot to 100 m past the last stop
-const ROAD_START = ROUTE_V1[0].position - 80;
-const ROAD_END = ROUTE_V1[ROUTE_V1.length - 1].position + 100;
-
-// Where grass and bushes grow along one side of the verge within a route slice:
-// every ~3 m, just beyond the verge edge.
-export function vergeSpots(slice: number, side: Side, spacing = 3): Spot[] {
-  const r = mulberry(9100 + slice * 2 + (side === 1 ? 1 : 0));
-  const spots: Spot[] = [];
-  for (let i = 0; i * spacing < SLICE_LENGTH - spacing; i++) {
-    const x = slice * SLICE_LENGTH + i * spacing + r() * spacing * 0.6;
-    if (x < ROAD_START || x > ROAD_END) continue;
-    const lat = roadHalfWidthAt(x) + FOOTPATH_WIDTH + VERGE_WIDTH + 0.4 + r() * 0.8;
-    spots.push({ x, z: roadCenterZ(x) + side * lat, seed: Math.floor(r() * 1e9) });
-  }
-  return spots;
-}
-
-// The tufts and bushes of one slice, after the filter the renderer applies:
-// far slices get half the tufts, and nothing grows where `isGroundFree` says no.
+// The tufts and bushes of one cell, after the filter the renderer applies:
+// far cells get half the tufts, and nothing grows where `isGroundFree` says no.
 export function grassParts(
-  slice: number,
+  spots: { x: number; z: number; seed: number }[],
   detail: "full" | "lite",
   isGroundFree: (x: number, z: number, radius: number) => boolean,
 ): { tufts: Item[]; bushes: Item[] } {
   const tufts: Item[] = [];
   const bushes: Item[] = [];
-  for (const side of [-1, 1] as const) {
-    vergeSpots(slice, side).forEach((s, i) => {
-      if (detail === "lite" && i % 2) return;
-      if (!isGroundFree(s.x, s.z, 0.6)) return;
-      if (s.seed % 7 === 0) bushes.push(...bushParts(s.seed, s.x, s.z));
-      else tufts.push(...tuftParts(s.seed, s.x, s.z));
-    });
-  }
+  spots.forEach((s, i) => {
+    if (detail === "lite" && i % 2) return;
+    if (!isGroundFree(s.x, s.z, 0.6)) return;
+    if (s.seed % 7 === 0) bushes.push(...bushParts(s.seed, s.x, s.z));
+    else tufts.push(...tuftParts(s.seed, s.x, s.z));
+  });
   return { tufts, bushes };
 }

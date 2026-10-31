@@ -1,7 +1,4 @@
-import type { Junction } from "../data/junctions-v1";
-
 export type Light = "green" | "yellow" | "red";
-export type Approach = "mainForward" | "mainBackward" | "armLeft" | "armRight";
 export type Group = "main" | "cross";
 
 export type Plan = { offset: number; mainGreen: number; crossGreen: number; yellow: number; allRed: number };
@@ -11,8 +8,6 @@ export const DEFAULT_PLAN: Plan = { offset: 0, mainGreen: 28, crossGreen: 14, ye
 export function resolvePlan(p: Partial<Plan> | undefined): Plan {
   return { ...DEFAULT_PLAN, ...p };
 }
-
-export const groupOf = (a: Approach): Group => (a === "mainForward" || a === "mainBackward" ? "main" : "cross");
 
 export function cycleLength(p: Plan): number {
   return p.mainGreen + p.crossGreen + 2 * p.yellow + 2 * p.allRed;
@@ -55,15 +50,7 @@ export function redAge(p: Plan, t: number, group: Group): number {
   return (c - redStart + len) % len;
 }
 
-export function planOf(j: Junction): Plan | null {
-  return j.signal === false ? null : resolvePlan(j.signal);
-}
 
-export function approachLight(j: Junction, t: number, approach: Approach): Light {
-  const plan = planOf(j);
-  if (!plan) return "green";
-  return signalAt(plan, t)[groupOf(approach)];
-}
 
 // Seconds until this road's light next changes colour.
 export function untilChange(p: Plan, t: number, group: Group): number {

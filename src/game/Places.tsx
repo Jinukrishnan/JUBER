@@ -10,7 +10,7 @@ import { reportHit } from "./hit";
 import { busHitsPerson } from "./logic/collision";
 import { customerSpot, placeSpot } from "./logic/places";
 import { targetPlace } from "./logic/ride";
-import { KERB_HEIGHT } from "./logic/road";
+import { KERB_HEIGHT } from "./logic/network";
 import { dialogueFor } from "./logic/dialogue";
 import { Speech } from "./SpeechBubble";
 import { specFor } from "./Stops";
@@ -18,9 +18,8 @@ import { Person } from "./Person";
 import { useGame } from "./state/store";
 import { NETWORK } from "./world";
 
-// the old bus-stop places have shelters (Stops.tsx); the others get a name board
-const BOARD_IDS = new Set(["panchayat", "church", "paddy", "masjid", "hospital", "temple", "school"]);
-const BOARD_PLACES = PLACES.filter((p) => BOARD_IDS.has(p.id));
+// places without a shelter get a name board on a pole
+const BOARD_PLACES = PLACES.filter((p) => !p.shelter);
 
 function boardDrawer(place: Place): Draw {
   return (g, w, h) => {

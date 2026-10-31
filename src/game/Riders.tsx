@@ -6,7 +6,7 @@ import type { Group } from "three";
 import { busLocalToWorld, busPose } from "./busPose";
 import { VEHICLES } from "./data/vehicles";
 import { customerSpot } from "./logic/places";
-import { KERB_HEIGHT } from "./logic/road";
+import { KERB_HEIGHT } from "./logic/network";
 import type { Request } from "./logic/requests";
 import { Person } from "./Person";
 import { specFor } from "./Stops";

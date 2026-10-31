@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FlowerPlacement } from "./logic/layout";
-import { FOOTPATH_WIDTH, VERGE_WIDTH, roadCenterZ, roadHalfWidthAt } from "./logic/road";
-import { SLICE_LENGTH } from "./logic/slices";
-import { bushParts, flowerParts, tuftParts, vergeSpots } from "./plants";
+import { bushParts, flowerParts, tuftParts } from "./plants";
 
 const flowers = (species: FlowerPlacement["species"], side: 1 | -1 = 1, count = 9): FlowerPlacement => ({
   kind: "flowers", species, side, x: 200, z: 30, count, seed: 777,
@@ -21,7 +19,9 @@ describe("sunflowers", () => {
     }
   });
 
-  it("turn their faces to the road, whichever side they are on", () => {
+  it("turn their faces to the road, whichever side and direction it runs", () => {
+    const p = flowerParts({ ...flowers("sunflower", 1), heading: Math.PI / 2 });
+    for (const h of p.head) expect(Math.cos((h.ry ?? 0) + Math.PI / 2)).toBeCloseTo(-1, 9);
     for (const side of [1, -1] as const) {
       const p = flowerParts(flowers("sunflower", side));
       for (const h of p.head) expect(Math.cos(h.ry ?? 0)).toBeCloseTo(side === 1 ? -1 : 1, 9);
@@ -69,34 +69,5 @@ describe("grass tufts and bushes", () => {
     expect(b.length).toBeGreaterThanOrEqual(3);
     expect(b.length).toBeLessThanOrEqual(4);
     for (const it of b) expect(near(it, 50, 8)).toBeLessThanOrEqual(1.5);
-  });
-});
-
-describe("vergeSpots beyond the ends of the road", () => {
-  it("grow nothing where no road is drawn", () => {
-    expect(vergeSpots(-3, 1)).toEqual([]);
-    expect(vergeSpots(-3, -1)).toEqual([]);
-    expect(vergeSpots(19, 1)).toEqual([]);
-    expect(vergeSpots(21, -1)).toEqual([]);
-    expect(vergeSpots(0, 1).length).toBeGreaterThan(0);
-    expect(vergeSpots(17, 1).length).toBeGreaterThan(0);
-  });
-});
-
-describe("vergeSpots", () => {
-  const spots = vergeSpots(5, 1);
-  it("lie in their slice, beyond the verge, on the requested side", () => {
-    expect(spots.length).toBeGreaterThan(20);
-    for (const s of spots) {
-      expect(s.x).toBeGreaterThanOrEqual(5 * SLICE_LENGTH);
-      expect(s.x).toBeLessThan(6 * SLICE_LENGTH);
-      const lat = s.z - roadCenterZ(s.x);
-      expect(lat).toBeGreaterThanOrEqual(roadHalfWidthAt(s.x) + FOOTPATH_WIDTH + VERGE_WIDTH + 0.4);
-    }
-    for (const s of vergeSpots(5, -1)) expect(s.z).toBeLessThan(roadCenterZ(s.x));
-  });
-  it("are the same every time", () => {
-    expect(vergeSpots(5, 1)).toEqual(spots);
-    expect(vergeSpots(6, 1)).not.toEqual(spots);
   });
 });

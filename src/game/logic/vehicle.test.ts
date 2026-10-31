@@ -6,7 +6,6 @@ import {
   type Inputs,
   type VehicleState,
 } from "./vehicle";
-import { roadCenterZ } from "./road";
 
 const still: VehicleState = { x: 0, z: 0, heading: 0, speed: 0, steerAngle: 0 };
 const none: Inputs = { throttle: 0, steer: 0, handbrake: false };
@@ -114,14 +113,6 @@ describe("steering feel", () => {
   });
 });
 
-describe("roadCenterZ", () => {
-  it("is 0 at the depot and gently bounded", () => {
-    expect(roadCenterZ(0)).toBe(0);
-    for (let x = 0; x < 3500; x += 50) {
-      expect(Math.abs(roadCenterZ(x))).toBeLessThanOrEqual(25);
-    }
-  });
-});
 
 describe("stepVehicle with a bounds function", () => {
   const start = { x: 0, z: 0, heading: 0, speed: 5, steerAngle: 0 };

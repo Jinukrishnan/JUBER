@@ -1,8 +1,8 @@
+import type { Network } from "../data/network-v1";
+import type { Place } from "../data/places-v1";
 import { BAY_OFFSET, BAY_WIDTH } from "./bay";
-import { TURN_AROUND_RADIUS, armSigns, localToWorld, type ResolvedJunction } from "./junction";
-import { FOOTPATH_WIDTH, VERGE_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
-import { polePositions, type RoadFeatures } from "./roadside";
-import type { Stop } from "./route";
+import { builtRoads, headingAt, keepOutShapes, pointAt } from "./network";
+import type { RoadFeatures } from "./roadside";
 
 // Ground footprints of things standing in the world, and the zones scenery must
 // keep out of. A rect's `w` runs along `heading` (0 faces +x) and `d` across it.
@@ -66,50 +66,53 @@ export function overlaps(a: Shape, b: Shape): boolean {
   return rectRect(a as Rect, b as Rect);
 }
 
-const SEGMENT = 20; // metres of road per keep-out rectangle
 const SHELTER_EDGE = BAY_OFFSET + BAY_WIDTH / 2 + 2.2; // shelter centre, from the road centreline
 
-// Everything scenery must stay out of: the road, footpath and verge (including
-// the widened turn-around areas), every shelter and its sign post, every sign
-// pole and every electric pole.
-export function keepOutZones(stops: Stop[], features: RoadFeatures, junctions: ResolvedJunction[] = []): Shape[] {
-  const zones: Shape[] = [];
-  const first = stops[0].position - 90;
-  const last = stops[stops.length - 1].position + 110;
-  for (let x = first; x < last; x += SEGMENT) {
-    const mid = x + SEGMENT / 2;
-    // the widest the road gets within the segment, plus a margin for the curve
-    const half = Math.max(roadHalfWidthAt(x), roadHalfWidthAt(mid), roadHalfWidthAt(x + SEGMENT));
-    zones.push({
-      kind: "rect",
-      x: mid,
-      z: roadCenterZ(mid),
-      w: SEGMENT + 1,
-      d: 2 * (half + FOOTPATH_WIDTH + VERGE_WIDTH) + 0.8,
-      heading: roadAngle(mid),
+// Everything scenery must stay out of: the roads with their footpaths, verges and
+// junction boxes, every shelter and its sign post, every sign pole and every
+// electric pole.
+export function keepOutZones(n: Network, places: Place[], features: RoadFeatures): Shape[] {
+  const zones = keepOutShapes(n);
+  const roads = builtRoads(n);
+  for (const p of places) {
+    if (!p.shelter) continue;
+    const r = roads.find((b) => b.road.id === p.road)!;
+    const c = pointAt(r, p.s + 0.3);
+    const h = headingAt(r, p.s);
+    const lat = p.side * SHELTER_EDGE;
+    zones.push({ kind: "rect", x: c.x - Math.sin(h) * lat, z: c.z + Math.cos(h) * lat, w: 8.6, d: 3.6, heading: h });
+  }
+  for (const sign of features.signs) zones.push({ kind: "circle", x: sign.x, z: sign.z, r: 0.8 });
+  for (const pole of features.poles) zones.push({ kind: "circle", x: pole.x, z: pole.z, r: 0.6 });
+  return zones;
+}
+
+// A coarse square grid so a shape is only compared with its neighbours instead of
+// everything: the layout has thousands of shapes.
+const GRID_CELL = 25;
+function reach(s: Shape): number {
+  return s.kind === "circle" ? s.r : Math.hypot(s.w, s.d) / 2;
+}
+export class ShapeGrid {
+  private cells = new Map<string, Shape[]>();
+  private each(s: Shape, fn: (list: Shape[] | undefined, key: string) => boolean | void): boolean {
+    const r = reach(s);
+    for (let cx = Math.floor((s.x - r) / GRID_CELL); cx <= Math.floor((s.x + r) / GRID_CELL); cx++) {
+      for (let cz = Math.floor((s.z - r) / GRID_CELL); cz <= Math.floor((s.z + r) / GRID_CELL); cz++) {
+        const key = `${cx},${cz}`;
+        if (fn(this.cells.get(key), key)) return true;
+      }
+    }
+    return false;
+  }
+  add(s: Shape) {
+    this.each(s, (list, key) => {
+      if (list) list.push(s);
+      else this.cells.set(key, [s]);
     });
   }
-  for (const s of stops) {
-    const cz = roadCenterZ(s.position);
-    for (const side of [-1, 1]) {
-      zones.push({ kind: "rect", x: s.position + 0.3, z: cz + side * SHELTER_EDGE, w: 8.6, d: 3.6, heading: 0 });
-    }
+  // true if any stored shape that could be near `s` overlaps it
+  hits(s: Shape): boolean {
+    return this.each(s, (list) => !!list && list.some((o) => overlaps(s, o)));
   }
-  for (const sign of features.signs) {
-    const lat = roadHalfWidthAt(sign.x) + 0.9;
-    zones.push({ kind: "circle", x: sign.x, z: roadCenterZ(sign.x) + (sign.side === "left" ? -lat : lat), r: 0.8 });
-  }
-  for (const j of junctions) {
-    const across = 2 * (j.armHalfWidth + FOOTPATH_WIDTH + VERGE_WIDTH) + 0.8;
-    for (const side of armSigns(j.arms)) {
-      const mid = localToWorld(j, 0, side * (j.armLength / 2));
-      zones.push({ kind: "rect", x: mid.x, z: mid.z, w: j.armLength + 2, d: across, heading: j.angle + Math.PI / 2 });
-      const end = localToWorld(j, 0, side * j.armLength);
-      zones.push({ kind: "circle", x: end.x, z: end.z, r: TURN_AROUND_RADIUS + 4 });
-    }
-  }
-  for (const x of polePositions(stops, junctions)) {
-    zones.push({ kind: "circle", x, z: roadCenterZ(x) + roadHalfWidthAt(x) + FOOTPATH_WIDTH + 0.9, r: 0.6 });
-  }
-  return zones;
 }

@@ -390,3 +390,12 @@ export function validateNetwork(
 
   return { problems, valid: { roads, junctions: keep } };
 }
+
+// Every road as a polyline for drawing (closed roads end where they began).
+export function roadPolylines(n: Network, step = 12): { road: RoadId; pts: { x: number; z: number }[] }[] {
+  return builtRoads(n).map((r) => {
+    const count = Math.max(2, Math.ceil(r.length / step));
+    const pts = Array.from({ length: count + 1 }, (_, i) => pointAt(r, (r.length * i) / count));
+    return { road: r.road.id, pts };
+  });
+}
