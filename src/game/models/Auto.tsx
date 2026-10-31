@@ -16,16 +16,16 @@ export function Auto() {
       <Wheel x={-0.85} z={0.68} r={0.28} w={0.14} />
       <Wheel x={-0.85} z={-0.68} r={0.28} w={0.14} />
       {/* green body: floor and sides, front cowl */}
-      <Block p={[-0.4, 0.5, 0]} s={[1.9, 0.12, 1.3]} color={GREEN} />
-      <Block p={[-0.4, 0.78, 0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} />
-      <Block p={[-0.4, 0.78, -0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} />
+      <Block p={[-0.4, 0.5, 0]} s={[1.9, 0.12, 1.3]} color={GREEN} glow={0.4} />
+      <Block p={[-0.4, 0.78, 0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} glow={0.4} />
+      <Block p={[-0.4, 0.78, -0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} glow={0.4} />
       <Block p={[0.95, 0.72, 0]} s={[0.55, 0.62, 0.5]} color={BLACK} rot={[0, 0, -0.18]} />
       <Block p={[1.12, 0.46, 0]} s={[0.35, 0.16, 0.34]} color={BLACK} />
       {/* black hood over the back seat */}
       <Block p={[-1.25, 1.35, 0]} s={[0.5, 0.9, 1.3]} color={BLACK} rot={[0, 0, 0.1]} />
       {/* yellow roof and its pillars */}
-      <Block p={[-0.28, 1.88, 0]} s={[1.9, 0.07, 1.42]} color={YELLOW} />
-      <Block p={[0.5, 1.82, 0]} s={[0.4, 0.06, 1.2]} color={YELLOW} rot={[0, 0, -0.35]} />
+      <Block p={[-0.28, 1.88, 0]} s={[1.9, 0.07, 1.42]} color={YELLOW} glow={0.4} />
+      <Block p={[0.5, 1.82, 0]} s={[0.4, 0.06, 1.2]} color={YELLOW} glow={0.4} rot={[0, 0, -0.35]} />
       {[0.62, -0.62].map((z) => (
         <Block key={z} p={[0.35, 1.3, z]} s={[0.05, 1.1, 0.05]} color={BLACK} />
       ))}

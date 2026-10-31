@@ -32,6 +32,7 @@ export function Block({
   emissive,
   opacity,
   shadow = true,
+  glow,
 }: {
   p: [number, number, number];
   s: [number, number, number];
@@ -40,14 +41,15 @@ export function Block({
   emissive?: string;
   opacity?: number;
   shadow?: boolean;
+  glow?: number; // a soft self-glow in the block's own colour, so cartoon paint stays bright in any light
 }) {
   return (
     <mesh position={p} rotation={rot} castShadow={shadow}>
       <boxGeometry args={s} />
       <meshStandardMaterial
         color={color}
-        emissive={emissive ?? "#000000"}
-        emissiveIntensity={emissive ? 1.4 : 0}
+        emissive={emissive ?? (glow ? color : "#000000")}
+        emissiveIntensity={emissive ? 1.4 : (glow ?? 0)}
         transparent={opacity !== undefined}
         opacity={opacity ?? 1}
       />
