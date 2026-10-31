@@ -58,7 +58,7 @@ export function RideStrip() {
   }
 
   return (
-    <div className="absolute inset-x-0 top-4 mx-auto flex w-fit max-w-[min(560px,calc(100vw-30rem))] flex-col items-center gap-1">
+    <div className="absolute inset-x-0 top-2 mx-auto flex w-fit max-w-[min(560px,calc(100vw-20rem))] lg:top-4 lg:max-w-[min(560px,calc(100vw-30rem))] flex-col items-center gap-1">
       <div data-testid="ride-strip" className="rounded-full border border-line bg-cream/95 px-5 py-2 text-center text-sm font-semibold shadow">
         {text}
       </div>

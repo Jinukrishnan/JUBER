@@ -40,7 +40,7 @@ export function ReviewCard() {
     <div
       role="dialog"
       aria-label={`${name} rated the ride`}
-      className={`pointer-events-auto absolute inset-x-0 bottom-6 mx-auto w-[min(540px,92vw)] rounded-2xl border-2 bg-cream p-4 shadow-xl ${BORDER[review.mood]}`}
+      className={`pointer-events-auto absolute inset-x-0 bottom-6 mx-auto max-lg:bottom-auto max-lg:top-14 w-[min(540px,92vw)] rounded-2xl border-2 bg-cream p-4 shadow-xl ${BORDER[review.mood]}`}
     >
       <div className="flex items-baseline justify-between text-xs opacity-70">
         <span className="font-semibold">{name}</span>

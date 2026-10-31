@@ -14,6 +14,7 @@ import { lampState } from "./logic/lamps";
 import { clampToDrivable } from "./logic/network";
 import { stepVehicle, type VehicleState } from "./logic/vehicle";
 import { useGame } from "./state/store";
+import { mergeInput, touchInput } from "./touchInput";
 import { useHeldKeys, useKeyPress } from "./useKeys";
 import { NETWORK } from "./world";
 
@@ -64,9 +65,10 @@ export function Vehicle() {
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
     const game = useGame.getState();
+    const input = mergeInput(keys.current, touchInput);
     const spec = VEHICLES[game.vehicle];
     if (game.phase === "running") {
-      const k = keys.current;
+      const k = input;
       const before = state.current;
       const holding = game.ride.phase === "atPickup" || game.ride.phase === "boarding" || game.ride.phase === "alighting";
       const r = stepVehicle(
@@ -99,13 +101,13 @@ export function Vehicle() {
 
     const v = state.current;
     const live = game.phase === "running";
-    updateEngine({ speed: v.speed, throttle: keys.current.throttle, live, kind: game.vehicle });
-    setHorn(live && keys.current.horn);
+    updateEngine({ speed: v.speed, throttle: input.throttle, live, kind: game.vehicle });
+    setHorn(live && input.horn);
     busPose.x = v.x;
     busPose.z = v.z;
     busPose.heading = v.heading;
     busPose.speed = v.speed;
-    const lamps = lampState(live ? keys.current.throttle : 0, live && keys.current.handbrake, v.speed);
+    const lamps = lampState(live ? input.throttle : 0, live && input.handbrake, v.speed);
     busPose.braking = lamps.braking;
     busPose.reversing = lamps.reversing;
 
