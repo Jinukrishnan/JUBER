@@ -160,7 +160,7 @@ describe("the depot", () => {
   it("is on the ring, and every day starts there from any state", () => {
     const d = depotPose();
     expect(Math.hypot(d.x - 140, d.z + 3.7)).toBeLessThan(0.5);
-    g().setVehicleState({ x: 400, z: 250, speed: 9, heading: 1 });
+    Object.assign(busPose, { x: 400, z: 250, speed: 9, heading: 1 });
     g().startDay();
     expect(busPose.x).toBeCloseTo(d.x, 6);
     expect(busPose.z).toBeCloseTo(d.z, 6);

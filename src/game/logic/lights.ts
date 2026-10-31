@@ -96,3 +96,13 @@ export function nextSignalAhead(n: Network, p: Pose, t: number, half = VEHICLE_H
   }
   return best;
 }
+
+// The signal axis of the approach a vehicle heading is lined up with, for showing
+// the light the driver would actually face.
+export function axisFacing(n: Network, junctionId: string, heading: number): Axis {
+  let best = approachesOf(n, junctionId)[0];
+  for (const a of approachesOf(n, junctionId)) {
+    if (Math.cos(heading - a.heading) > Math.cos(heading - best.heading)) best = a;
+  }
+  return best.axis;
+}

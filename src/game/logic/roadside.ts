@@ -15,7 +15,7 @@ export type Sign = {
   label?: { ml: string; en: string; km: string }; // direction boards
 };
 export type Zebra = { x: number; z: number; heading: number; road: RoadId };
-export type Pole = { x: number; z: number };
+export type Pole = { x: number; z: number; road: RoadId; heading: number };
 export type RoadFeatures = { zebras: Zebra[]; signs: Sign[]; poles: Pole[] };
 
 export const ZEBRA_LENGTH = 3.5; // along the road
@@ -84,7 +84,7 @@ export function roadFeatures(n: Network, places: Place[]): RoadFeatures {
     for (let s = POLE_SPACING / 2; s < r.length; s += POLE_SPACING) {
       const k = kerbPoint(r.road.id, s, 1, FOOTPATH_WIDTH + 0.9);
       const near = n.junctions.some((j) => Math.max(Math.abs(k.x - j.at[0]), Math.abs(k.z - j.at[1])) < JUNCTION_BOX_HALF + POLE_CLEAR);
-      if (!near) poles.push({ x: k.x, z: k.z });
+      if (!near) poles.push({ x: k.x, z: k.z, road: r.road.id, heading: k.h });
     }
   }
 

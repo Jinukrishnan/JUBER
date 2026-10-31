@@ -213,6 +213,7 @@ function Bay({ place, occupied }: { place: Place; occupied: boolean }) {
 }
 
 const SHELTERS = ACTIVE_PLACES.filter((p) => p.shelter);
+const SHELTER_SPOTS = SHELTERS.map((p) => placeSpot(NETWORK, p));
 
 // The shelters and painted bays at the bus-stop style places, on the kerb the
 // customers wait on. The bay turns green where the driver is headed.
@@ -223,10 +224,10 @@ export function Stops() {
 
   // draw only the shelters near the vehicle
   useFrame(() => {
-    SHELTERS.forEach((p, i) => {
+    SHELTERS.forEach((_, i) => {
       const g = groups.current[i];
       if (!g) return;
-      const spot = placeSpot(NETWORK, p);
+      const spot = SHELTER_SPOTS[i];
       g.visible = Math.hypot(spot.x - busPose.x, spot.z - busPose.z) < DRAW_RANGE;
     });
   });

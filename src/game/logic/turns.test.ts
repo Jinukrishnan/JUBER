@@ -155,6 +155,18 @@ describe("moveAt", () => {
     expect(run("centre", back)).toEqual([]);
   });
 
+  it("does not call a U-turn near the kerb a turn, however close to the side it leaves", () => {
+    // in from the south (heading north), round and out southbound, 1 m from the east kerb
+    const path = [
+      { x: 396.3, z: 262, heading: NORTH },
+      { x: 396.3, z: 254, heading: NORTH },
+      { x: 402, z: 250, heading: 0 },
+      { x: 407, z: 255, heading: S },
+      { x: 407, z: 258.2, heading: S },
+    ];
+    expect(run("centre", path)).toEqual([]);
+  });
+
   it("reports nothing for a vehicle that never enters", () => {
     const path = Array.from({ length: 30 }, (_, i) => ({ x: 380 + i, z: 100, heading: E }));
     expect(run("centre", path)).toEqual([]);

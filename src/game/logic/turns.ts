@@ -190,7 +190,11 @@ export function moveAt(
       if (!best || d < best.d) best = { exit: e, d };
     }
     // leaving by the side it came in: the way back, not a move
-    const backAt = { x: reverse.stopLineAt.x, z: reverse.stopLineAt.z };
+    // measured to the box edge, like the exits, so a U-turn near the kerb is not mistaken for a side turn
+    const ux = reverse.stopLineAt.x - j.at[0];
+    const uz = reverse.stopLineAt.z - j.at[1];
+    const ul = Math.hypot(ux, uz) || 1;
+    const backAt = { x: j.at[0] + (ux / ul) * JUNCTION_BOX_HALF, z: j.at[1] + (uz / ul) * JUNCTION_BOX_HALF };
     const dBack = Math.hypot(next.x - backAt.x, next.z - backAt.z);
     if (!best || dBack < best.d) return { state: null, move: null };
     return { state: null, move: { junction: j.id, approach: state, exit: best.exit, turn: best.exit.turn } };

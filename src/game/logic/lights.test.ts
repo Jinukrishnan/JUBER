@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NETWORK_V1 } from "../data/network-v1";
-import { RED_GRACE_S, lightFor, nextSignalAhead, planOfJunction, redViolationAt, untilChangeFor } from "./lights";
+import { RED_GRACE_S, axisFacing, lightFor, nextSignalAhead, planOfJunction, redViolationAt, untilChangeFor } from "./lights";
 import { redAge, signalAt } from "./signals";
 import { approachesOf, allowedTurns } from "./turns";
 
@@ -115,5 +115,13 @@ describe("nextSignalAhead", () => {
 
   it("returns null in open country", () => {
     expect(nextSignalAhead(N, { x: 200, z: 120, heading: 0 }, 0)).toBeNull();
+  });
+});
+
+describe("axisFacing", () => {
+  it("picks the axis of the approach a heading is lined up with", () => {
+    const north = N.junctions.find((j) => j.id === "north")!;
+    expect(axisFacing(N, north.id, 0)).toBe("main"); // east along the ring
+    expect(axisFacing(N, north.id, -Math.PI / 2)).toBe("cross"); // north up Station Road
   });
 });

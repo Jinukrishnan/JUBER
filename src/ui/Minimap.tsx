@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { busPose } from "@/game/busPose";
-import { lightFor } from "@/game/logic/lights";
+import { axisFacing, lightFor } from "@/game/logic/lights";
 import { roadPolylines } from "@/game/logic/network";
 import { DEFAULT_RANGE_INDEX, RADAR_RANGES, roadsToRadar, toRadar, toRadarRaw, type RadarView } from "@/game/logic/radar";
 import type { Ride } from "@/game/logic/ride";
@@ -65,14 +65,14 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
     ctx.stroke();
   }
 
-  // signals, in the colour the main road sees
+  // signals, in the colour the driver would face
   for (const j of NETWORK.junctions) {
     if (j.signal === false) continue;
     const q = at({ x: j.at[0], z: j.at[1] });
     if (Math.hypot(q.px, q.py) > R) continue;
     ctx.beginPath();
     ctx.arc(q.px, q.py, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = LIGHT[lightFor(j, g.signalTime, "main")];
+    ctx.fillStyle = LIGHT[lightFor(j, g.signalTime, axisFacing(NETWORK, j.id, view.heading))];
     ctx.fill();
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = "#111";

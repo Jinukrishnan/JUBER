@@ -85,7 +85,7 @@ export function Flowers({ placements }: { placements: Placement[] }) {
 }
 
 // Grass tufts and the odd bush along the verges of one cell, kept off
-// anything else that already stands there. Far slices get half the tufts.
+// anything else that already stands there. Far cells get half the tufts.
 export function Grass({
   spots,
   detail,
