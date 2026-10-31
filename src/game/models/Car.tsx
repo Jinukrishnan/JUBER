@@ -32,7 +32,7 @@ export function Car({ paint = BODY, lamps }: ModelProps) {
       <Block p={[-0.75, 0.9, 0]} s={[0.55, 0.14, 1.4]} color="#4a4c52" />
       <Block p={[-0.98, 1.15, 0]} s={[0.1, 0.5, 1.4]} color="#4a4c52" />
       <Block p={[0.62, 1.15, 0.42]} s={[0.04, 0.42, 0.42]} color="#1b1d1f" rot={[0, 0, -0.35]} />
-      <Driver p={[0.0, 0.95, 0.42]} shirt="#e8e2d0" />
+      <Driver p={[0.0, 0.6, 0.42]} shirt="#e8e2d0" />
       {/* grille, bumpers, mirrors, tail lamps, plate */}
       <Block p={[2.1, 0.62, 0]} s={[0.05, 0.2, 0.9]} color="#1b1d1f" />
       <Block p={[2.12, 0.42, 0]} s={[0.12, 0.14, 1.6]} color="#2a2c2f" />
