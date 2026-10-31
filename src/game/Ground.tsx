@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import { useNoiseTexture } from "./canvasTex";
 import { Instances, type Item } from "./Instances";
+import { ZONES } from "./data/zones-v1";
+import { groundTints } from "./logic/groundZones";
 import { nearest } from "./logic/network";
 import { NETWORK } from "./world";
 
@@ -36,6 +38,7 @@ const PATCH_COLORS = ["#6f9e45", "#5e8f3c", "#7eaa4f", "#4f8239", "#9aa44f", "#8
 function build() {
   const r = mulberry(31);
   const patches: Item[] = [];
+  const city = ZONES.find((z) => z.id === "city")!;
   const paddies: Item[] = [];
   const bunds: Item[] = [];
   const hills: Item[] = [];
@@ -43,6 +46,7 @@ function build() {
   for (let i = 0; i < 520; i++) {
     const x = CX - 1500 + r() * 3000;
     const z = CZ - 1000 + r() * 2000;
+    if (x > city.x0 - 20 && x < city.x1 + 20 && z > city.z0 - 20 && z < city.z1 + 20) continue; // the city is paved
     // each patch a hair higher than the last so overlapping ones never flicker
     patches.push({
       x, y: -0.06 + i * 0.0004, z,
@@ -86,7 +90,8 @@ function build() {
       color: t < 0.5 ? "#4d7468" : "#6c8f88",
     });
   }
-  return { patches, paddies, bunds, hills };
+  const tints: Item[] = groundTints(ZONES).map((t) => ({ x: t.x, y: t.y, z: t.z, sx: t.w, sy: 0.02, sz: t.d, color: t.color }));
+  return { patches, paddies, bunds, hills, tints };
 }
 
 export function Ground() {
@@ -99,6 +104,10 @@ export function Ground() {
         <planeGeometry args={[9000, 8000]} />
         <meshStandardMaterial map={grass} />
       </mesh>
+      <Instances items={g.tints}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial />
+      </Instances>
       <Instances items={g.patches}>
         <circleGeometry args={[1, 18]} />
         <meshStandardMaterial transparent opacity={0.8} depthWrite={false} />
