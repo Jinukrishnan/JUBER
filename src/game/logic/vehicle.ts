@@ -24,7 +24,7 @@ const EDGE_SCRUB = 0.5;
 // circle instead of pivoting: yaw rate = speed / wheelbase * tan(wheel angle).
 const WHEELBASE = 5.5; // m
 const MAX_STEER = 0.6; // rad, full lock at walking pace (turning radius ~8 m)
-const STEER_RATE = 0.55; // rad/s the wheel can move, so turns come in slowly
+const STEER_RATE = 1.6; // rad/s the wheel can move: full lock in about 0.4 s, so a junction turn starts at once
 const MAX_LATERAL_ACCEL = 3; // m/s^2, what the bus may pull sideways
 
 const DEFAULT_HANDLING: Handling = { wheelbase: WHEELBASE, maxSpeed: MAX_FORWARD_SPEED, accel: ACCEL, maxSteer: MAX_STEER, maxLateralAccel: MAX_LATERAL_ACCEL };

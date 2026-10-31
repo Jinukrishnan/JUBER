@@ -22,31 +22,41 @@ describe("personFor", () => {
 
   it("gives every person valid colours and a believable height", () => {
     for (const p of all) {
-      for (const c of [p.skin, p.hairColor, p.top, p.bottom, p.footwearColor]) expect(c).toMatch(HEX);
+      for (const c of [p.skin, p.hairColor, p.top, p.bottom, p.trim, p.footwearColor]) expect(c).toMatch(HEX);
       expect(p.scale).toBeGreaterThan(0.6);
       expect(p.scale).toBeLessThan(1.1);
     }
   });
 
-  it("dresses boys in a t-shirt, pants and shoes", () => {
+  it("dresses boys in a t-shirt or a school uniform, with trousers and shoes", () => {
+    const outfits = new Set(byKind("boy").map((p) => p.outfit));
+    expect(outfits).toEqual(new Set(["tshirt-pants", "school-boy"]));
     for (const p of byKind("boy")) {
-      expect(p.outfit).toBe("tshirt-pants");
       expect(p.bottomKind).toBe("trousers");
       expect(p.footwear).toBe("shoes");
       expect(p.scale).toBeLessThan(0.9);
+      if (p.outfit === "school-boy") {
+        expect(p.top.toLowerCase()).toBe("#f4f4f0"); // white shirt
+        expect(p.extras).toContain("tie");
+      }
     }
   });
 
-  it("dresses ordinary girls in a frock", () => {
+  it("dresses girls in a frock or a school uniform with plaits", () => {
+    const outfits = new Set(byKind("girl").map((p) => p.outfit));
+    expect(outfits).toEqual(new Set(["frock", "school-girl"]));
     for (const p of byKind("girl")) {
-      expect(p.outfit).toBe("frock");
       expect(p.bottomKind).toBe("skirt");
+      if (p.outfit === "school-girl") {
+        expect(p.hairStyle).toBe("plaits");
+        expect(p.top.toLowerCase()).toBe("#f4f4f0");
+      }
     }
   });
 
-  it("dresses men either casually or formally", () => {
+  it("dresses men casually, formally, or in a shirt and a bordered mundu", () => {
     const outfits = new Set(byKind("man").map((p) => p.outfit));
-    expect(outfits).toEqual(new Set(["casual", "formal"]));
+    expect(outfits).toEqual(new Set(["casual", "formal", "mundu-shirt"]));
     for (const p of byKind("man")) {
       if (p.outfit === "formal") {
         expect(p.extras).toContain("tie");
@@ -54,6 +64,11 @@ describe("personFor", () => {
         expect(p.footwear).toBe("shoes");
       } else {
         expect(p.extras).not.toContain("tie");
+      }
+      if (p.outfit === "mundu-shirt") {
+        expect(p.bottomKind).toBe("lungi");
+        expect(p.bottom.toLowerCase()).toBe("#f5f2ea");
+        expect(p.footwear).toBe("slippers");
       }
     }
   });
@@ -79,7 +94,11 @@ describe("personFor", () => {
     }
     for (const p of of("sari")) {
       expect(p.bottomKind).toBe("sari");
-      expect(p.extras).toContain("pallu");
+      expect(p.extras).toEqual(expect.arrayContaining(["pallu", "goldBorder", "bindi"]));
+      // a blouse that contrasts with the sari, and a border that is neither
+      expect(p.top.toLowerCase()).not.toBe(p.bottom.toLowerCase());
+      expect(p.trim.toLowerCase()).not.toBe(p.bottom.toLowerCase());
+      expect(p.hairStyle).toBe("bun");
     }
     for (const p of of("formal-suit")) {
       expect(p.extras).toContain("blazer");

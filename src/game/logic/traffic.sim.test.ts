@@ -19,7 +19,7 @@ let nextId = 100;
 function mk(over: Partial<Agent>): Agent {
   return {
     id: nextId++, kind: "car", road: "ring", dir: 1, s: 100, speed: 0, cruise: 8.5, hold: 0, seed: 1, paint: "#fff",
-    waiting: false, braking: false, reversing: false, passed: null, box: null, next: null, turns: 0, hitAt: -1e9, travelled: 0, ...over,
+    waiting: false, braking: false, reversing: false, passed: null, box: null, boxD: null, arc: null, next: null, turns: 0, hitAt: -1e9, travelled: 0, ...over,
   };
 }
 
@@ -86,7 +86,7 @@ describe("cruising", () => {
 
 describe("following", () => {
   it("never overlaps in a crowded start, 14 vehicles packed on 150 m, over two minutes", () => {
-    const agents = createTraffic(N, 5, depot).map((a, i) => ({ ...a, road: "ring", dir: 1 as const, s: 100 + i * 11, speed: 0 }));
+    const agents = createTraffic(N, 5, depot, 14).map((a, i) => ({ ...a, road: "ring", dir: 1 as const, s: 100 + i * 11, speed: 0 }));
     let worst = Infinity;
     run(agents, 120, FAR, 0, 0.1, () => {
       for (const a of agents) {
@@ -364,5 +364,55 @@ describe("review fixes", () => {
     const c = mk({ s: sEast - 30, speed: 8, next: { junction: "east", exitRoad: "ew", exitDir: -1, turn: "right" } });
     const rc = run([c], 30, { ...exitPose, speed: 0, length: 4.4, width: 1.8 }, timeOf("east", "main", "green"));
     expect(rc.hits).toEqual([]);
+  });
+});
+
+describe("turning through a junction", () => {
+  function sample(from: { road: string; dir: 1 | -1; s: number }, next: Agent["next"], light: "cross" | "main", junction: string) {
+    const a = mk({ ...from, speed: 7, next });
+    const poses: { x: number; z: number; heading: number }[] = [];
+    const t0 = timeOf(junction, light, "green");
+    for (let t = t0; t < t0 + 14; t += 0.05) {
+      stepTraffic(N, [a], 0.05, t, FAR);
+      poses.push(agentPose(N, a));
+    }
+    return { a, poses };
+  }
+
+  const cases: [string, { road: string; dir: 1 | -1; s: number }, Agent["next"], "cross" | "main", string][] = [
+    ["a left turn from the south at the centre", { road: "ns", dir: -1, s: 250 + 40 }, { junction: "centre", exitRoad: "ew", exitDir: -1, turn: "left" }, "cross", "centre"],
+    ["a right turn from the north at the centre", { road: "ns", dir: 1, s: 250 - 40 }, { junction: "centre", exitRoad: "ew", exitDir: -1, turn: "right" }, "cross", "centre"],
+    ["a left turn from the west at the centre", { road: "ew", dir: 1, s: 400 - 40 }, { junction: "centre", exitRoad: "ns", exitDir: -1, turn: "left" }, "main", "centre"],
+    ["a right turn from the west at the centre", { road: "ew", dir: 1, s: 400 - 40 }, { junction: "centre", exitRoad: "ns", exitDir: 1, turn: "right" }, "main", "centre"],
+  ];
+
+  for (const [name, from, next, light, junction] of cases) {
+    it(`curves round ${name}: no jump, no spin, ends square to the exit road, always on the road`, () => {
+      const { a, poses } = sample(from, next, light, junction);
+      expect(a.road).toBe(next!.exitRoad);
+      let jump = 0;
+      let spin = 0;
+      for (let i = 1; i < poses.length; i++) {
+        jump = Math.max(jump, Math.hypot(poses[i].x - poses[i - 1].x, poses[i].z - poses[i - 1].z));
+        spin = Math.max(spin, Math.abs(Math.atan2(Math.sin(poses[i].heading - poses[i - 1].heading), Math.cos(poses[i].heading - poses[i - 1].heading))));
+      }
+      expect(jump).toBeLessThan(0.05 * 9.5);
+      expect(spin).toBeLessThan(0.1);
+      for (const p of poses) expect(drivable(N, p.x, p.z), `${p.x.toFixed(1)},${p.z.toFixed(1)}`).toBe(true);
+      const last = poses[poses.length - 1];
+      const exitHeading = agentPose(N, { road: next!.exitRoad, dir: next!.exitDir, s: a.s }).heading;
+      expect(Math.abs(Math.atan2(Math.sin(last.heading - exitHeading), Math.cos(last.heading - exitHeading)))).toBeLessThan(0.05);
+    });
+  }
+});
+
+describe("a player beside a road is not on it", () => {
+  it("a player standing on the ring just beyond the start of Temple Road does not hold up a car turning onto it", () => {
+    const sWest = sOn("ring", "west");
+    // southbound on the ring (dir -1) from the north, turning left (east) onto Temple Road
+    const a = mk({ s: sWest + 30, dir: -1, speed: 6, next: { junction: "west", exitRoad: "ew", exitDir: 1, turn: "left" } });
+    const player: Player = { x: -4, z: 249.7, heading: -Math.PI / 2, speed: 0, length: 4.4, width: 1.8 };
+    run([a], 40, player, timeOf("west", "cross", "green"));
+    expect(a.road).toBe("ew");
   });
 });

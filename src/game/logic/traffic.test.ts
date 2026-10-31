@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NETWORK_V1 } from "../data/network-v1";
 import { PLACES } from "../data/places-v1";
-import { LANE, KINDS, agentPose, createTraffic, inRange, type Agent } from "./traffic";
+import { LANE, KINDS, TRAFFIC_COUNT, agentPose, createTraffic, inRange, stepTraffic, trafficMix, type Agent } from "./traffic";
 import { builtRoads, drivable, nearestOnRoad, roadLength } from "./network";
 import { placeSpot } from "./places";
 
@@ -11,10 +11,14 @@ const depot = placeSpot(N, PLACES.find((p) => p.id === "depot")!);
 describe("createTraffic", () => {
   const agents = createTraffic(N, 1, depot);
 
-  it("makes 6 cars, 3 autos, 3 bikes and 2 buses with unique ids", () => {
-    const count = (k: string) => agents.filter((a) => a.kind === k).length;
-    expect([count("car"), count("auto"), count("bike"), count("bus")]).toEqual([6, 3, 3, 2]);
-    expect(new Set(agents.map((a) => a.id)).size).toBe(14);
+  it("makes the whole mix, with unique ids", () => {
+    const count = (list: typeof agents, k: string) => list.filter((a) => a.kind === k).length;
+    expect(agents).toHaveLength(TRAFFIC_COUNT);
+    expect(new Set(agents.map((a) => a.id)).size).toBe(TRAFFIC_COUNT);
+    expect(count(agents, "car")).toBeGreaterThan(count(agents, "auto"));
+    for (const k of ["car", "auto", "bike", "bus"]) expect(count(agents, k), k).toBeGreaterThan(0);
+    for (const total of [14, 30, 45, 50]) expect(trafficMix(total)).toHaveLength(total);
+    expect(createTraffic(N, 1, depot, 14)).toHaveLength(14);
   });
 
   it("is repeatable for a seed and different for another", () => {
@@ -83,5 +87,18 @@ describe("inRange", () => {
     }
     expect(near.length).toBeLessThan(agents.length);
     expect(near.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the load of a full road", () => {
+  it("steps all the vehicles of a busy town in a small fraction of a frame", () => {
+    const agents = createTraffic(N, 4, depot);
+    const far = { x: 5000, z: 5000, heading: 0, speed: 0, length: 4.4, width: 1.8 };
+    const t0 = performance.now();
+    const frames = 600;
+    for (let i = 0; i < frames; i++) stepTraffic(N, agents, 1 / 60, i / 60, far);
+    const perFrame = (performance.now() - t0) / frames;
+    expect(agents).toHaveLength(45);
+    expect(perFrame).toBeLessThan(3); // ms, with room to spare for a slow machine
   });
 });

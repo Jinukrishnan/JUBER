@@ -7,7 +7,10 @@ import type { PersonSpec } from "./logic/people";
 
 // Low-poly person, feet at y=0, facing local +z. Pass a phase ref to animate a
 // walking cycle (legs and arms swing); leave it off for someone standing still.
-const GOLD = "#d4a82f";
+// Clothes glow a little in their own colour, so cartoon cloth stays bright in any light.
+function Cloth({ color }: { color: string }) {
+  return <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.28} />;
+}
 const LONG_SLEEVES = new Set(["churidhar", "formal", "formal-suit"]);
 
 function Shoe({ spec }: { spec: PersonSpec }) {
@@ -79,11 +82,30 @@ export function Hair({ spec }: { spec: PersonSpec }) {
         </mesh>
       )}
       {spec.hairStyle === "bun" && (
-        <mesh position={[0, 0.07, -0.13]}>
-          <sphereGeometry args={[0.06, 8, 8]} />
-          <meshStandardMaterial color={c} />
-        </mesh>
+        <>
+          <mesh position={[0, 0.09, -0.15]}>
+            <sphereGeometry args={[0.075, 10, 10]} />
+            <meshStandardMaterial color={c} />
+          </mesh>
+          <mesh position={[0, 0.09, -0.2]} rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.05, 0.012, 6, 14]} />
+            <meshStandardMaterial color="#e8d28a" />
+          </mesh>
+        </>
       )}
+      {spec.hairStyle === "plaits" &&
+        [-0.1, 0.1].map((x) => (
+          <group key={x} position={[x, -0.1, -0.09]}>
+            <mesh rotation={[0.1, 0, 0]}>
+              <cylinderGeometry args={[0.032, 0.022, 0.34, 8]} />
+              <meshStandardMaterial color={c} />
+            </mesh>
+            <mesh position={[0, 0.17, 0.01]}>
+              <sphereGeometry args={[0.04, 8, 8]} />
+              <meshStandardMaterial color="#d7263d" />
+            </mesh>
+          </group>
+        ))}
     </group>
   );
 }
@@ -105,7 +127,7 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
     if (body.current) body.current.position.y = Math.abs(s) * 0.03;
   });
 
-  const { outfit, bottomKind, top, bottom, skin, extras } = spec;
+  const { outfit, bottomKind, top, bottom, trim, skin, extras } = spec;
   const longSleeves = LONG_SLEEVES.has(outfit);
   const legColor = bottomKind === "trousers" || bottomKind === "leggings" ? bottom : skin;
   const blazer = extras.includes("blazer");
@@ -132,41 +154,89 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
         {bottomKind === "skirt" && (
           <mesh position={[0, 0.76, 0]}>
             <cylinderGeometry args={[0.17, 0.3, 0.45, 12]} />
-            <meshStandardMaterial color={bottom} />
+            <Cloth color={bottom} />
           </mesh>
         )}
         {bottomKind === "lungi" && (
-          <mesh position={[0, 0.72, 0]}>
-            <cylinderGeometry args={[0.19, 0.25, 0.52, 12]} />
-            <meshStandardMaterial color={bottom} />
-          </mesh>
+          <>
+            <mesh position={[0, 0.72, 0]}>
+              <cylinderGeometry args={[0.19, 0.25, 0.52, 12]} />
+              <Cloth color={bottom} />
+            </mesh>
+            <mesh position={[0, 0.48, 0]}>
+              <cylinderGeometry args={[0.253, 0.255, 0.06, 12]} />
+              <Cloth color={trim} />
+            </mesh>
+          </>
         )}
         {bottomKind === "sari" && (
           <>
             <mesh position={[0, 0.52, 0]}>
               <cylinderGeometry args={[0.19, 0.27, 0.9, 12]} />
-              <meshStandardMaterial color={bottom} />
+              <Cloth color={bottom} />
             </mesh>
-            {extras.includes("goldBorder") && (
-              <mesh position={[0, 0.1, 0]}>
-                <cylinderGeometry args={[0.272, 0.272, 0.07, 12]} />
-                <meshStandardMaterial color={GOLD} />
+            {/* the pleats in front */}
+            {[-0.05, 0, 0.05].map((x) => (
+              <mesh key={x} position={[x, 0.62, 0.215 + 0.012 * Math.abs(x) * 6]}>
+                <boxGeometry args={[0.035, 0.62, 0.025]} />
+                <Cloth color={bottom} />
               </mesh>
+            ))}
+            {extras.includes("goldBorder") && (
+              <>
+                <mesh position={[0, 0.09, 0]}>
+                  <cylinderGeometry args={[0.272, 0.274, 0.09, 12]} />
+                  <Cloth color={trim} />
+                </mesh>
+                <mesh position={[0, 0.2, 0]}>
+                  <cylinderGeometry args={[0.262, 0.264, 0.025, 12]} />
+                  <Cloth color={trim} />
+                </mesh>
+              </>
             )}
           </>
-        )}
-        {outfit === "churidhar" && (
+        )}        {outfit === "churidhar" && (
           <mesh position={[0, 0.85, 0]}>
             <cylinderGeometry args={[0.2, 0.26, 0.62, 12]} />
-            <meshStandardMaterial color={top} />
+            <Cloth color={top} />
           </mesh>
         )}
 
-        {/* torso */}
-        <mesh position={[0, 1.2, 0]}>
-          <cylinderGeometry args={[0.2, 0.17, 0.56, 12]} />
-          <meshStandardMaterial color={top} />
-        </mesh>
+        {/* torso: a short blouse over a bare midriff for a sari, else a full top */}
+        {outfit === "sari" ? (
+          <>
+            <mesh position={[0, 1.04, 0]}>
+              <cylinderGeometry args={[0.17, 0.18, 0.12, 12]} />
+              <meshStandardMaterial color={skin} />
+            </mesh>
+            <mesh position={[0, 1.27, 0]}>
+              <cylinderGeometry args={[0.2, 0.18, 0.4, 12]} />
+              <Cloth color={top} />
+            </mesh>
+            <mesh position={[0, 1.07, 0.18]}>
+              <boxGeometry args={[0.05, 0.05, 0.01]} />
+              <meshStandardMaterial color="#8a5a3c" />
+            </mesh>
+          </>
+        ) : (
+          <mesh position={[0, 1.2, 0]}>
+            <cylinderGeometry args={[0.2, 0.17, 0.56, 12]} />
+            <Cloth color={top} />
+          </mesh>
+        )}
+        {/* school uniform: a navy pinafore bodice for girls, a tie for both */}
+        {outfit === "school-girl" && (
+          <mesh position={[0, 1.12, 0.012]}>
+            <cylinderGeometry args={[0.205, 0.175, 0.3, 12]} />
+            <Cloth color={bottom} />
+          </mesh>
+        )}
+        {(outfit === "school-boy" || outfit === "school-girl") && (
+          <mesh position={[0, 1.2, 0.2]}>
+            <boxGeometry args={[0.05, 0.28, 0.02]} />
+            <meshStandardMaterial color="#8c1d2c" />
+          </mesh>
+        )}
         {blazer && (
           <mesh position={[0, 1.18, 0]}>
             <boxGeometry args={[0.46, 0.52, 0.3]} />
@@ -189,12 +259,12 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
           <group position={[0, 1.2, 0.19]} rotation={[0, 0, -0.5]}>
             <mesh>
               <boxGeometry args={[0.17, 0.72, 0.04]} />
-              <meshStandardMaterial color={bottom} />
+              <Cloth color={bottom} />
             </mesh>
             {extras.includes("goldBorder") && (
               <mesh position={[0.07, 0, 0.022]}>
-                <boxGeometry args={[0.025, 0.72, 0.01]} />
-                <meshStandardMaterial color={GOLD} />
+                <boxGeometry args={[0.03, 0.72, 0.01]} />
+                <Cloth color={trim} />
               </mesh>
             )}
           </group>
@@ -242,6 +312,26 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
           <mesh key={x} position={[x, 1.665, 0.113]}>
             <sphereGeometry args={[0.014, 6, 6]} />
             <meshStandardMaterial color="#1a1412" />
+          </mesh>
+        ))}
+        {[-0.045, 0.045].map((x) => (
+          <mesh key={`b${x}`} position={[x, 1.695, 0.112]} rotation={[0, 0, x < 0 ? 0.12 : -0.12]}>
+            <boxGeometry args={[0.04, 0.008, 0.01]} />
+            <meshStandardMaterial color={spec.hairColor} />
+          </mesh>
+        ))}
+        <mesh position={[0, 1.64, 0.125]}>
+          <sphereGeometry args={[0.018, 8, 8]} />
+          <meshStandardMaterial color={skin} />
+        </mesh>
+        <mesh position={[0, 1.6, 0.115]}>
+          <boxGeometry args={[0.04, 0.008, 0.01]} />
+          <meshStandardMaterial color="#8c3a3a" />
+        </mesh>
+        {[-0.125, 0.125].map((x) => (
+          <mesh key={`e${x}`} position={[x, 1.65, 0]}>
+            <sphereGeometry args={[0.022, 8, 8]} />
+            <meshStandardMaterial color={skin} />
           </mesh>
         ))}
         {extras.includes("bindi") && (

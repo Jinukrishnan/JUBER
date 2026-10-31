@@ -84,8 +84,8 @@ describe("steering feel", () => {
   it("ramps the steering in gradually instead of snapping to full lock", () => {
     const { state } = run({ ...still, speed: 5 }, { ...none, steer: 1 }, 0.1);
     expect(state.steerAngle).toBeGreaterThan(0);
-    expect(state.steerAngle).toBeLessThan(0.1);
-    expect(state.heading).toBeLessThan(0.02);
+    expect(state.steerAngle).toBeLessThan(0.2);
+    expect(state.heading).toBeLessThan(0.03);
   });
 
   it("cannot whip the bus round at cruising speed", () => {
@@ -129,7 +129,7 @@ describe("stepVehicle with a bounds function", () => {
   });
 });
 
-import { VEHICLES } from "../data/vehicles";
+import { VEHICLES, VEHICLE_KINDS } from "../data/vehicles";
 
 describe("stepVehicle with a vehicle spec", () => {
   const drive = (spec: (typeof VEHICLES)["bike"], seconds: number, steer = 0, start = still) => {
@@ -165,5 +165,28 @@ describe("stepVehicle with a vehicle spec", () => {
       return Math.abs(s.heading);
     };
     expect(turned(VEHICLES.bike)).toBeGreaterThan(turned(VEHICLES.car));
+  });
+});
+
+describe("steering response", () => {
+  it("reaches nearly full lock within half a second, so a junction turn starts at once", () => {
+    let s = { x: 0, z: 0, heading: 0, speed: 3, steerAngle: 0 };
+    for (let i = 0; i < 15; i++) {
+      s = stepVehicle(s, { throttle: 0.3, steer: 1, handbrake: false }, 1 / 30, 6, 0, undefined, VEHICLES.car).state;
+    }
+    expect(s.steerAngle).toBeGreaterThan(0.9 * VEHICLES.car.maxSteer);
+  });
+
+  it("completes a 90 degree turn inside a 16 m junction at walking-to-trotting pace, for every vehicle", () => {
+    for (const k of VEHICLE_KINDS) {
+      let s = { x: 0, z: 0, heading: 0, speed: 4, steerAngle: 0 };
+      let steps = 0;
+      while (Math.abs(s.heading) < Math.PI / 2 && steps < 600) {
+        s = stepVehicle(s, { throttle: s.speed < 4 ? 0.5 : 0, steer: 1, handbrake: false }, 1 / 30, 50, 0, undefined, VEHICLES[k]).state;
+        steps++;
+      }
+      expect(Math.hypot(s.x, s.z), k).toBeLessThan(16);
+      expect(steps / 30, k).toBeLessThan(4);
+    }
   });
 });

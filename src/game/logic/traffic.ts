@@ -48,7 +48,12 @@ export type Agent = {
   travelled: number; // metres driven
   passed: string | null; // the junction it last drove through, so it is not crossed twice
   box: AgentNext | null; // set while it is between its stop line and the junction centre: its exit is claimed
+  boxD: number | null; // metres driven since it entered the junction box on a turn, while it follows `arc`
+  arc: TurnArc | null; // the curve it follows through the box
 };
+
+// A turn through a junction box: a quadratic curve from the approach lane to the exit lane.
+export type TurnArc = { x0: number; z0: number; cx: number; cz: number; x1: number; z1: number; us: number[] }; // us: the curve parameter at equal steps of distance
 
 function mulberry32(seed: number) {
   let a = seed | 0;
@@ -60,17 +65,35 @@ function mulberry32(seed: number) {
   };
 }
 
-const ORDER: AgentKind[] = [
-  ...Array<AgentKind>(6).fill("car"),
-  ...Array<AgentKind>(3).fill("auto"),
-  ...Array<AgentKind>(3).fill("bike"),
-  ...Array<AgentKind>(2).fill("bus"),
-];
+// How many vehicles share the loop, and the mix: about 43 % cars, 21 % autos, 21 % bikes, 14 % buses.
+export const TRAFFIC_COUNT = 45;
+const SHARE: [AgentKind, number][] = [["car", 0.43], ["auto", 0.21], ["bike", 0.21], ["bus", 0.15]];
+
+export function trafficMix(count: number): AgentKind[] {
+  const out: AgentKind[] = [];
+  let given = 0;
+  SHARE.forEach(([kind, share], i) => {
+    const n = i === SHARE.length - 1 ? count - given : Math.round(count * share);
+    for (let k = 0; k < n; k++) out.push(kind);
+    given += n;
+  });
+  return out;
+}
 const MIN_SPACING = 25; // metres between two on the same road and direction at the start
 const DEPOT_CLEAR = 40;
 const JUNCTION_CLEAR = JUNCTION_BOX_HALF + 22;
 
-export function agentPose(n: Network, a: Pick<Agent, "road" | "dir" | "s">): { x: number; z: number; heading: number } {
+export function agentPose(n: Network, a: Pick<Agent, "road" | "dir" | "s"> & Partial<Pick<Agent, "arc" | "boxD">>): { x: number; z: number; heading: number } {
+  if (a.arc && a.boxD !== null && a.boxD !== undefined) {
+    const { x0, z0, cx, cz, x1, z1 } = a.arc;
+    const f = Math.max(0, Math.min(1, a.boxD / (2 * JUNCTION_BOX_HALF))) * (a.arc.us.length - 1);
+    const i = Math.min(a.arc.us.length - 2, Math.floor(f));
+    const u = a.arc.us[i] + (a.arc.us[i + 1] - a.arc.us[i]) * (f - i);
+    const w = 1 - u;
+    const tx = 2 * w * (cx - x0) + 2 * u * (x1 - cx);
+    const tz = 2 * w * (cz - z0) + 2 * u * (z1 - cz);
+    return { x: w * w * x0 + 2 * w * u * cx + u * u * x1, z: w * w * z0 + 2 * w * u * cz + u * u * z1, heading: Math.atan2(tz, tx) };
+  }
   const r = builtRoads(n).find((b) => b.road.id === a.road)!;
   const p = pointAt(r, a.s);
   const h = headingAt(r, a.s) + (a.dir === -1 ? Math.PI : 0);
@@ -79,13 +102,13 @@ export function agentPose(n: Network, a: Pick<Agent, "road" | "dir" | "s">): { x
   return { x: p.x + Math.sin(heading) * LANE, z: p.z - Math.cos(heading) * LANE, heading };
 }
 
-export function createTraffic(n: Network, seed: number, avoid: { x: number; z: number }): Agent[] {
+export function createTraffic(n: Network, seed: number, avoid: { x: number; z: number }, count = TRAFFIC_COUNT): Agent[] {
   const rnd = mulberry32(seed);
   const roads = builtRoads(n);
   const total = roads.reduce((sum, r) => sum + r.length, 0);
   const agents: Agent[] = [];
 
-  ORDER.forEach((kind, i) => {
+  trafficMix(count).forEach((kind, i) => {
     for (let tries = 0; tries < 400; tries++) {
       let u = rnd() * total;
       const road = roads.find((r) => (u -= r.length) < 0) ?? roads[0];
@@ -121,12 +144,37 @@ export function createTraffic(n: Network, seed: number, avoid: { x: number; z: n
         travelled: 0,
         passed: null,
         box: null,
+        boxD: null,
+        arc: null,
       });
       return;
     }
     throw new Error(`could not place a ${kind}`);
   });
   return agents;
+}
+
+// Evenly spaced steps of distance along the curve, so a vehicle moves along it at its own speed.
+function arcWithTable(a: Omit<TurnArc, "us">): TurnArc {
+  const N = 48;
+  const pts: { x: number; z: number }[] = [];
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    const w = 1 - u;
+    pts.push({ x: w * w * a.x0 + 2 * w * u * a.cx + u * u * a.x1, z: w * w * a.z0 + 2 * w * u * a.cz + u * u * a.z1 });
+  }
+  const cum = [0];
+  for (let i = 1; i <= N; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z));
+  const us: number[] = [];
+  const STEPS = 16;
+  let k = 0;
+  for (let j = 0; j <= STEPS; j++) {
+    const target = (cum[N] * j) / STEPS;
+    while (k < N - 1 && cum[k + 1] < target) k++;
+    const span = cum[k + 1] - cum[k] || 1;
+    us.push((k + (target - cum[k]) / span) / N);
+  }
+  return { ...a, us };
 }
 
 // ---- driving ----
@@ -142,6 +190,7 @@ const BRAKE = 5; // comfortable braking, m/s2
 const HARD = 8; // hardest braking
 const ACCEL = 2.5;
 const ARC_SPEED = 6; // speed round the corners of the ring
+const TURN_SPEED = 6; // speed through a junction on a left or right turn
 const LOOK = 100; // how far ahead a leader matters
 const STOP_LINE = JUNCTION_BOX_HALF + 7; // metres from the junction centre to the stop line
 const CHOOSE_AT = 120; // choose the next turn this far from the junction
@@ -231,6 +280,14 @@ function chooseExit(ctx: Ctx, junction: string, approachId: string, seed: number
   return others[Math.floor(mix(seed, turns * 2 + 2) * others.length)];
 }
 
+// Is the player in this lane of this road? A point past the end of an open road is not on it
+// (the nearest point there is clamped to the end, which would otherwise look like a lane).
+function playerInLane(r: BuiltRoad, dir: 1 | -1, player: Player): ReturnType<typeof nearestOnRoad> | null {
+  const near = nearestOnRoad(r, player.x, player.z);
+  if (!r.road.closed && (near.s <= 1e-6 || near.s >= r.length - 1e-6)) return null;
+  return near.distance > 0.5 && Math.abs(near.distance - LANE) < 2.2 && near.side * dir === -1 ? near : null;
+}
+
 // metres from the front of `a` to the back of the nearest leader, or Infinity
 function gapAhead(ctx: Ctx, agents: Agent[], a: Agent, nj: { id: string; d: number } | null, player: Player): number {
   const road = ctx.roads.get(a.road)!;
@@ -249,11 +306,7 @@ function gapAhead(ctx: Ctx, agents: Agent[], a: Agent, nj: { id: string; d: numb
     }
   }
   // the player, when in this lane, whichever way it faces (stopped across the lane or the wrong way is still in the way)
-  const inLane = (r: BuiltRoad, dir: 1 | -1) => {
-    const near = nearestOnRoad(r, player.x, player.z);
-    return near.distance > 0.5 && Math.abs(near.distance - LANE) < 2.2 && near.side * dir === -1 ? near : null;
-  };
-  const here = inLane(road, a.dir);
+  const here = playerInLane(road, a.dir, player);
   if (here) {
     const d = alongDir(road, a.s, here.s, a.dir);
     if (d > 1e-6 && d < LOOK) gap = Math.min(gap, d - (la + player.length) / 2);
@@ -261,7 +314,7 @@ function gapAhead(ctx: Ctx, agents: Agent[], a: Agent, nj: { id: string; d: numb
   // ...and on the road it is about to turn onto
   if (a.next && nj && nj.id === a.next.junction) {
     const exitRoad = ctx.roads.get(a.next.exitRoad)!;
-    const there = inLane(exitRoad, a.next.exitDir);
+    const there = playerInLane(exitRoad, a.next.exitDir, player);
     if (there) {
       const db = alongDir(exitRoad, ctx.junctionS.get(`${nj.id}|${a.next.exitRoad}`)!, there.s, a.next.exitDir);
       if (db < LOOK) gap = Math.min(gap, nj.d + db - (la + player.length) / 2);
@@ -281,8 +334,8 @@ function exitRoom(ctx: Ctx, agents: Agent[], a: Agent, nj: { id: string }, playe
     const db = alongDir(exitRoad, js, b.s, nx.exitDir);
     if (db < LOOK) room = Math.min(room, db - KINDS[b.kind].length / 2);
   }
-  const near = nearestOnRoad(exitRoad, player.x, player.z);
-  if (near.distance > 0.5 && Math.abs(near.distance - LANE) < 2.2 && near.side * nx.exitDir === -1) {
+  const near = playerInLane(exitRoad, nx.exitDir, player);
+  if (near) {
     const db = alongDir(exitRoad, js, near.s, nx.exitDir);
     if (db < LOOK) room = Math.min(room, db - player.length / 2);
   }
@@ -372,7 +425,13 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
     const leaderFree = gapAhead(ctx, agents, a, nj, player) - MIN_GAP - TIME_GAP * a.speed;
     const free = Math.min(leaderFree, stopFree);
     const follow = free <= 0 ? 0 : Math.sqrt(2 * BRAKE * free);
-    const desired = Math.min(a.cruise, bendLimit(road, a), follow);
+    // slow for a turn: down to a turning speed by the time it reaches the junction box, and through it
+    let turnLimit = Infinity;
+    if (a.boxD !== null) turnLimit = TURN_SPEED;
+    else if (nj && a.next && a.next.junction === nj.id && a.next.turn !== "straight") {
+      turnLimit = Math.sqrt(TURN_SPEED * TURN_SPEED + 2 * BRAKE * Math.max(0, nj.d - JUNCTION_BOX_HALF));
+    }
+    const desired = Math.min(a.cruise, bendLimit(road, a), follow, turnLimit);
     a.braking = desired < a.speed - 0.2 || (a.speed < 0.3 && free < 3);
     a.speed = desired > a.speed ? Math.min(desired, a.speed + ACCEL * dt) : Math.max(desired, a.speed - HARD * dt);
     a.waiting = atRed && a.speed < 0.3 && stopFree < 3;
@@ -380,6 +439,25 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
     // drive on, through the junction if the move crosses its centre
     const move = a.speed * dt;
     a.travelled += move;
+    if (a.boxD !== null) {
+      a.boxD += move;
+    } else if (nj && a.next && a.next.junction === nj.id && a.next.turn !== "straight" && nj.d - move <= JUNCTION_BOX_HALF) {
+      const exitRoad = a.next.exitRoad;
+      const p0 = agentPose(n, { road: a.road, dir: a.dir, s: nj.s - a.dir * JUNCTION_BOX_HALF });
+      const p1 = agentPose(n, { road: exitRoad, dir: a.next.exitDir, s: ctx.junctionS.get(`${nj.id}|${exitRoad}`)! + a.next.exitDir * JUNCTION_BOX_HALF });
+      const d0 = { x: Math.cos(p0.heading), z: Math.sin(p0.heading) };
+      const d1 = { x: Math.cos(p1.heading), z: Math.sin(p1.heading) };
+      const det = d0.x * d1.z - d0.z * d1.x;
+      if (Math.abs(det) > 1e-6) {
+        const r = ((p1.x - p0.x) * d1.z - (p1.z - p0.z) * d1.x) / det;
+        a.arc = arcWithTable({ x0: p0.x, z0: p0.z, cx: p0.x + r * d0.x, cz: p0.z + r * d0.z, x1: p1.x, z1: p1.z });
+        a.boxD = Math.max(0, JUNCTION_BOX_HALF - (nj.d - move));
+      }
+    }
+    if (a.boxD !== null && a.boxD >= 2 * JUNCTION_BOX_HALF) {
+      a.boxD = null;
+      a.arc = null;
+    }
     if (nj && move >= nj.d - 1e-9) {
       const e =
         a.next && a.next.junction === nj.id

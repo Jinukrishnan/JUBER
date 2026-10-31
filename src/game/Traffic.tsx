@@ -17,20 +17,18 @@ import { cancelSpeech, speakLine } from "./voice";
 import { NETWORK } from "./world";
 
 const SEED = 20261031;
-const DRAW_RANGE = 260; // metres from the player
+const DRAW_RANGE = 220; // metres from the player: only vehicles this close have their models in the scene
+const NEAR_EVERY_MS = 250; // how often the set of near vehicles is refreshed
 const BUBBLE_MS = 3500;
 const BUBBLE_HEIGHT = { bus: 4.4, car: 2.9, auto: 3.0, bike: 2.7 } as const;
 
 type Bubble = { id: number; day: number; line: { ml: string; en: string }; until: number };
 
-function AgentView({ agent, bubble }: { agent: Agent; bubble: Bubble | null }) {
+function AgentView({ agent, bubble, near }: { agent: Agent; bubble: Bubble | null; near: boolean }) {
   const group = useRef<Group>(null);
   useFrame(() => {
     const g = group.current;
-    if (!g) return;
-    const near = inRange(NETWORK, agent, busPose.x, busPose.z, DRAW_RANGE);
-    g.visible = near;
-    if (!near) return;
+    if (!g || !near) return;
     const p = agentPose(NETWORK, agent);
     g.position.set(p.x, 0, p.z);
     g.rotation.y = -p.heading;
@@ -46,9 +44,9 @@ function AgentView({ agent, bubble }: { agent: Agent; bubble: Bubble | null }) {
       <Bike paint={agent.paint} lamps={agent} />
     );
   return (
-    <group ref={group} visible={false}>
-      {model}
-      {bubble && (
+    <group ref={group}>
+      {near && model}
+      {near && bubble && (
         <group position={[0, BUBBLE_HEIGHT[agent.kind], 0]} rotation={[0, 0, 0]}>
           <Speech line={bubble.line} />
         </group>
@@ -68,6 +66,9 @@ export function Traffic() {
     return createTraffic(NETWORK, SEED + dayId, depot);
   }, [dayId]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
+  // which vehicles are close enough to have a model, refreshed a few times a second
+  const [nearIds, setNearIds] = useState<number[]>([]);
+  const lastNear = useRef(0);
 
   // the radar shows the same vehicles
   useEffect(() => {
@@ -89,6 +90,11 @@ export function Traffic() {
     const game = useGame.getState();
     const now = performance.now();
     setBubbles((cur) => (cur.some((b) => b.until <= now) ? cur.filter((b) => b.until > now) : cur));
+    if (now - lastNear.current > NEAR_EVERY_MS) {
+      lastNear.current = now;
+      const ids = agents.filter((a) => inRange(NETWORK, a, busPose.x, busPose.z, DRAW_RANGE)).map((a) => a.id);
+      setNearIds((cur) => (cur.length === ids.length && cur.every((v, i) => v === ids[i]) ? cur : ids));
+    }
     if (game.phase !== "running") return;
     const dt = Math.min(rawDt, 0.05);
     const player = { x: busPose.x, z: busPose.z, heading: busPose.heading, speed: busPose.speed, length: busPose.length, width: busPose.width };
@@ -107,7 +113,7 @@ export function Traffic() {
   return (
     <group>
       {agents.map((a) => (
-        <AgentView key={`${dayId}-${a.id}`} agent={a} bubble={phase === "ended" ? null : (bubbles.find((b) => b.id === a.id && b.day === dayId) ?? null)} />
+        <AgentView key={`${dayId}-${a.id}`} agent={a} bubble={phase === "ended" ? null : (bubbles.find((b) => b.id === a.id && b.day === dayId) ?? null)} near={nearIds.includes(a.id)} />
       ))}
     </group>
   );
