@@ -135,19 +135,24 @@ export function Headlamps({ x, y, zs, reach = 22 }: { x: number; y: number; zs: 
   );
 }
 
+// Where a vehicle's brake and reverse lamps get their state: the player's pose by default,
+// or another vehicle's own flags (traffic).
+export type LampSource = { braking: boolean; reversing: boolean };
+export type ModelProps = { paint?: string; lamps?: LampSource };
+
 // Rear lamps: a dim red glow always, a bright red brake light while the brake or
 // reverse key is held, and a small white reverse lamp while rolling backwards.
 // `x` is the lamp's rear position, `zs` the lateral ones; `size` is x, y, z.
-export function TailLamps({ x, y, zs, size }: { x: number; y: number; zs: number[]; size: [number, number, number] }) {
+export function TailLamps({ x, y, zs, size, source = busPose }: { x: number; y: number; zs: number[]; size: [number, number, number]; source?: LampSource }) {
   const red = useRef<(MeshStandardMaterial | null)[]>([]);
   const white = useRef<(MeshStandardMaterial | null)[]>([]);
   const shown = useRef("");
   useFrame(() => {
-    const key = `${busPose.braking}${busPose.reversing}`;
+    const key = `${source.braking}${source.reversing}`;
     if (key === shown.current) return;
     shown.current = key;
-    red.current.forEach((m) => m && (m.emissiveIntensity = busPose.braking ? 4 : 0.7));
-    white.current.forEach((m) => m && (m.emissiveIntensity = busPose.reversing ? 3 : 0));
+    red.current.forEach((m) => m && (m.emissiveIntensity = source.braking ? 4 : 0.7));
+    white.current.forEach((m) => m && (m.emissiveIntensity = source.reversing ? 3 : 0));
   });
   return (
     <>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Block, Driver, Headlamps, TailLamps, Wheel } from "./parts";
+import { Block, Driver, Headlamps, TailLamps, Wheel, type ModelProps } from "./parts";
 
 const GREEN = "#1f7a3a";
 const YELLOW = "#f2c200";
@@ -9,16 +9,16 @@ const BLACK = "#1b1d1f";
 // The common Indian auto-rickshaw in cartoon colours: yellow canvas roof, green
 // lower body, black hood at the back and a black nose, open sides with a yellow
 // bench, one front wheel. Length 2.7 m.
-export function Auto() {
+export function Auto({ paint = GREEN, lamps }: ModelProps) {
   return (
     <group>
       <Wheel x={1.1} z={0} r={0.27} w={0.12} />
       <Wheel x={-0.85} z={0.68} r={0.28} w={0.14} />
       <Wheel x={-0.85} z={-0.68} r={0.28} w={0.14} />
       {/* green body: floor and sides, front cowl */}
-      <Block p={[-0.4, 0.5, 0]} s={[1.9, 0.12, 1.3]} color={GREEN} glow={0.4} />
-      <Block p={[-0.4, 0.78, 0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} glow={0.4} />
-      <Block p={[-0.4, 0.78, -0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} glow={0.4} />
+      <Block p={[-0.4, 0.5, 0]} s={[1.9, 0.12, 1.3]} color={paint} glow={0.4} />
+      <Block p={[-0.4, 0.78, 0.62]} s={[1.9, 0.45, 0.08]} color={paint} glow={0.4} />
+      <Block p={[-0.4, 0.78, -0.62]} s={[1.9, 0.45, 0.08]} color={paint} glow={0.4} />
       <Block p={[0.95, 0.72, 0]} s={[0.55, 0.62, 0.5]} color={BLACK} rot={[0, 0, -0.18]} />
       <Block p={[1.12, 0.46, 0]} s={[0.35, 0.16, 0.34]} color={BLACK} />
       {/* black hood over the back seat */}
@@ -43,7 +43,7 @@ export function Auto() {
       <Block p={[0.82, 1.05, 0]} s={[0.05, 0.05, 0.6]} color={BLACK} />
       <Block p={[0.7, 1.4, 0.7]} s={[0.04, 0.12, 0.1]} color={BLACK} />
       <Block p={[0.7, 1.4, -0.7]} s={[0.04, 0.12, 0.1]} color={BLACK} />
-      <TailLamps x={-1.5} y={0.95} zs={[0.4, -0.4]} size={[0.04, 0.08, 0.2]} />
+      <TailLamps x={-1.5} y={0.95} zs={[0.4, -0.4]} size={[0.04, 0.08, 0.2]} source={lamps} />
       <Driver p={[0.28, 0.72, 0]} shirt="#a89a6a" />
       <Headlamps x={1.32} y={0.78} zs={[0]} reach={22} />
     </group>

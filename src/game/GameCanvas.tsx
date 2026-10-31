@@ -13,6 +13,7 @@ import { Scenery } from "./Scenery";
 import { SignalHeads } from "./SignalHeads";
 import { Signs } from "./Signs";
 import { Stops } from "./Stops";
+import { Traffic } from "./Traffic";
 import type { VehicleKind } from "./data/vehicles";
 import { useGame } from "./state/store";
 import { Vehicle } from "./Vehicle";
@@ -46,6 +47,7 @@ export default function GameCanvas({ vehicle }: { vehicle?: VehicleKind }) {
       <Places />
       <Pedestrians />
       <Casualties />
+      <Traffic />
       <Vehicle />
       <Riders />
       <CameraRig />

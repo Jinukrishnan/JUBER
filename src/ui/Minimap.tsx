@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { busPose } from "@/game/busPose";
 import { axisFacing, lightFor } from "@/game/logic/lights";
 import { roadPolylines } from "@/game/logic/network";
+import { agentPose, liveTraffic } from "@/game/logic/traffic";
 import { DEFAULT_RANGE_INDEX, RADAR_RANGES, roadsToRadar, toRadar, toRadarRaw, type RadarView } from "@/game/logic/radar";
 import type { Ride } from "@/game/logic/ride";
 import type { Route } from "@/game/logic/roadgraph";
@@ -79,6 +80,16 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
     ctx.stroke();
   }
   ctx.restore();
+
+  // other vehicles: small dots, a bus a little bigger
+  for (const a of liveTraffic.agents) {
+    const p = toRadar(view, agentPose(NETWORK, a), rangeM, R - 8);
+    if (!p.inside) continue;
+    ctx.beginPath();
+    ctx.arc(R + p.px, R + p.py, a.kind === "bus" ? 3.5 : 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = a.waiting ? "#ffb020" : a.kind === "bus" ? "#ff6b5a" : "#e8edf2";
+    ctx.fill();
+  }
 
   // places: small blue squares; the one you are headed to is big, with its name
   // (blue to pick up, green to drop off)

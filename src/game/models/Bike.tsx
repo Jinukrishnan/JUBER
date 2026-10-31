@@ -1,6 +1,6 @@
 "use client";
 
-import { Block, Driver, Headlamps, TailLamps, Wheel } from "./parts";
+import { Block, Driver, Headlamps, TailLamps, Wheel, type ModelProps } from "./parts";
 
 const BLUE = "#0284c7";
 const BLUE_LIGHT = "#0ea5e9";
@@ -8,7 +8,7 @@ const BLACK = "#16181b";
 
 // A Yamaha R15 style sports bike in cartoon blue: full blue and black fairing, small screen,
 // split seat, upswept tail and a rider in a helmet. Length 2.1 m.
-export function Bike() {
+export function Bike({ paint = BLUE, lamps }: ModelProps) {
   return (
     <group>
       <Wheel x={0.72} z={0} r={0.32} w={0.13} />
@@ -20,9 +20,9 @@ export function Bike() {
       <Block p={[0.05, 0.42, 0]} s={[0.55, 0.32, 0.26]} color="#3a3d42" />
       <Block p={[0.35, 0.36, 0]} s={[0.55, 0.14, 0.3]} color={BLACK} />
       {/* fairing, tank and tail */}
-      <Block p={[0.5, 0.82, 0]} s={[0.55, 0.42, 0.36]} color={BLUE} glow={0.4} rot={[0, 0, -0.35]} />
+      <Block p={[0.5, 0.82, 0]} s={[0.55, 0.42, 0.36]} color={paint} glow={0.4} rot={[0, 0, -0.35]} />
       <Block p={[0.05, 0.92, 0]} s={[0.55, 0.22, 0.32]} color={BLUE_LIGHT} glow={0.4} />
-      <Block p={[-0.55, 0.98, 0]} s={[0.55, 0.16, 0.22]} color={BLUE} glow={0.4} rot={[0, 0, 0.2]} />
+      <Block p={[-0.55, 0.98, 0]} s={[0.55, 0.16, 0.22]} color={paint} glow={0.4} rot={[0, 0, 0.2]} />
       <Block p={[0.62, 0.86, 0.19]} s={[0.4, 0.1, 0.03]} color="#facc15" rot={[0, 0, -0.35]} />
       <Block p={[0.62, 0.86, -0.19]} s={[0.4, 0.1, 0.03]} color="#facc15" rot={[0, 0, -0.35]} />
       {/* screen, bars and mirrors */}
@@ -38,7 +38,7 @@ export function Bike() {
         <cylinderGeometry args={[0.06, 0.07, 0.6, 10]} />
         <meshStandardMaterial color="#c9ccd1" metalness={0.7} roughness={0.3} />
       </mesh>
-      <TailLamps x={-0.84} y={1.02} zs={[0]} size={[0.05, 0.07, 0.18]} />
+      <TailLamps x={-0.84} y={1.02} zs={[0]} size={[0.05, 0.07, 0.18]} source={lamps} />
       <Driver p={[-0.15, 0.98, 0]} shirt="#2b3a55" helmet="#e8e8e8" lean={0.55} />
       <Headlamps x={0.85} y={0.9} zs={[0]} reach={22} />
     </group>
