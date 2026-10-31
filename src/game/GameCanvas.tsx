@@ -5,7 +5,6 @@ import { useEffect } from "react";
 import { Casualties } from "./Casualties";
 import { CameraRig } from "./CameraRig";
 import { Ground } from "./Ground";
-import { Junctions } from "./Junctions";
 import { Pedestrians } from "./Pedestrians";
 import { Places } from "./Places";
 import { Riders } from "./Riders";
@@ -39,12 +38,11 @@ export default function GameCanvas({ vehicle }: { vehicle?: VehicleKind }) {
       <Weather />
       <Ground />
       <Road />
-      <Junctions />
-      <SignalHeads />
-      <Signs />
-      <Stops />
+      {/* TODO(loop-map): SignalHeads returns when it is moved onto the network */}
+      {/* TODO(loop-map): Signs returns when it is moved onto the network */}
+      {/* TODO(loop-map): Stops returns when it is moved onto the network */}
       <Places />
-      <Pedestrians />
+      {/* TODO(loop-map): Pedestrians returns when it is moved onto the network */}
       <Casualties />
       <Vehicle />
       <Riders />

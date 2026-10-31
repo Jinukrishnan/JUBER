@@ -68,7 +68,7 @@ function legs(n: Network, j: Junction, kind: "in" | "out"): Leg[] {
 const headingOn = (leg: Leg) => norm(headingAt(leg.road, leg.s) + (leg.dir === -1 ? Math.PI : 0));
 
 // main = the closed ring if there is one, else the road running more nearly east-west.
-function mainRoad(n: Network, j: Junction): RoadId {
+export function mainRoad(n: Network, j: Junction): RoadId {
   const all = builtRoads(n);
   const closed = j.roads.find((id) => all.find((r) => r.road.id === id)!.road.closed);
   if (closed) return closed;

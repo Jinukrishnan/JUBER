@@ -195,6 +195,18 @@ function armsOf(n: Network, j: Junction): Set<"E" | "S" | "W" | "N"> {
   return arms;
 }
 
+// Unit vectors along which one road leaves a junction (one per direction it continues in).
+export function roadArms(n: Network, j: Junction, roadId: RoadId): { x: number; z: number }[] {
+  const r = builtRoads(n).find((b) => b.road.id === roadId);
+  if (!r) return [];
+  const s = nearestOnRoad(r, j.at[0], j.at[1]).s;
+  const h = headingAt(r, s);
+  const out: { x: number; z: number }[] = [];
+  if (r.road.closed || s < r.length - 0.5) out.push({ x: Math.cos(h), z: Math.sin(h) });
+  if (r.road.closed || s > 0.5) out.push({ x: -Math.cos(h), z: -Math.sin(h) });
+  return out;
+}
+
 // The rounded corners of a junction: the square between a road's edge and the box
 // edge, in a quadrant where roads leave on both sides of it.
 function filletQuadrants(n: Network, j: Junction): { sx: -1 | 1; sz: -1 | 1 }[] {
