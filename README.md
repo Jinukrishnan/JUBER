@@ -73,7 +73,7 @@ scrape against the kerb.
 
 ## Touch controls
 
-Below 1024 px wide (phones, tablets) an on-screen pad appears: left and right on the left thumb; accelerate (Go) and Brake/reverse on the right, with small Horn, Hand brake and Pause buttons. Buttons work while held and several can be held at once; they let go on pointer cancel, window blur and pause. The pad merges with the keyboard (`src/game/touchInput.ts`, `src/ui/TouchControls.tsx`), so the physics is unchanged. The HUD shrinks and the cards move to the top on small screens. From 1024 px up the pad is hidden.
+Below 1024 px wide (phones, tablets) an on-screen pad appears: left and right on the left thumb; accelerate (Go) and Brake/reverse on the right, with small Horn, Hand brake and Pause buttons. Buttons work while held and several can be held at once; they let go on pointer cancel, window blur and pause. The pad merges with the keyboard (`src/game/touchInput.ts`, `src/ui/TouchControls.tsx`), so the physics is unchanged. The HUD shrinks and the cards move to the top on small screens. From 1024 px up the pad is hidden. Held upright, a touch device gets a "Rotate your phone to landscape" card (English and Malayalam) and the game pauses until it is turned (`src/ui/RotatePrompt.tsx`, `logic/orientation.ts`). A full-screen button (on the pad, and on the card) uses the browser's full screen and asks for a landscape lock (`src/game/useFullscreen.ts`); iPhone Safari has no full screen for web pages, so there the card suggests Add to Home Screen.
 
 ## Customer reviews
 
@@ -218,7 +218,7 @@ It is a standard Next.js app with no server dependencies, so it deploys as-is to
 
 ## Notes
 
-- Desktop keyboard only; touch devices get a "best on desktop" screen.
+- Touch devices play with the on-screen pad, held sideways (landscape).
 - Place names and the Malayalam wording are invented. The vehicles are stylised models built from simple
   shapes, not official brand artwork.
 - The voice uses the browser's speech synthesis: it speaks Malayalam only if the device has a Malayalam

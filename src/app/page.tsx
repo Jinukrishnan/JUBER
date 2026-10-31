@@ -48,7 +48,7 @@ export default function Home() {
         >
           Start the day
         </Link>
-        <p className="mt-3 text-xs opacity-60">Best on desktop with a keyboard.</p>
+        <p className="mt-3 text-xs opacity-60">Play with a keyboard, or on a phone held sideways with the touch buttons.</p>
       </section>
 
       <section className="mx-auto max-w-5xl px-4 pb-16">
