@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { VEHICLES } from "@/game/data/vehicles";
 import { busPose } from "@/game/busPose";
 import { formatClock } from "@/game/logic/clock";
-import { roadAngle } from "@/game/logic/road";
-import { nextSignalAhead, type SignalAhead } from "@/game/logic/signalAhead";
+import { nextSignalAhead, type SignalAhead } from "@/game/logic/lights";
 import { useGame } from "@/game/state/store";
-import { JUNCTIONS } from "@/game/world";
+import { NETWORK } from "@/game/world";
 import { ConversationCard } from "./ConversationCard";
 import { Minimap } from "./Minimap";
+import { NextSignal } from "./NextSignal";
 import { RequestBoard } from "./RequestBoard";
 import { RideStrip } from "./RideStrip";
 
@@ -59,22 +59,19 @@ function AccidentBanner() {
 }
 
 // The next signal, refreshed a few times a second from the live pose, in the
-// direction the vehicle is heading along the main road.
+// road the vehicle is driving along.
 function useNextSignal(): SignalAhead | null {
   const [signal, setSignal] = useState<SignalAhead | null>(null);
   useEffect(() => {
     const id = setInterval(() => {
       const g = useGame.getState();
       if (g.phase !== "running") return setSignal(null);
-      const dir = Math.cos(busPose.heading - roadAngle(busPose.x)) >= 0 ? "forward" : "backward";
-      setSignal(nextSignalAhead(JUNCTIONS, busPose.x, dir, g.signalTime));
+      setSignal(nextSignalAhead(NETWORK, { x: busPose.x, z: busPose.z, heading: busPose.heading }, g.signalTime, busPose.length / 2));
     }, 150);
     return () => clearInterval(id);
   }, []);
   return signal;
 }
-
-const LAMP = { red: "bg-red-500", yellow: "bg-yellow-400", green: "bg-green-500" } as const;
 
 export function Hud() {
   const signal = useNextSignal();
@@ -97,16 +94,7 @@ export function Hud() {
           <div className="text-xs uppercase tracking-wide opacity-60">{vehicle.name}</div>
           <div className="text-lg font-semibold tabular-nums">{aboard} / {vehicle.capacity}</div>
         </div>
-        {signal && (
-          <div className="rounded-xl border border-line bg-cream/90 px-4 py-2 shadow">
-            <div className="text-xs uppercase tracking-wide opacity-60">Next signal</div>
-            <div className="flex items-center gap-2">
-              <span aria-label={`Signal is ${signal.light}`} className={`inline-block h-4 w-4 rounded-full border border-black/40 ${LAMP[signal.light]}`} />
-              <span className="text-lg font-semibold tabular-nums">{Math.round(signal.distance)} m</span>
-            </div>
-            <div className="text-xs opacity-70">changes in {Math.ceil(signal.seconds)} s</div>
-          </div>
-        )}
+        <NextSignal signal={signal} />
         <Toggle label="Headlights" hint="L" on={headlights} onClick={() => useGame.getState().toggleHeadlights()} />
       </div>
 

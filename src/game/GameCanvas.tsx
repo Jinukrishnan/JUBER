@@ -38,7 +38,7 @@ export default function GameCanvas({ vehicle }: { vehicle?: VehicleKind }) {
       <Weather />
       <Ground />
       <Road />
-      {/* TODO(loop-map): SignalHeads returns when it is moved onto the network */}
+      <SignalHeads />
       {/* TODO(loop-map): Signs returns when it is moved onto the network */}
       {/* TODO(loop-map): Stops returns when it is moved onto the network */}
       <Places />
