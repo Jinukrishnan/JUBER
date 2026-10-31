@@ -33,7 +33,8 @@ const ROADS: Road[] = [
   // starts at the Dam Road, so a place on it is 150 m further along than it was on the old map
   street("ns", "Station Road", "സ്റ്റേഷൻ റോഡ്", [[400, -150], [400, 500]]),
   street("ew", "Tech Avenue", "ടെക് അവന്യൂ", [[0, 250], [2300, 250]]),
-  street("dam", "Dam Road", "അണക്കെട്ട് റോഡ്", [[100, -150], [1300, -150]]),
+  // starts at Station Road: a road end that leads nowhere would collect traffic for ever
+  street("dam", "Dam Road", "അണക്കെട്ട് റോഡ്", [[400, -150], [1300, -150]]),
   street("c1100", "First Street", "ഫസ്റ്റ് സ്ട്രീറ്റ്", [[1100, -150], [1100, 900]]),
   street("c1300", "Second Street", "സെക്കൻഡ് സ്ട്രീറ്റ്", [[1300, -150], [1300, 900]]),
   street("c1500", "Park West Street", "പാർക്ക് വെസ്റ്റ് സ്ട്രീറ്റ്", [[1500, 0], [1500, 900]]),
@@ -53,10 +54,11 @@ export const JUNCTION_RULES: Record<string, { id?: string; allowed: Record<strin
   "400,500": { id: "south", allowed: {} },
   "0,250": { id: "west", allowed: {} },
   "800,250": { id: "east", allowed: {} },
-  // city rules, so the rules can be seen: no right turn off the avenue going east at Park West Street,
-  // none from Park East Street going south (into the park corner road), none off the North Cross Road going west at Second Street
+  // city rules, so the rules can be seen: going east on the avenue no right turn at Park West Street (into the street south),
+  // going south on Park East Street no right turn at the Middle Cross Road (west, the park side),
+  // going west on the North Cross Road no right turn at Second Street (north, towards the dam)
   "1500,250": { allowed: { "ew:1": ["left", "straight"] } },
-  "1900,550": { allowed: { "c1900:1": ["straight", "right"] } },
+  "1900,550": { allowed: { "c1900:1": ["left", "straight"] } },
   "1300,0": { allowed: { "r0:-1": ["left", "straight"] } },
 };
 

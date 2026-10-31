@@ -18,13 +18,40 @@ function edgesOf(r: Road): Edge[] {
   return out;
 }
 
+// Where two roads simply meet end to end (a bend, not a junction) there is no crossing traffic to signal.
+function isBend(roads: Road[], at: [number, number], ids: string[]): boolean {
+  return (
+    ids.length === 2 &&
+    ids.every((id) => {
+      const r = roads.find((x) => x.id === id)!;
+      const first = r.points[0];
+      const last = r.points[r.points.length - 1];
+      return !r.closed && ((first[0] === at[0] && first[1] === at[1]) || (last[0] === at[0] && last[1] === at[1]));
+    })
+  );
+}
+
 const within = (v: number, a: number, b: number) => v >= Math.min(a, b) && v <= Math.max(a, b);
+
+function refuseCollinear(edges: Edge[]): void {
+  for (let i = 0; i < edges.length; i++) {
+    for (let j = i + 1; j < edges.length; j++) {
+      const a = edges[i];
+      const b = edges[j];
+      if (a.road === b.road) continue;
+      const horizontal = a.z1 === a.z2 && b.z1 === b.z2 && a.z1 === b.z1 && Math.max(Math.min(a.x1, a.x2), Math.min(b.x1, b.x2)) <= Math.min(Math.max(a.x1, a.x2), Math.max(b.x1, b.x2));
+      const vertical = a.x1 === a.x2 && b.x1 === b.x2 && a.x1 === b.x1 && Math.max(Math.min(a.z1, a.z2), Math.min(b.z1, b.z2)) <= Math.min(Math.max(a.z1, a.z2), Math.max(b.z1, b.z2));
+      if (horizontal || vertical) throw new Error(`roads ${a.road} and ${b.road} lie along the same line and touch, so they cannot be joined by a junction`);
+    }
+  }
+}
 
 // Every place where two roads cross or one ends on another, as a signalled junction.
 // Roads run along the axes, so crossings are found edge by edge. `overrides` are keyed
 // by "x,z" and may rename a junction or set which turns an approach may take.
 export function autoJunctions(roads: Road[], overrides: Record<string, Partial<Pick<Junction, "id" | "allowed">>> = {}): Junction[] {
   const edges = roads.flatMap(edgesOf);
+  refuseCollinear(edges);
   const found = new Map<string, { at: [number, number]; roads: Set<string> }>();
   const note = (x: number, z: number, a: string, b: string) => {
     const key = `${x},${z}`;
@@ -52,7 +79,7 @@ export function autoJunctions(roads: Road[], overrides: Record<string, Partial<P
       id: o?.id ?? (n === 1 ? base : `${base}#${n}`),
       at: f.at,
       roads: ids,
-      signal: { offset: (i * OFFSET_STEP_S) % CYCLE_S },
+      signal: isBend(roads, f.at, ids) ? false : { offset: (i * OFFSET_STEP_S) % CYCLE_S },
       allowed: o?.allowed ?? {},
     };
   });

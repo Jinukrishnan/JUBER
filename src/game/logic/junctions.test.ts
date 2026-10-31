@@ -46,6 +46,17 @@ describe("autoJunctions", () => {
     }
   });
 
+  it("leaves a bend (two roads meeting end to end) unsignalled", () => {
+    const js = autoJunctions([road("a", [[0, 0], [100, 0]]), road("b", [[100, 0], [100, 100]])]);
+    expect(js).toHaveLength(1);
+    expect(js[0].signal).toBe(false);
+  });
+
+  it("refuses roads that lie along the same line and touch", () => {
+    expect(() => autoJunctions([road("a", [[0, 0], [100, 0]]), road("b", [[100, 0], [200, 0]])])).toThrow(/same line/);
+    expect(() => autoJunctions([road("a", [[0, 0], [100, 0]]), road("b", [[50, 0], [200, 0]])])).toThrow(/same line/);
+  });
+
   it("numbers repeated road pairs and refuses roads that are not axis-aligned", () => {
     const u = [road("a", [[0, 100], [300, 100]]), road("b", [[100, 0], [100, 200], [200, 200], [200, 0]])];
     expect(autoJunctions(u).map((j) => j.id)).toEqual(["a+b", "a+b#2"]);

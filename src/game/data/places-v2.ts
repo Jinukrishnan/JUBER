@@ -8,9 +8,9 @@ const village: Place[] = PLACES.map((p) => (p.road === "ns" ? { ...p, s: p.s + 1
 
 const dam: Place[] = [
   { id: "jetty", name: "Boat Jetty", ml: "ബോട്ട് ജെട്ടി", road: "dam", s: 160, side: -1 },
-  { id: "dam_view", name: "Dam View Point", ml: "ഡാം വ്യൂ പോയിന്റ്", road: "dam", s: 700, side: -1 },
-  { id: "fishing_pier", name: "Fishing Pier", ml: "മീൻപിടുത്ത തുറ", road: "dam", s: 850, side: -1 },
-  { id: "control_room", name: "Dam Control Room", ml: "ഡാം കൺട്രോൾ റൂം", road: "dam", s: 1100, side: 1 },
+  { id: "dam_view", name: "Dam View Point", ml: "ഡാം വ്യൂ പോയിന്റ്", road: "dam", s: 350, side: -1 },
+  { id: "fishing_pier", name: "Fishing Pier", ml: "മീൻപിടുത്ത തുറ", road: "dam", s: 550, side: -1 },
+  { id: "control_room", name: "Dam Control Room", ml: "ഡാം കൺട്രോൾ റൂം", road: "dam", s: 800, side: 1 },
 ];
 
 const city: Place[] = [

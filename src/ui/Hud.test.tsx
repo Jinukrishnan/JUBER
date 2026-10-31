@@ -30,7 +30,7 @@ describe("Hud", () => {
     useGame.getState().startDay("car");
     render(<Hud />);
     expect(screen.getByText("0 / 3")).toBeInTheDocument();
-    expect(screen.getByText(/Goal Rs. 1300/)).toBeInTheDocument();
+    expect(screen.getByText(/Goal Rs. 1000/)).toBeInTheDocument();
   });
 
   describe("controls", () => {

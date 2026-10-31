@@ -73,8 +73,10 @@ describe("traffic on the big network", () => {
     const agents = createTraffic(N, 11, spot("depot"));
     const bad: string[] = [];
     const overlapFor = new Map<string, number>();
+    let before: { x: number; z: number }[] = [];
     for (let step = 0; step < 6000; step++) {
       const t = step * 0.1;
+      if (step === 4800) before = agents.map((a) => agentPose(N, a)); // the last two minutes
       const { moves } = stepTraffic(N, agents, 0.1, t, FAR);
       for (const m of moves) if (isWrongTurn(N, m.junction, m.approachId, m.turn)) bad.push(`${m.turn} at ${m.junction} from ${m.approachId}`);
       if (step % 10 === 0) {
@@ -90,7 +92,10 @@ describe("traffic on the big network", () => {
       }
     }
     expect(bad.slice(0, 5)).toEqual([]);
-    const moving = agents.filter((a) => a.travelled > 200).length;
-    expect(moving / agents.length).toBeGreaterThanOrEqual(0.7);
+    // stuck: not moved 5 m in two minutes (a red light lasts about a minute), judged by position
+    // (`travelled` also counts speed while held at a road end, so it cannot show this)
+    const after = agents.map((a) => agentPose(N, a));
+    const stuck = agents.filter((_, i) => Math.hypot(after[i].x - before[i].x, after[i].z - before[i].z) < 5).length;
+    expect(stuck / agents.length).toBeLessThanOrEqual(0.05);
   }, 120000);
 });
