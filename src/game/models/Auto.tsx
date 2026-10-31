@@ -1,6 +1,6 @@
 "use client";
 
-import { Block, Driver, Headlamps, Wheel } from "./parts";
+import { Block, Driver, Headlamps, TailLamps, Wheel } from "./parts";
 
 const GREEN = "#1f7a3a";
 const YELLOW = "#f2c200";
@@ -43,8 +43,7 @@ export function Auto() {
       <Block p={[0.82, 1.05, 0]} s={[0.05, 0.05, 0.6]} color={BLACK} />
       <Block p={[0.7, 1.4, 0.7]} s={[0.04, 0.12, 0.1]} color={BLACK} />
       <Block p={[0.7, 1.4, -0.7]} s={[0.04, 0.12, 0.1]} color={BLACK} />
-      <Block p={[-1.5, 0.95, 0.4]} s={[0.04, 0.08, 0.2]} color="#ff2a1a" emissive="#ff2a1a" />
-      <Block p={[-1.5, 0.95, -0.4]} s={[0.04, 0.08, 0.2]} color="#ff2a1a" emissive="#ff2a1a" />
+      <TailLamps x={-1.5} y={0.95} zs={[0.4, -0.4]} size={[0.04, 0.08, 0.2]} />
       <Driver p={[0.28, 0.72, 0]} shirt="#a89a6a" />
       <Headlamps x={1.32} y={0.78} zs={[0]} reach={22} />
     </group>

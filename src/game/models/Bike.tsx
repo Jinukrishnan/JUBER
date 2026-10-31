@@ -1,6 +1,6 @@
 "use client";
 
-import { Block, Driver, Headlamps, Wheel } from "./parts";
+import { Block, Driver, Headlamps, TailLamps, Wheel } from "./parts";
 
 const BLUE = "#0284c7";
 const BLUE_LIGHT = "#0ea5e9";
@@ -38,7 +38,7 @@ export function Bike() {
         <cylinderGeometry args={[0.06, 0.07, 0.6, 10]} />
         <meshStandardMaterial color="#c9ccd1" metalness={0.7} roughness={0.3} />
       </mesh>
-      <Block p={[-0.84, 1.02, 0]} s={[0.05, 0.07, 0.18]} color="#ff2a1a" emissive="#ff2a1a" />
+      <TailLamps x={-0.84} y={1.02} zs={[0]} size={[0.05, 0.07, 0.18]} />
       <Driver p={[-0.15, 0.98, 0]} shirt="#2b3a55" helmet="#e8e8e8" lean={0.55} />
       <Headlamps x={0.85} y={0.9} zs={[0]} reach={22} />
     </group>

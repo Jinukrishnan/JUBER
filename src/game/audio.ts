@@ -153,6 +153,7 @@ export function armAudio(): () => void {
 }
 
 const muted = () => useGame.getState().muted;
+let lastLoad = 0;
 
 // Call every frame. speed is signed (negative = reversing); throttle is 0..1.
 export function updateEngine(state: { speed: number; throttle: number; live: boolean; kind: VehicleKind }) {
@@ -172,15 +173,22 @@ export function updateEngine(state: { speed: number; throttle: number; live: boo
   const fire = firingHz(rpm, profile);
   const level = engineGain(speed, load, profile);
 
+  if (eng.saw.type !== profile.wave) eng.saw.type = profile.wave;
+  if (eng.sub.type !== profile.subWave) eng.sub.type = profile.subWave;
   eng.saw.frequency.setTargetAtTime(fire * profile.tone, t, 0.08);
-  eng.sawFilter.frequency.setTargetAtTime(260 + rpm * 0.3, t, 0.08);
+  eng.sawFilter.frequency.setTargetAtTime(profile.filterBase + rpm * profile.filterPerRpm, t, 0.08);
   eng.sawGain.gain.setTargetAtTime(level, t, 0.08);
   eng.sub.frequency.setTargetAtTime(fire * (profile.tone / 2), t, 0.08);
-  eng.subGain.gain.setTargetAtTime(level * 0.45, t, 0.08);
+  eng.subGain.gain.setTargetAtTime(level * profile.subMix, t, 0.08);
 
   eng.lfo.frequency.setTargetAtTime(fire, t, 0.08);
-  eng.clatterGain.gain.setTargetAtTime(level * 0.22, t, 0.08);
-  eng.lfoDepth.gain.setTargetAtTime(level * 0.2, t, 0.08);
+  eng.clatterFilter.frequency.setTargetAtTime(kind === "bike" ? 2600 : 1400, t, 0.1);
+  eng.clatterGain.gain.setTargetAtTime(level * profile.rasp * (0.4 + 0.6 * profile.pulse), t, 0.08);
+  eng.lfoDepth.gain.setTargetAtTime(level * profile.pulse, t, 0.08);
+
+  // a sports bike pops when the throttle is let go at high revs
+  if (profile.crackle && lastLoad > 0.6 && load < 0.2 && rpm > profile.baseRpm + profile.span * 0.4) crackleNow();
+  lastLoad = load;
 
   eng.roadFilter.frequency.setTargetAtTime(300 + Math.abs(speed) * 45, t, 0.1);
   eng.roadGain.gain.setTargetAtTime(tireGain(speed, VEHICLES[kind].maxSpeed), t, 0.1);
@@ -229,6 +237,12 @@ function burst(freq: number, q: number, seconds: number, peak: number) {
   g.connect(eng.master);
   src.start(t);
   src.stop(t + seconds);
+}
+
+// The pops of a sports bike exhaust as the throttle closes: a few short sharp bursts.
+function crackleNow() {
+  if (muted()) return;
+  [0, 70, 150].forEach((ms, i) => setTimeout(() => burst(1800 + i * 500, 2.5, 0.06, 0.14), ms));
 }
 
 // Pneumatic door hiss.

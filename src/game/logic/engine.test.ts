@@ -117,3 +117,36 @@ describe("engineProfile", () => {
     expect(tireGain(14, 14)).toBeCloseTo(tireGain(22, 22));
   });
 });
+
+
+describe("each vehicle sounds different", () => {
+  const bike = engineProfile("bike");
+  const car = engineProfile("car");
+  const auto = engineProfile("auto");
+
+  it("has its own waveform and brightness", () => {
+    expect(new Set([bike.wave, car.wave, auto.wave]).size).toBe(3);
+    // a sports bike is the brightest and revs the highest, a car the softest
+    expect(bike.filterBase).toBeGreaterThan(auto.filterBase);
+    expect(auto.filterBase).toBeGreaterThan(car.filterBase);
+    expect(bike.baseRpm + bike.span).toBeGreaterThan(car.baseRpm + car.span);
+  });
+
+  it("makes the auto putter: a slow, deep beat with strong pulses", () => {
+    expect(firingHz(auto.idleRpm, auto)).toBeLessThan(10);
+    expect(auto.pulse).toBeGreaterThan(car.pulse * 3);
+    expect(auto.pulse).toBeGreaterThan(bike.pulse);
+  });
+
+  it("makes the bike scream at the top end and the car stay smooth", () => {
+    expect(firingHz(bike.baseRpm + bike.span, bike)).toBeGreaterThan(firingHz(car.baseRpm + car.span, car) * 0.9);
+    expect(bike.rasp).toBeGreaterThan(car.rasp * 3);
+    expect(car.gain).toBeLessThanOrEqual(bike.gain);
+  });
+
+  it("only the bike crackles when the throttle is lifted", () => {
+    expect(bike.crackle).toBe(true);
+    expect(car.crackle).toBe(false);
+    expect(auto.crackle).toBe(false);
+  });
+});

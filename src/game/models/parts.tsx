@@ -1,7 +1,9 @@
 "use client";
 
+import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useRef } from "react";
-import { AdditiveBlending, DoubleSide, type Object3D, type SpotLight } from "three";
+import { AdditiveBlending, DoubleSide, type MeshStandardMaterial, type Object3D, type SpotLight } from "three";
+import { busPose } from "../busPose";
 import { useGame } from "../state/store";
 
 // Pieces every vehicle model shares. Models face +x, with +y up and +z to the
@@ -123,6 +125,46 @@ export function Headlamps({ x, y, zs, reach = 22 }: { x: number; y: number; zs: 
             <mesh position={[x + 0.1 + reach / 2.4, y, z]} rotation={[0, 0, Math.PI / 2]}>
               <coneGeometry args={[reach / 5, reach / 1.2, 18, 1, true]} />
               <meshBasicMaterial color="#fff3c4" transparent opacity={0.07} depthWrite={false} blending={AdditiveBlending} side={DoubleSide} />
+            </mesh>
+          )}
+        </group>
+      ))}
+    </>
+  );
+}
+
+// Rear lamps: a dim red glow always, a bright red brake light while the brake or
+// reverse key is held, and a small white reverse lamp while rolling backwards.
+// `x` is the lamp's rear position, `zs` the lateral ones; `size` is x, y, z.
+export function TailLamps({ x, y, zs, size }: { x: number; y: number; zs: number[]; size: [number, number, number] }) {
+  const red = useRef<(MeshStandardMaterial | null)[]>([]);
+  const white = useRef<(MeshStandardMaterial | null)[]>([]);
+  const shown = useRef("");
+  useFrame(() => {
+    const key = `${busPose.braking}${busPose.reversing}`;
+    if (key === shown.current) return;
+    shown.current = key;
+    red.current.forEach((m) => m && (m.emissiveIntensity = busPose.braking ? 4 : 0.7));
+    white.current.forEach((m) => m && (m.emissiveIntensity = busPose.reversing ? 3 : 0));
+  });
+  return (
+    <>
+      {zs.map((z, i) => (
+        <group key={z}>
+          <mesh position={[x, y, z]}>
+            <boxGeometry args={size} />
+            <meshStandardMaterial ref={(m) => { red.current[i] = m; }} color="#ff2a1a" emissive="#ff1208" emissiveIntensity={0.7} />
+          </mesh>
+          {zs.length > 1 && i === 0 && (
+            <mesh position={[x, y - size[1] * 0.9, z]}>
+              <boxGeometry args={[size[0], size[1] * 0.45, size[2] * 0.5]} />
+              <meshStandardMaterial ref={(m) => { white.current[0] = m; }} color="#f4f4f0" emissive="#ffffff" emissiveIntensity={0} />
+            </mesh>
+          )}
+          {zs.length === 1 && (
+            <mesh position={[x, y - size[1] * 0.9, z]}>
+              <boxGeometry args={[size[0], size[1] * 0.45, size[2] * 0.6]} />
+              <meshStandardMaterial ref={(m) => { white.current[0] = m; }} color="#f4f4f0" emissive="#ffffff" emissiveIntensity={0} />
             </mesh>
           )}
         </group>

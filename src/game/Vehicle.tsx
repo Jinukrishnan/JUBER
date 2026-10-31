@@ -10,6 +10,7 @@ import { Auto } from "./models/Auto";
 import { Bike } from "./models/Bike";
 import { Car } from "./models/Car";
 import { createJunctionWatch } from "./logic/driveRules";
+import { lampState } from "./logic/lamps";
 import { clampToDrivable } from "./logic/network";
 import { stepVehicle, type VehicleState } from "./logic/vehicle";
 import { useGame } from "./state/store";
@@ -104,6 +105,9 @@ export function Vehicle() {
     busPose.z = v.z;
     busPose.heading = v.heading;
     busPose.speed = v.speed;
+    const lamps = lampState(live ? keys.current.throttle : 0, live && keys.current.handbrake, v.speed);
+    busPose.braking = lamps.braking;
+    busPose.reversing = lamps.reversing;
 
     if (group.current) {
       group.current.position.set(v.x, 0, v.z);

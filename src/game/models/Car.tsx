@@ -1,6 +1,6 @@
 "use client";
 
-import { Block, Driver, Headlamps, Wheel } from "./parts";
+import { Block, Driver, Headlamps, TailLamps, Wheel } from "./parts";
 
 const BODY = "#f97316"; // orange
 const RED = "#dc2626";
@@ -39,8 +39,7 @@ export function Car() {
       <Block p={[-2.15, 0.42, 0]} s={[0.12, 0.14, 1.6]} color="#2a2c2f" />
       <Block p={[0.8, 1.0, 0.95]} s={[0.12, 0.1, 0.12]} color={BODY} />
       <Block p={[0.8, 1.0, -0.95]} s={[0.12, 0.1, 0.12]} color={BODY} />
-      <Block p={[-2.2, 0.95, 0.6]} s={[0.04, 0.16, 0.35]} color="#ff2a1a" emissive="#ff2a1a" />
-      <Block p={[-2.2, 0.95, -0.6]} s={[0.04, 0.16, 0.35]} color="#ff2a1a" emissive="#ff2a1a" />
+      <TailLamps x={-2.2} y={0.95} zs={[0.6, -0.6]} size={[0.04, 0.16, 0.35]} />
       <Block p={[-2.2, 0.7, 0]} s={[0.03, 0.14, 0.4]} color="#f2f0e0" />
       {/* red spoiler on two posts, and a yellow lightning stripe down each side */}
       <Block p={[-2.0, 1.2, 0]} s={[0.4, 0.07, 1.5]} color={RED} rot={[0, 0, 0.08]} />

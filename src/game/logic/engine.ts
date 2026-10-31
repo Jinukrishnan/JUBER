@@ -12,6 +12,15 @@ export type EngineProfile = {
   firingPerRev: number; // combustion pulses per revolution
   tone: number; // multiplier from firing rate to the main tone
   gain: number; // overall loudness
+  // the timbre
+  wave: "sawtooth" | "square" | "triangle"; // main oscillator
+  subWave: "sawtooth" | "square" | "triangle" | "sine"; // the one an octave down
+  filterBase: number; // low-pass cutoff at idle, Hz
+  filterPerRpm: number; // how much the cutoff opens as the revs climb
+  subMix: number; // share of the low octave
+  rasp: number; // share of the buzzing exhaust noise
+  pulse: number; // depth of the beat at the firing rate (the putter)
+  crackle: boolean; // pops when the throttle is lifted at high revs
 };
 
 const BUS_ENGINE: EngineProfile = {
@@ -22,16 +31,33 @@ const BUS_ENGINE: EngineProfile = {
   firingPerRev: 3, // six cylinders, four-stroke
   tone: 2,
   gain: 1,
+  wave: "sawtooth",
+  subWave: "square",
+  filterBase: 260,
+  filterPerRpm: 0.3,
+  subMix: 0.45,
+  rasp: 0.22,
+  pulse: 0.2,
+  crackle: false,
 };
 
 const PROFILES: Record<VehicleKind | "bus", EngineProfile> = {
   bus: BUS_ENGINE,
-  // sports single: high, buzzy and revvy
-  bike: { gearTops: [4, 8, 12, 16, 19, 22], idleRpm: 1400, baseRpm: 3500, span: 5500, firingPerRev: 1, tone: 2, gain: 0.8 },
-  // two-cylinder putter: low and lumpy, four gears
-  auto: { gearTops: [3.5, 7, 10.5, 14], idleRpm: 700, baseRpm: 1100, span: 1300, firingPerRev: 0.5, tone: 8, gain: 1.1 },
-  // four-cylinder: smooth
-  car: { gearTops: [4, 8, 12, 16, 18], idleRpm: 850, baseRpm: 1100, span: 2600, firingPerRev: 2, tone: 2, gain: 0.7 },
+  // sports bike: high, buzzy and revvy, with a raspy exhaust that pops off the throttle
+  bike: {
+    gearTops: [4, 8, 12, 16, 19, 22], idleRpm: 1400, baseRpm: 3500, span: 6500, firingPerRev: 1, tone: 2, gain: 0.8,
+    wave: "sawtooth", subWave: "sawtooth", filterBase: 900, filterPerRpm: 0.55, subMix: 0.3, rasp: 0.9, pulse: 0.1, crackle: true,
+  },
+  // auto-rickshaw: a two-stroke putter, a low lumpy beat
+  auto: {
+    gearTops: [3.5, 7, 10.5, 14], idleRpm: 700, baseRpm: 1100, span: 1300, firingPerRev: 0.5, tone: 8, gain: 1.1,
+    wave: "square", subWave: "square", filterBase: 420, filterPerRpm: 0.2, subMix: 0.6, rasp: 0.25, pulse: 0.9, crackle: false,
+  },
+  // car: a smooth, quiet four-cylinder hum
+  car: {
+    gearTops: [4, 8, 12, 16, 18], idleRpm: 850, baseRpm: 1100, span: 2600, firingPerRev: 2, tone: 2, gain: 0.55,
+    wave: "triangle", subWave: "sine", filterBase: 180, filterPerRpm: 0.12, subMix: 0.5, rasp: 0.12, pulse: 0.05, crackle: false,
+  },
 };
 
 export function engineProfile(kind: VehicleKind | "bus"): EngineProfile {
