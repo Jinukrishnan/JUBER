@@ -430,3 +430,21 @@ describe("a long vehicle on green is not held up by a short one waiting at red",
     expect(bus.turns).toBe(1);
   });
 });
+
+describe("a full town", () => {
+  it("never overlaps in a crowded start with all the vehicles of a busy day, over two minutes", () => {
+    const agents = createTraffic(N, 5, depot).map((a, i) => ({ ...a, road: "ring", dir: 1 as const, s: 20 + i * 12, speed: 0 }));
+    expect(agents.length).toBeGreaterThanOrEqual(45);
+    let worst = Infinity;
+    run(agents, 120, FAR, 0, 0.1, () => {
+      for (const a of agents) {
+        for (const b of agents) {
+          if (a === b || a.road !== b.road || a.dir !== b.dir) continue;
+          const d = along(a, b);
+          if (d < 60) worst = Math.min(worst, d - (KINDS[a.kind].length + KINDS[b.kind].length) / 2);
+        }
+      }
+    });
+    expect(worst).toBeGreaterThan(-0.05);
+  });
+});

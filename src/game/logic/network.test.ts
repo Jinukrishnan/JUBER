@@ -271,3 +271,23 @@ describe("validateNetwork", () => {
     expect(validateNetwork(rule, []).problems.join(" ")).toMatch(/north.*ew:1/);
   });
 });
+
+describe("the paved mouth of a junction", () => {
+  it("can be driven on all the way across the footpath strip, matching what is drawn", () => {
+    // at the north T the ring's footpath is cut for the stem (x 392 to 408) and paved: z 6 to 9.6 on the south side
+    for (const [dx, dz] of [[7, 8.8], [-7, 8.8], [7.9, 9.5], [-7.9, 9.5]]) {
+      expect(drivable(N, 400 + dx, 0 + dz), `${dx},${dz}`).toBe(true);
+      expect(groundY(N, 400 + dx, 0 + dz)).toBe(0);
+    }
+  });
+  it("does not pave the side of a T where no road leaves", () => {
+    expect(drivable(N, 407, -8.8)).toBe(false);
+  });
+  it("still lets clampToDrivable settle on a drivable point beside the mouth", () => {
+    for (const [x, z] of [[411, 12], [389, 12], [407, 12]]) {
+      const a = clampToDrivable(N, x, z);
+      expect(drivable(N, a.x, a.z)).toBe(true);
+      expect(clampToDrivable(N, a.x, a.z).clamped).toBe(false);
+    }
+  });
+});
