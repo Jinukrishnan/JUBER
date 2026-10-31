@@ -159,6 +159,17 @@ junction or crossing: `src/game/logic/plantsInvariant.test.ts` proves it for the
 junction. People only cross at the zebra crossings (one on every approach). The world is cut into 200 m cells
 and only the ones near the vehicle are drawn.
 
+## Zones, the tech city and the park
+
+The map is split into **zones** (rectangles in `src/game/data/zones-v1.ts`, looked up with `zoneKindAt`): village, tech city (x 1000 to 2400), central park, lake, dam and countryside. The scenery follows them:
+
+- **Village:** walled houses and shops, palms, flowers and grass, as before.
+- **Tech city:** buildings from a catalogue (`data/buildings-v1.ts`: tower, office, apartment, home, arcade), in one or two rows with no compounds, tallest around the city centre (1700, 450) and low at the edges (`logic/catalogue.ts`). Street trees only. The ten big places (mall, hospital, stadium, university, Tech Park office, twin towers, apartments, hotel, bank, market) have **landmarks** (`data/landmarks-v1.ts`, `logic/landmarks.ts`) that slide along the road to find room. Bodies are drawn as instanced boxes with a tiled window texture (`CityBuildings.tsx`, `cityParts.ts`).
+- **Central park:** a lawn kept 14 m from the streets, two crossing paths, a fountain, a playground, benches and about 90 trees (`logic/park.ts`, `Park.tsx`).
+- **Lake side:** nothing is placed in the lake zone or north of Dam Road (the water comes later). The ground is tinted by zone (paving in the city, lawn in the park, `logic/groundZones.ts`).
+
+The layout is still one seeded pass over every road (about 60 ms); the tests check that nothing of any kind stands on tarmac, a footpath or a junction anywhere in the world, and that the busiest draw range stays under 6000 boxes (`sceneBudget.test.ts`).
+
 ## The radar
 
 The round radar in the top-right corner shows every road of the loop turning around your vehicle, each signal
