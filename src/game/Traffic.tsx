@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Group } from "three";
 import { busPose } from "./busPose";
 import { PLACES } from "./data/places-v1";
-import { agentPose, createTraffic, inRange, stepTraffic, shout, type Agent } from "./logic/traffic";
+import { agentPose, createTraffic, inRange, liveTraffic, stepTraffic, shout, type Agent } from "./logic/traffic";
 import { placeSpot } from "./logic/places";
 import { Auto } from "./models/Auto";
 import { Bike } from "./models/Bike";
@@ -68,6 +68,14 @@ export function Traffic() {
     return createTraffic(NETWORK, SEED + dayId, depot);
   }, [dayId]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
+
+  // the radar shows the same vehicles
+  useEffect(() => {
+    liveTraffic.agents = agents;
+    return () => {
+      liveTraffic.agents = [];
+    };
+  }, [agents]);
 
   // the end of the day cuts off any shouting
   useEffect(() => {

@@ -148,6 +148,25 @@ The round radar in the top-right corner shows every road of the loop turning aro
 in its current colour, every place, and the route to follow (blue to the pickup, green to the drop). Press
 **Z** (or click the button) to zoom: 150 m, 400 m or 1 km.
 
+## Traffic
+
+You share the loop with 14 other vehicles: 6 cars, 3 autos, 3 bikes and 2 buses. They keep to the left lane,
+follow the vehicle in front (and you), queue at red lights, go on green and take any turn the junction allows;
+they never make a turn you would be fined for. They show as small dots on the radar (a bus a little bigger, one
+waiting at a red light amber).
+
+If you hit one it is an accident like any other (Rs. 300 and a star off, and you lose speed). Its driver stops for
+4 seconds and shouts a line in Malayalam, in a speech bubble and out loud (a bus driver's voice is deeper than a
+biker's). A driver who was waiting at a red light shouts about the signal.
+
+The rules are in `src/game/logic/traffic.ts` (pure, tested: `traffic.test.ts`, `traffic.sim.test.ts`,
+`trafficLap.test.ts`), the Malayalam lines in `src/game/logic/trafficTalk.ts` (invented everyday wording, please have
+a native speaker check it), and the drawing and hit handling in `src/game/Traffic.tsx`. To change the numbers: the
+mix and the spawn spacing are in `createTraffic` (the `ORDER` list), cruise speeds and sizes in `KINDS`, braking,
+gaps and the hit rules (`MIN_HIT_SPEED`, `HIT_COOLDOWN_S`, `HIT_STOP_S`) at the top of the driving section. Other
+vehicles do not overtake, change lane, honk or yield inside a junction (two turning across one another can pass
+through each other for a moment).
+
 ## Tuning
 
 Vehicle numbers (speed, handling, fares, rent, goal) are in `src/game/data/vehicles.ts`; request pacing
@@ -163,7 +182,7 @@ is `APP_NAME` in the constants file.
 src/app/         routes (landing, login, play)
 src/game/        3D scene (Vehicle, models, Road, Scenery, SignalHeads, Places, Riders, CameraRig, Weather) + store
 src/game/data/   vehicles, places, the road network (network-v1.ts)
-src/game/logic/  pure, unit-tested rules (network, turns, lights, requests, ride, roadgraph, layout, dialogue, rating, vehicle)
+src/game/logic/  pure, unit-tested rules (network, turns, lights, traffic, requests, ride, roadgraph, layout, dialogue, rating, vehicle)
 src/ui/          HUD, request board, conversation card, radar, pause menu, day summary, login card
 src/lib/         localStorage profile
 ```

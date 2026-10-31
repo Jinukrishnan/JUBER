@@ -375,3 +375,6 @@ export function inRange(n: Network, a: Agent, x: number, z: number, range: numbe
   const p = agentPose(n, a);
   return Math.hypot(p.x - x, p.z - z) <= range;
 }
+
+// The traffic of the day in play, shared with the radar (set by Traffic.tsx).
+export const liveTraffic: { agents: Agent[] } = { agents: [] };
