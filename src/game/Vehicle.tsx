@@ -9,17 +9,14 @@ import { VEHICLES, type VehicleKind } from "./data/vehicles";
 import { Auto } from "./models/Auto";
 import { Bike } from "./models/Bike";
 import { Car } from "./models/Car";
-import { clampToDrivable } from "./logic/junction";
-import { redViolation } from "./logic/redlight";
-import { roadCenterZ, roadHalfWidthAt } from "./logic/road";
-import type { Approach } from "./logic/signals";
+import { createJunctionWatch } from "./logic/driveRules";
+import { clampToDrivable } from "./logic/network";
 import { stepVehicle, type VehicleState } from "./logic/vehicle";
 import { useGame } from "./state/store";
 import { useHeldKeys, useKeyPress } from "./useKeys";
-import { JUNCTIONS } from "./world";
+import { NETWORK } from "./world";
 
 const CRASH_SPEED_KEPT = 0.3; // fraction of speed left after hitting someone
-const APPROACHES: Approach[] = ["mainForward", "mainBackward", "armLeft", "armRight"];
 
 function Model({ kind }: { kind: VehicleKind }) {
   if (kind === "bike") return <Bike />;
@@ -35,6 +32,7 @@ export function Vehicle() {
   const keys = useHeldKeys();
   const state = useRef<VehicleState>(depotPose());
   const edgeCooldown = useRef(0);
+  const watch = useRef(createJunctionWatch(NETWORK));
 
   const dayId = useGame((g) => g.dayId);
   const kind = useGame((g) => g.vehicle);
@@ -43,6 +41,7 @@ export function Vehicle() {
   useEffect(() => {
     resetBusPose();
     state.current = depotPose();
+    watch.current.reset();
   }, [dayId]);
 
   useEffect(() => {
@@ -74,19 +73,16 @@ export function Vehicle() {
         // the vehicle stays put while the customer talks, gets in or gets out
         { throttle: holding ? 0 : k.throttle, steer: k.steer, handbrake: k.handbrake || holding },
         dt,
-        roadHalfWidthAt(before.x),
-        roadCenterZ(before.x),
-        (x, z) => clampToDrivable(JUNCTIONS, x, z),
+        6,
+        0,
+        (x, z) => clampToDrivable(NETWORK, x, z),
         spec,
       );
       state.current = r.state;
-      // the front crossing a stop line while that light is red
-      for (const j of JUNCTIONS) {
-        if (!j.plan || Math.abs(j.x - r.state.x) > 60) continue;
-        for (const a of APPROACHES) {
-          if (redViolation(j, a, before, r.state, game.signalTime, spec.length / 2)) game.registerViolation();
-        }
-      }
+      // red lights run and turns made that the junction does not allow
+      const seen = watch.current.step(before, r.state, game.signalTime, spec.length / 2);
+      for (let i = 0; i < seen.redLights; i++) game.registerViolation();
+      for (let i = 0; i < seen.wrongTurns; i++) game.registerWrongTurn();
       // hitting someone knocks the speed off (the collision itself is detected where the people are)
       if (busPose.bump) {
         busPose.bump = false;

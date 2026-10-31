@@ -232,8 +232,8 @@ export function Stops() {
       {ROUTE_V1.map((stop, i) => {
         const place = PLACES.find((p) => p.id === stop.id);
         // customers wait on one kerb only, so only that kerb gets a bay and a shelter
-        const placeSide: Side | null = place?.at.kind === "main" ? (place.at.side === "left" ? "forward" : "backward") : null;
-        const targetSide: Side | null = target && target.id === stop.id && place?.at.kind === "main" ? (place.at.side === "left" ? "forward" : "backward") : null;
+        const placeSide: Side | null = place ? (place.side === -1 ? "forward" : "backward") : null;
+        const targetSide: Side | null = target && target.id === stop.id && place ? (place.side === -1 ? "forward" : "backward") : null;
         const edge = BAY_OFFSET + BAY_WIDTH / 2 + SHELTER_GAP;
         const cz = roadCenterZ(stop.position);
         return (

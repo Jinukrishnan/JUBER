@@ -85,7 +85,17 @@ function mainRoad(n: Network, j: Junction): RoadId {
   return best;
 }
 
+const approachCache = new WeakMap<Network, Map<string, Approach[]>>();
+
 export function approachesOf(n: Network, junctionId: string): Approach[] {
+  let byJunction = approachCache.get(n);
+  if (!byJunction) approachCache.set(n, (byJunction = new Map()));
+  let list = byJunction.get(junctionId);
+  if (!list) byJunction.set(junctionId, (list = computeApproaches(n, junctionId)));
+  return list;
+}
+
+function computeApproaches(n: Network, junctionId: string): Approach[] {
   const j = junctionOf(n, junctionId);
   const main = mainRoad(n, j);
   return legs(n, j, "in").map((leg) => {

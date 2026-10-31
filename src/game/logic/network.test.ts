@@ -151,9 +151,18 @@ describe("drivable", () => {
     expect(drivable(N, 200, -6.1)).toBe(false);
   });
 
-  it("includes the junction box corners", () => {
+  it("includes the rounded corners of a four-way junction", () => {
     const h = JUNCTION_BOX_HALF - 0.01;
     for (const [dx, dz] of [[h, h], [-h, h], [h, -h], [-h, -h]]) expect(drivable(N, 400 + dx, 250 + dz)).toBe(true);
+  });
+
+  it("rounds only the corners of a T that have roads on both sides", () => {
+    const h = JUNCTION_BOX_HALF - 0.01;
+    // at the north T the stem leaves to the south: the two southern corners are paved, the northern ones are not
+    expect(drivable(N, 400 + h, 0 + h)).toBe(true);
+    expect(drivable(N, 400 - h, 0 + h)).toBe(true);
+    expect(drivable(N, 400 + h, 0 - h)).toBe(false);
+    expect(drivable(N, 400 - h, 0 - h)).toBe(false);
   });
 
   it("is false on the footpath, which is a raised kerb", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeRating } from "./rating";
 
-const clean = { harshEvents: 0, expiredPickups: 0, accidents: 0, violations: 0 };
+const clean = { harshEvents: 0, expiredPickups: 0, accidents: 0, violations: 0, wrongTurns: 0 };
 
 describe("computeRating", () => {
   it("gives 5 for a perfect day", () => {
@@ -14,6 +14,10 @@ describe("computeRating", () => {
   it("loses half a star for each red light", () => {
     expect(computeRating({ ...clean, violations: 1 })).toBe(4.5);
     expect(computeRating({ ...clean, violations: 3 })).toBe(3.5);
+  });
+  it("loses half a star for each turn that was not allowed", () => {
+    expect(computeRating({ ...clean, wrongTurns: 1 })).toBe(4.5);
+    expect(computeRating({ ...clean, wrongTurns: 2, violations: 1 })).toBe(3.5);
   });
   it("loses a quarter star for each customer who gave up waiting, at most one star", () => {
     expect(computeRating({ ...clean, expiredPickups: 2 })).toBe(4.5);

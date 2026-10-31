@@ -18,9 +18,10 @@ export function DaySummary() {
   const harshEvents = useGame((s) => s.harshEvents);
   const accidents = useGame((s) => s.accidents);
   const violations = useGame((s) => s.violations);
+  const wrongTurns = useGame((s) => s.wrongTurns);
   const saved = useRef<number | null>(null);
 
-  const rating = computeRating({ expiredPickups, harshEvents, accidents, violations });
+  const rating = computeRating({ expiredPickups, harshEvents, accidents, violations, wrongTurns });
 
   // record the finished day exactly once per day
   useEffect(() => {

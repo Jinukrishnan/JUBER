@@ -171,14 +171,56 @@ export function nearest(n: Network, x: number, z: number): Nearest {
   return best!;
 }
 
-const inBox = (j: Junction, x: number, z: number, half: number) =>
-  Math.abs(x - j.at[0]) <= half + EPS && Math.abs(z - j.at[1]) <= half + EPS;
+// Which of the four compass directions a road leaves a junction in (the junction
+// boxes are square and line up with the axes; every road in the map is straight there).
+const armsCache = new WeakMap<Junction, Set<"E" | "S" | "W" | "N">>();
+
+function armsOf(n: Network, j: Junction): Set<"E" | "S" | "W" | "N"> {
+  let arms = armsCache.get(j);
+  if (!arms) {
+    arms = new Set();
+    for (const id of j.roads) {
+      const r = builtRoads(n).find((b) => b.road.id === id);
+      if (!r) continue;
+      const s = nearestOnRoad(r, j.at[0], j.at[1]).s;
+      const h = headingAt(r, s);
+      const quarter = ((Math.round(h / (Math.PI / 2)) % 4) + 4) % 4; // 0 east, 1 south, 2 west, 3 north
+      const fwd = (["E", "S", "W", "N"] as const)[quarter];
+      const back = (["W", "N", "E", "S"] as const)[quarter];
+      if (r.road.closed || s < r.length - 0.5) arms.add(fwd);
+      if (r.road.closed || s > 0.5) arms.add(back);
+    }
+    armsCache.set(j, arms);
+  }
+  return arms;
+}
+
+// The rounded corners of a junction: the square between a road's edge and the box
+// edge, in a quadrant where roads leave on both sides of it.
+function filletQuadrants(n: Network, j: Junction): { sx: -1 | 1; sz: -1 | 1 }[] {
+  const arms = armsOf(n, j);
+  const out: { sx: -1 | 1; sz: -1 | 1 }[] = [];
+  for (const sx of [-1, 1] as const) {
+    for (const sz of [-1, 1] as const) {
+      if (arms.has(sx === 1 ? "E" : "W") && arms.has(sz === 1 ? "S" : "N")) out.push({ sx, sz });
+    }
+  }
+  return out;
+}
+
+function inFillet(n: Network, j: Junction, x: number, z: number): boolean {
+  const dx = x - j.at[0];
+  const dz = z - j.at[1];
+  return filletQuadrants(n, j).some(
+    (q) => q.sx * dx >= -EPS && q.sx * dx <= JUNCTION_BOX_HALF + EPS && q.sz * dz >= -EPS && q.sz * dz <= JUNCTION_BOX_HALF + EPS,
+  );
+}
 
 export function drivable(n: Network, x: number, z: number): boolean {
   for (const r of builtRoads(n)) {
     if (nearestOnRoad(r, x, z).distance <= r.road.halfWidth + EPS) return true;
   }
-  return n.junctions.some((j) => inBox(j, x, z, JUNCTION_BOX_HALF));
+  return n.junctions.some((j) => inFillet(n, j, x, z));
 }
 
 // Raised footpath within FOOTPATH_WIDTH of the carriageway edge, unless the spot is paved.
@@ -206,14 +248,19 @@ export function clampToDrivable(n: Network, x: number, z: number): { x: number; 
     }
   }
   for (const j of n.junctions) {
-    const cand = {
-      x: Math.max(j.at[0] - JUNCTION_BOX_HALF, Math.min(j.at[0] + JUNCTION_BOX_HALF, x)),
-      z: Math.max(j.at[1] - JUNCTION_BOX_HALF, Math.min(j.at[1] + JUNCTION_BOX_HALF, z)),
-    };
-    const d = Math.hypot(cand.x - x, cand.z - z);
-    if (d < bestD) {
-      bestD = d;
-      best = cand;
+    for (const q of filletQuadrants(n, j)) {
+      const lo = (c: number, sign: number) => (sign === 1 ? c : c - JUNCTION_BOX_HALF);
+      const x0 = lo(j.at[0], q.sx);
+      const z0 = lo(j.at[1], q.sz);
+      const cand = {
+        x: Math.max(x0, Math.min(x0 + JUNCTION_BOX_HALF, x)),
+        z: Math.max(z0, Math.min(z0 + JUNCTION_BOX_HALF, z)),
+      };
+      const d = Math.hypot(cand.x - x, cand.z - z);
+      if (d < bestD) {
+        bestD = d;
+        best = cand;
+      }
     }
   }
   return { ...best, clamped: true };
