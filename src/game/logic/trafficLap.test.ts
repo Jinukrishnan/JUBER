@@ -81,6 +81,6 @@ describe("a careful lap of the ring among the traffic", () => {
       expect(r.finished, `took ${r.t.toFixed(0)} s`).toBe(true);
       expect(r.hits).toBeLessThanOrEqual(1);
       expect(r.edge).toBe(0);
-    });
+    }, 60000);
   }
 });

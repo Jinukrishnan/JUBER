@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NETWORK_V1 } from "../data/network-v1";
 import { PLACES } from "../data/places-v1";
-import { LANE, KINDS, TRAFFIC_COUNT, agentPose, createTraffic, inRange, trafficMix, type Agent } from "./traffic";
+import { LANE, KINDS, TRAFFIC_COUNT, agentPose, createTraffic, inRange, stepTraffic, trafficMix, type Agent } from "./traffic";
 import { builtRoads, drivable, nearestOnRoad, roadLength } from "./network";
 import { placeSpot } from "./places";
 
@@ -87,5 +87,18 @@ describe("inRange", () => {
     }
     expect(near.length).toBeLessThan(agents.length);
     expect(near.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the load of a full road", () => {
+  it("steps all the vehicles of a busy town in a small fraction of a frame", () => {
+    const agents = createTraffic(N, 4, depot);
+    const far = { x: 5000, z: 5000, heading: 0, speed: 0, length: 4.4, width: 1.8 };
+    const t0 = performance.now();
+    const frames = 600;
+    for (let i = 0; i < frames; i++) stepTraffic(N, agents, 1 / 60, i / 60, far);
+    const perFrame = (performance.now() - t0) / frames;
+    expect(agents).toHaveLength(45);
+    expect(perFrame).toBeLessThan(3); // ms, with room to spare for a slow machine
   });
 });

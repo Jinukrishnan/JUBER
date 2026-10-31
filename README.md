@@ -150,9 +150,9 @@ in its current colour, every place, and the route to follow (blue to the pickup,
 
 ## Traffic
 
-You share the loop with 14 other vehicles: 6 cars, 3 autos, 3 bikes and 2 buses. They keep to the left lane,
+You share the loop with 45 other vehicles (about 19 cars, 9 autos, 9 bikes and 7 buses; `TRAFFIC_COUNT` in `traffic.ts`), driving both ways on every road. They keep to the left lane,
 follow the vehicle in front (and you), queue at red lights, go on green and take any turn the junction allows;
-they never make a turn you would be fined for. They show as small dots on the radar (a bus a little bigger, one
+they slow down and curve smoothly through a junction on a turn, and they never make a turn you would be fined for. They show as small dots on the radar (a bus a little bigger, one
 waiting at a red light amber).
 
 If you hit one it is an accident like any other (Rs. 300 and a star off, and you lose speed). Its driver stops for
@@ -162,7 +162,7 @@ biker's). A driver who was waiting at a red light shouts about the signal.
 The rules are in `src/game/logic/traffic.ts` (pure, tested: `traffic.test.ts`, `traffic.sim.test.ts`,
 `trafficLap.test.ts`), the Malayalam lines in `src/game/logic/trafficTalk.ts` (invented everyday wording, please have
 a native speaker check it), and the drawing and hit handling in `src/game/Traffic.tsx`. To change the numbers: the
-mix and the spawn spacing are in `createTraffic` (the `ORDER` list), cruise speeds and sizes in `KINDS`, braking,
+number and mix are `TRAFFIC_COUNT` and `SHARE`, the spawn spacing is in `createTraffic`, cruise speeds and sizes in `KINDS`, braking,
 gaps and the hit rules (`MIN_HIT_SPEED`, `HIT_COOLDOWN_S`, `HIT_STOP_S`) at the top of the driving section. Other
 vehicles do not overtake, change lane, honk or yield inside a junction (two turning across one another can pass
 through each other for a moment).
