@@ -19,7 +19,7 @@ let nextId = 100;
 function mk(over: Partial<Agent>): Agent {
   return {
     id: nextId++, kind: "car", road: "ring", dir: 1, s: 100, speed: 0, cruise: 8.5, hold: 0, seed: 1, paint: "#fff",
-    waiting: false, braking: false, next: null, turns: 0, hitAt: -1e9, travelled: 0, ...over,
+    waiting: false, braking: false, reversing: false, next: null, turns: 0, hitAt: -1e9, travelled: 0, ...over,
   };
 }
 

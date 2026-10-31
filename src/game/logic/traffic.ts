@@ -41,6 +41,7 @@ export type Agent = {
   paint: string;
   waiting: boolean; // stopped at a red light
   braking: boolean; // slowing down: the brake lamps glow
+  reversing: false; // never: traffic does not reverse (the lamp source of the models)
   next: AgentNext | null; // the turn chosen for the next junction
   turns: number; // junctions passed, so each choice is a fresh roll
   hitAt: number; // time of the last contact with the player
@@ -111,6 +112,7 @@ export function createTraffic(n: Network, seed: number, avoid: { x: number; z: n
         paint: palette[Math.floor(rnd() * palette.length)],
         waiting: false,
         braking: false,
+        reversing: false,
         next: null,
         turns: 0,
         hitAt: -1e9,
@@ -366,4 +368,10 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
 export function shout(a: Agent): { ml: string; en: string; pitch: number } {
   const line = lineFor(a.kind, a.waiting ? "waiting" : "general", a.seed ^ Math.floor(a.hitAt * 10));
   return { ...line, pitch: pitchFor(a.kind, a.seed) };
+}
+
+// Is this vehicle within `range` metres of a point (the player), close enough to draw?
+export function inRange(n: Network, a: Agent, x: number, z: number, range: number): boolean {
+  const p = agentPose(n, a);
+  return Math.hypot(p.x - x, p.z - z) <= range;
 }

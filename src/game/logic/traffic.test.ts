@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NETWORK_V1 } from "../data/network-v1";
 import { PLACES } from "../data/places-v1";
-import { LANE, KINDS, agentPose, createTraffic, type Agent } from "./traffic";
+import { LANE, KINDS, agentPose, createTraffic, inRange, type Agent } from "./traffic";
 import { builtRoads, drivable, nearestOnRoad, roadLength } from "./network";
 import { placeSpot } from "./places";
 
@@ -70,5 +70,18 @@ describe("agentPose", () => {
     // left of east is north (-z); left of west is south (+z)
     expect(east.z).toBeCloseTo(-LANE, 6);
     expect(west.z).toBeCloseTo(LANE, 6);
+  });
+});
+
+describe("inRange", () => {
+  it("says which agents are close enough to draw", () => {
+    const agents = createTraffic(N, 1, depot);
+    const near = agents.filter((a) => inRange(N, a, depot.x, depot.z, 260));
+    for (const a of agents) {
+      const p = agentPose(N, a);
+      expect(inRange(N, a, depot.x, depot.z, 260)).toBe(Math.hypot(p.x - depot.x, p.z - depot.z) <= 260);
+    }
+    expect(near.length).toBeLessThan(agents.length);
+    expect(near.length).toBeGreaterThan(0);
   });
 });
