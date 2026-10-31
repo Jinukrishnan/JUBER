@@ -49,7 +49,7 @@ export default function PlayGate() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black">
+    <div className="fixed inset-0 touch-none overscroll-none bg-black">
       <GameCanvas vehicle={profile.vehicle} />
       <Hud />
       <PauseMenu />

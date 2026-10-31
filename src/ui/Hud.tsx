@@ -13,6 +13,7 @@ import { NextSignal } from "./NextSignal";
 import { RequestBoard } from "./RequestBoard";
 import { RideStrip } from "./RideStrip";
 import { ReviewCard } from "./ReviewCard";
+import { TouchControls } from "./TouchControls";
 
 const NOTICE_MS = 4000;
 
@@ -85,7 +86,7 @@ export function Hud() {
 
   return (
     <div className="pointer-events-none absolute inset-0 select-none font-sans text-ink">
-      <div data-side="left" className="absolute left-4 top-4 flex w-44 flex-col gap-2">
+      <div data-side="left" className="absolute left-2 top-2 flex w-36 flex-col gap-2 lg:left-4 lg:top-4 lg:w-44">
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-3 shadow">
           <div className="text-xs uppercase tracking-wide opacity-60">Today&apos;s net</div>
           <div className="text-2xl font-bold tabular-nums">Rs. {net}</div>
@@ -99,14 +100,19 @@ export function Hud() {
         <Toggle label="Headlights" hint="L" on={headlights} onClick={() => useGame.getState().toggleHeadlights()} />
       </div>
 
-      <div data-side="right" className="absolute right-4 top-4 flex w-48 flex-col gap-2">
+      <div data-side="right" className="absolute right-2 top-2 flex w-40 flex-col gap-2 lg:right-4 lg:top-4 lg:w-48">
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-3 text-right shadow">
           <div className="text-2xl font-bold tabular-nums">{formatClock(hour)}</div>
         </div>
-        <Toggle label="Sound" hint="M" on={!muted} onClick={() => useGame.getState().toggleMute()} />
-        <Minimap />
+        <div className="max-lg:hidden">
+          <Toggle label="Sound" hint="M" on={!muted} onClick={() => useGame.getState().toggleMute()} />
+        </div>
+        <div className="max-lg:[zoom:0.75]">
+          <Minimap />
+        </div>
       </div>
 
+      <TouchControls />
       <AccidentBanner />
       <RequestBoard />
       <RideStrip />

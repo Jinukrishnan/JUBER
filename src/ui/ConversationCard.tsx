@@ -43,7 +43,7 @@ export function ConversationCard() {
     <div
       role="dialog"
       aria-label={`${request.customer} wants a ride`}
-      className="pointer-events-auto absolute inset-x-0 bottom-6 mx-auto w-[min(540px,92vw)] rounded-2xl border-2 border-ink/30 bg-cream p-4 shadow-xl"
+      className="pointer-events-auto absolute inset-x-0 bottom-6 mx-auto max-lg:bottom-auto max-lg:top-14 w-[min(540px,92vw)] rounded-2xl border-2 border-ink/30 bg-cream p-4 shadow-xl"
     >
       <div className="flex items-baseline justify-between text-xs opacity-70">
         <span className="font-semibold">{d.name}</span>

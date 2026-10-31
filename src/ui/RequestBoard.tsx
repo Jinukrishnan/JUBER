@@ -29,7 +29,7 @@ export function RequestBoard() {
   if (!online) return null;
 
   return (
-    <div className="pointer-events-auto absolute inset-x-0 top-4 mx-auto flex w-[min(560px,calc(100vw-30rem))] flex-col gap-2">
+    <div className="pointer-events-auto absolute inset-x-0 top-2 mx-auto flex w-[min(560px,calc(100vw-20rem))] lg:top-4 lg:w-[min(560px,calc(100vw-30rem))] flex-col gap-2">
       {requests.length === 0 ? (
         <div className="rounded-xl border border-line bg-cream/90 px-4 py-3 text-center text-sm shadow">Waiting for a request...</div>
       ) : (
