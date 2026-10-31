@@ -1,4 +1,4 @@
-import { PLACES } from "./data/places-v1";
+import { PLACES_V2 } from "./data/places-v2";
 import { placeSpot } from "./logic/places";
 import { NETWORK } from "./world";
 
@@ -8,7 +8,7 @@ export const busPose = { x: 0, z: 0, heading: 0, speed: 0, bump: false, length: 
 
 // Where a day starts: parked at the depot's kerb on the ring road, facing along it.
 export function depotPose() {
-  const depot = PLACES.find((p) => p.id === "depot")!;
+  const depot = PLACES_V2.find((p) => p.id === "depot")!;
   const spot = placeSpot(NETWORK, depot);
   return { x: spot.x, z: spot.z, heading: spot.heading, speed: 0, steerAngle: 0 };
 }
