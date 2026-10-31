@@ -3,7 +3,7 @@ import { NETWORK_V1, type Network } from "../data/network-v1";
 import { PLACES } from "../data/places-v1";
 import { grassParts } from "../plants";
 import { FEATURES, NETWORK, buildScenery } from "../world";
-import { layoutScenery } from "./layout";
+import { footprintOf, layoutScenery } from "./layout";
 import { JUNCTION_BOX_HALF, drivable, groundY } from "./network";
 import { roadFeatures } from "./roadside";
 
@@ -59,4 +59,23 @@ describe("no plant stands on the road", () => {
     }
   });
 
+
+  it("no placement's whole footprint touches tarmac or a junction: every corner of every building and wall, the rim of every tree", () => {
+    const offenders: string[] = [];
+    for (const p of layout.placements) {
+      const f = footprintOf(p);
+      const pts: [number, number][] = [];
+      if (f.kind === "circle") {
+        for (const a of [0, 1, 2, 3, 4, 5, 6, 7]) pts.push([f.x + Math.cos((a * Math.PI) / 4) * f.r, f.z + Math.sin((a * Math.PI) / 4) * f.r]);
+      } else {
+        const hw = f.w / 2;
+        const hd = f.d / 2;
+        for (const [u, v] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) {
+          pts.push([f.x + u * Math.cos(f.heading) - v * Math.sin(f.heading), f.z + u * Math.sin(f.heading) + v * Math.cos(f.heading)]);
+        }
+      }
+      for (const [x, z] of pts) if (drivable(NETWORK, x, z)) offenders.push(`${p.kind} at ${x.toFixed(1)},${z.toFixed(1)}`);
+    }
+    expect(offenders.slice(0, 10)).toEqual([]);
+  });
 });

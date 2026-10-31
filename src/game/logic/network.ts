@@ -112,6 +112,9 @@ export const KERB_HEIGHT = 0.15;
 const KERB_RETURN = 2; // where the corners of a junction are rounded off
 export const JUNCTION_BOX_HALF = 6 + KERB_RETURN; // half the side of a junction box
 const EPS = 1e-6;
+// A junction corner is paved out to the far edge of the footpath, where the footpath is cut for the side
+// road (what roadParts draws), so there is no invisible wall between the paving and the road.
+const CORNER_REACH = 6 + FOOTPATH_WIDTH;
 const MIN_JUNCTION_GAP = 150;
 
 const cache = new WeakMap<Network, BuiltRoad[]>();
@@ -224,7 +227,7 @@ function inFillet(n: Network, j: Junction, x: number, z: number): boolean {
   const dx = x - j.at[0];
   const dz = z - j.at[1];
   return filletQuadrants(n, j).some(
-    (q) => q.sx * dx >= -EPS && q.sx * dx <= JUNCTION_BOX_HALF + EPS && q.sz * dz >= -EPS && q.sz * dz <= JUNCTION_BOX_HALF + EPS,
+    (q) => q.sx * dx >= -EPS && q.sx * dx <= CORNER_REACH + EPS && q.sz * dz >= -EPS && q.sz * dz <= CORNER_REACH + EPS,
   );
 }
 
@@ -261,12 +264,12 @@ export function clampToDrivable(n: Network, x: number, z: number): { x: number; 
   }
   for (const j of n.junctions) {
     for (const q of filletQuadrants(n, j)) {
-      const lo = (c: number, sign: number) => (sign === 1 ? c : c - JUNCTION_BOX_HALF);
+      const lo = (c: number, sign: number) => (sign === 1 ? c : c - CORNER_REACH);
       const x0 = lo(j.at[0], q.sx);
       const z0 = lo(j.at[1], q.sz);
       const cand = {
-        x: Math.max(x0, Math.min(x0 + JUNCTION_BOX_HALF, x)),
-        z: Math.max(z0, Math.min(z0 + JUNCTION_BOX_HALF, z)),
+        x: Math.max(x0, Math.min(x0 + CORNER_REACH, x)),
+        z: Math.max(z0, Math.min(z0 + CORNER_REACH, z)),
       };
       const d = Math.hypot(cand.x - x, cand.z - z);
       if (d < bestD) {
