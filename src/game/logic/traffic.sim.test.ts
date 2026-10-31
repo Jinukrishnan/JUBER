@@ -86,7 +86,7 @@ describe("cruising", () => {
 
 describe("following", () => {
   it("never overlaps in a crowded start, 14 vehicles packed on 150 m, over two minutes", () => {
-    const agents = createTraffic(N, 5, depot).map((a, i) => ({ ...a, road: "ring", dir: 1 as const, s: 100 + i * 11, speed: 0 }));
+    const agents = createTraffic(N, 5, depot, 14).map((a, i) => ({ ...a, road: "ring", dir: 1 as const, s: 100 + i * 11, speed: 0 }));
     let worst = Infinity;
     run(agents, 120, FAR, 0, 0.1, () => {
       for (const a of agents) {
@@ -404,4 +404,15 @@ describe("turning through a junction", () => {
       expect(Math.abs(Math.atan2(Math.sin(last.heading - exitHeading), Math.cos(last.heading - exitHeading)))).toBeLessThan(0.05);
     });
   }
+});
+
+describe("a player beside a road is not on it", () => {
+  it("a player standing on the ring just beyond the start of Temple Road does not hold up a car turning onto it", () => {
+    const sWest = sOn("ring", "west");
+    // southbound on the ring (dir -1) from the north, turning left (east) onto Temple Road
+    const a = mk({ s: sWest + 30, dir: -1, speed: 6, next: { junction: "west", exitRoad: "ew", exitDir: 1, turn: "left" } });
+    const player: Player = { x: -4, z: 249.7, heading: -Math.PI / 2, speed: 0, length: 4.4, width: 1.8 };
+    run([a], 40, player, timeOf("west", "cross", "green"));
+    expect(a.road).toBe("ew");
+  });
 });
