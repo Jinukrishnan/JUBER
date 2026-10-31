@@ -19,7 +19,7 @@ let nextId = 100;
 function mk(over: Partial<Agent>): Agent {
   return {
     id: nextId++, kind: "car", road: "ring", dir: 1, s: 100, speed: 0, cruise: 8.5, hold: 0, seed: 1, paint: "#fff",
-    waiting: false, braking: false, reversing: false, next: null, turns: 0, hitAt: -1e9, travelled: 0, ...over,
+    waiting: false, braking: false, reversing: false, passed: null, box: null, next: null, turns: 0, hitAt: -1e9, travelled: 0, ...over,
   };
 }
 
@@ -193,7 +193,7 @@ describe("ten minutes of traffic", () => {
     for (let t = 0; t < 600; t += 0.2) {
       const r = stepTraffic(N, agents, 0.2, t, FAR);
       moves.push(...r.moves);
-      if (Math.round(t * 5) % 25 === 0) {
+      if (Math.round(t * 5) % 5 === 0) {
         for (const a of agents) {
           const p = agentPose(N, a);
           if (!drivable(N, p.x, p.z)) off++;
@@ -219,7 +219,7 @@ describe("ten minutes of traffic", () => {
 
   it("keeps every vehicle on the road and out of the one in front", () => {
     expect(h.off).toBe(0);
-    expect(h.worst).toBeGreaterThan(-0.5);
+    expect(h.worst).toBeGreaterThan(-0.05);
   });
 
   it("never gridlocks: every vehicle covers real ground", () => {
@@ -288,4 +288,81 @@ describe("contact", () => {
     expect(shout(waiting).pitch).toBeGreaterThanOrEqual(0.85);
   });
 
+});
+
+describe("review fixes", () => {
+  const centreS = (road: string) => sOn(road, "centre");
+
+  it("crosses a junction it is a hair's breadth from, at the end of an open road", () => {
+    const a = mk({ road: "ns", dir: -1, s: 0.0005, speed: 5 });
+    run([a], 8, FAR, timeOf("north", "cross", "green"));
+    expect(a.road).toBe("ring");
+    expect(a.turns).toBe(1);
+  });
+
+  it("never parks at the end of an open road, over ten minutes at 60 frames a second, for several seeds", () => {
+    for (const seed of [1, 6, 8]) {
+      const agents = createTraffic(N, seed, depot);
+      const roads = new Map(builtRoads(N).map((r) => [r.road.id, r]));
+      let stuck = 0;
+      for (let step = 0; step < 600 * 60; step++) {
+        stepTraffic(N, agents, 1 / 60, step / 60, FAR);
+        if (step % 120 === 0) {
+          for (const a of agents) {
+            const r = roads.get(a.road)!;
+            if (!r.road.closed && (a.s <= 0.001 || a.s >= r.length - 0.001)) stuck++;
+          }
+        }
+      }
+      expect(stuck, `seed ${seed}`).toBe(0);
+    }
+  });
+
+  it("lets one of two vehicles merging into the same exit lane go first, never both together", () => {
+    // at the centre junction both Station Road approaches are green together; one turns right, one left, both into Temple Road westbound
+    const tGreen = timeOf("centre", "cross", "green");
+    const sC = centreS("ns");
+    const a = mk({ road: "ns", dir: 1, s: sC - 40, speed: 0, next: { junction: "centre", exitRoad: "ew", exitDir: -1, turn: "right" } });
+    const b = mk({ road: "ns", dir: -1, s: sC + 40, speed: 0, next: { junction: "centre", exitRoad: "ew", exitDir: -1, turn: "left" } });
+    const agents = [a, b];
+    let worst = Infinity;
+    run(agents, 25, FAR, tGreen, 0.1, () => {
+      if (a.road === "ew" && b.road === "ew" && a.dir === b.dir) {
+        worst = Math.min(worst, Math.abs(a.s - b.s) - (KINDS[a.kind].length + KINDS[b.kind].length) / 2);
+      }
+    });
+    expect(a.road).toBe("ew");
+    expect(b.road).toBe("ew");
+    expect(worst).toBeGreaterThan(0.5);
+  });
+
+  it("does not enter a junction it cannot leave: it waits at the line behind a stopped vehicle on its exit road", () => {
+    const sEast = sOn("ring", "east");
+    const a = mk({ s: sEast - 40, speed: 6, next: { junction: "east", exitRoad: "ew", exitDir: -1, turn: "right" } });
+    const lead = mk({ road: "ew", dir: -1, s: 800 - 12, hold: 1000 });
+    run([a, lead], 40, FAR, timeOf("east", "main", "green"));
+    expect(a.road).toBe("ring");
+    expect(a.s + KINDS.car.length / 2).toBeLessThanOrEqual(sEast - 15 + 0.01);
+  });
+
+  it("is not driven through a player stopped across its lane, or one stopped past the junction", () => {
+    const lane = agentPose(N, { road: "ring", dir: 1, s: 200 });
+    const across: Player = { ...lane, heading: lane.heading + (70 * Math.PI) / 180, speed: 0, length: 4.4, width: 1.8 };
+    const a = mk({ s: 100, speed: 8 });
+    const r = run([a], 40, across);
+    expect(r.hits).toEqual([]);
+    expect(a.s).toBeLessThan(200);
+
+    const facing: Player = { ...lane, heading: lane.heading + Math.PI, speed: 0, length: 4.4, width: 1.8 };
+    const b = mk({ s: 100, speed: 8 });
+    run([b], 40, facing);
+    expect(b.s).toBeLessThan(200);
+
+    // stopped on the exit road, 7 m past the east junction, while the light is green
+    const sEast = sOn("ring", "east");
+    const exitPose = agentPose(N, { road: "ew", dir: -1, s: 793 });
+    const c = mk({ s: sEast - 30, speed: 8, next: { junction: "east", exitRoad: "ew", exitDir: -1, turn: "right" } });
+    const rc = run([c], 30, { ...exitPose, speed: 0, length: 4.4, width: 1.8 }, timeOf("east", "main", "green"));
+    expect(rc.hits).toEqual([]);
+  });
 });

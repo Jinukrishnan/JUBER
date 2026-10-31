@@ -46,6 +46,8 @@ export type Agent = {
   turns: number; // junctions passed, so each choice is a fresh roll
   hitAt: number; // time of the last contact with the player
   travelled: number; // metres driven
+  passed: string | null; // the junction it last drove through, so it is not crossed twice
+  box: AgentNext | null; // set while it is between its stop line and the junction centre: its exit is claimed
 };
 
 function mulberry32(seed: number) {
@@ -117,6 +119,8 @@ export function createTraffic(n: Network, seed: number, avoid: { x: number; z: n
         turns: 0,
         hitAt: -1e9,
         travelled: 0,
+        passed: null,
+        box: null,
       });
       return;
     }
@@ -212,7 +216,7 @@ function nextJunction(ctx: Ctx, a: Agent): { id: string; s: number; d: number } 
   for (const j of ctx.onRoad.get(a.road) ?? []) {
     let d = alongDir(road, a.s, j.s, a.dir);
     if (!Number.isFinite(d)) continue;
-    if (d < 1e-3) d = road.road.closed ? road.length : Infinity; // the one just passed
+    if (d < 1e-3 && a.passed === j.id) d = road.road.closed ? road.length : Infinity; // the one just passed
     if (Number.isFinite(d) && (!best || d < best.d)) best = { id: j.id, s: j.s, d };
   }
   return best;
@@ -244,15 +248,45 @@ function gapAhead(ctx: Ctx, agents: Agent[], a: Agent, nj: { id: string; d: numb
       if (db < LOOK) gap = Math.min(gap, nj.d + db - (la + lb) / 2);
     }
   }
-  // the player, when in this lane and facing this way
-  const near = nearestOnRoad(road, player.x, player.z);
-  if (near.distance > 0.5 && Math.abs(near.distance - LANE) < 2.2 && near.side * a.dir === -1) {
-    if (Math.cos(player.heading - (headingAt(road, near.s) + (a.dir === -1 ? Math.PI : 0))) > 0.5) {
-      const d = alongDir(road, a.s, near.s, a.dir);
-      if (d > 1e-6 && d < LOOK) gap = Math.min(gap, d - (la + player.length) / 2);
+  // the player, when in this lane, whichever way it faces (stopped across the lane or the wrong way is still in the way)
+  const inLane = (r: BuiltRoad, dir: 1 | -1) => {
+    const near = nearestOnRoad(r, player.x, player.z);
+    return near.distance > 0.5 && Math.abs(near.distance - LANE) < 2.2 && near.side * dir === -1 ? near : null;
+  };
+  const here = inLane(road, a.dir);
+  if (here) {
+    const d = alongDir(road, a.s, here.s, a.dir);
+    if (d > 1e-6 && d < LOOK) gap = Math.min(gap, d - (la + player.length) / 2);
+  }
+  // ...and on the road it is about to turn onto
+  if (a.next && nj && nj.id === a.next.junction) {
+    const exitRoad = ctx.roads.get(a.next.exitRoad)!;
+    const there = inLane(exitRoad, a.next.exitDir);
+    if (there) {
+      const db = alongDir(exitRoad, ctx.junctionS.get(`${nj.id}|${a.next.exitRoad}`)!, there.s, a.next.exitDir);
+      if (db < LOOK) gap = Math.min(gap, nj.d + db - (la + player.length) / 2);
     }
   }
   return gap;
+}
+
+// metres from the junction centre to the back of the nearest vehicle on the exit road (or the player), Infinity if none
+function exitRoom(ctx: Ctx, agents: Agent[], a: Agent, nj: { id: string }, player: Player): number {
+  const nx = a.next!;
+  const exitRoad = ctx.roads.get(nx.exitRoad)!;
+  const js = ctx.junctionS.get(`${nj.id}|${nx.exitRoad}`)!;
+  let room = Infinity;
+  for (const b of agents) {
+    if (b === a || b.road !== nx.exitRoad || b.dir !== nx.exitDir) continue;
+    const db = alongDir(exitRoad, js, b.s, nx.exitDir);
+    if (db < LOOK) room = Math.min(room, db - KINDS[b.kind].length / 2);
+  }
+  const near = nearestOnRoad(exitRoad, player.x, player.z);
+  if (near.distance > 0.5 && Math.abs(near.distance - LANE) < 2.2 && near.side * nx.exitDir === -1) {
+    const db = alongDir(exitRoad, js, near.s, nx.exitDir);
+    if (db < LOOK) room = Math.min(room, db - player.length / 2);
+  }
+  return room;
 }
 
 function bendAt(road: BuiltRoad, s: number): boolean {
@@ -275,6 +309,12 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
   const ctx = ctxFor(n);
   const moves: Move[] = [];
   const hits: Agent[] = [];
+  // how far each vehicle is from its next junction, so the one nearer to an exit goes first
+  const toJunction = new Map<Agent, { id: string; d: number }>();
+  for (const a of agents) {
+    const j = nextJunction(ctx, a);
+    if (j) toJunction.set(a, { id: j.id, d: j.d });
+  }
 
   for (const a of agents) {
     if (a.hold > 0) {
@@ -303,10 +343,26 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
       if (j.signal !== false && ap) {
         const light = lightFor(j, t, ap.axis);
         const toLine = nj.d - STOP_LINE - half;
+        // not into a junction it cannot get out of, nor onto an exit lane another vehicle is already using
+        let blocked = false;
+        if (a.next && a.next.junction === nj.id && toLine > -0.5) {
+          blocked = exitRoom(ctx, agents, a, nj, player) < JUNCTION_BOX_HALF + 2 * half + 1;
+          for (const b of agents) {
+            if (b === a || !b.next || b.next.junction !== nj.id || b.next.exitRoad !== a.next.exitRoad || b.next.exitDir !== a.next.exitDir) continue;
+            // already in the junction heading for the same exit, or nearer to it (the lower id goes first when level)
+            const bj = toJunction.get(b);
+            const nearer = bj && bj.id === nj.id && bj.d < 70 && (bj.d < nj.d - 0.01 || (Math.abs(bj.d - nj.d) <= 0.01 && b.id < a.id));
+            if (b.box || nearer) blocked = true;
+          }
+        }
+        if (blocked) {
+          stopFree = Math.min(stopFree, toLine - 1);
+          atRed = false;
+        }
         if (light !== "green" && toLine > -0.5) {
           const need = (a.speed * a.speed) / (2 * (light === "red" ? HARD : BRAKE));
           if (toLine >= need - 0.3 || a.speed < 0.5) {
-            stopFree = toLine - 1;
+            stopFree = Math.min(stopFree, toLine - 1);
             atRed = true;
           }
         }
@@ -337,11 +393,14 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
         a.s = e.s + e.dir * (move - nj.d);
         if (exitRoad.road.closed) a.s = ((a.s % exitRoad.length) + exitRoad.length) % exitRoad.length;
         a.next = null;
+        a.box = null;
+        a.passed = nj.id;
         a.turns += 1;
         continue;
       }
     }
     a.s += a.dir * move;
+    a.box = nj && a.next && a.next.junction === nj.id && nj.d - move - STOP_LINE - half <= -0.5 ? a.next : null;
     if (road.road.closed) a.s = ((a.s % road.length) + road.length) % road.length;
     else a.s = Math.max(0, Math.min(road.length, a.s));
   }

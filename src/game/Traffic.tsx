@@ -77,10 +77,13 @@ export function Traffic() {
     };
   }, [agents]);
 
-  // the end of the day cuts off any shouting
+  // the end of the day, or a new one, cuts off any shouting
   useEffect(() => {
     if (phase === "ended") cancelSpeech();
   }, [phase]);
+  useEffect(() => {
+    cancelSpeech();
+  }, [dayId]);
 
   useFrame((_, rawDt) => {
     const game = useGame.getState();
