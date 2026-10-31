@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ROUTE_V1 } from "../data/route-v1";
+import { NETWORK_V1 } from "../data/network-v1";
+import { PLACES } from "../data/places-v1";
 import { BAY_OFFSET, BAY_WIDTH } from "./bay";
-import { keepOutZones, overlaps, type Shape } from "./footprint";
-import { FOOTPATH_WIDTH, roadCenterZ, roadHalfWidthAt } from "./road";
-import { polePositions, roadFeatures } from "./roadside";
-import { JUNCTIONS } from "../world";
-import { localToWorld } from "./junction";
+import { ShapeGrid, keepOutZones, overlaps, type Shape } from "./footprint";
+import { FOOTPATH_WIDTH, VERGE_WIDTH, headingAt, builtRoads, pointAt } from "./network";
+import { roadFeatures } from "./roadside";
 
 const circle = (x: number, z: number, r: number): Shape => ({ kind: "circle", x, z, r });
 const rect = (x: number, z: number, w: number, d: number, heading = 0): Shape => ({ kind: "rect", x, z, w, d, heading });
@@ -38,100 +37,40 @@ describe("overlaps", () => {
   });
 });
 
-describe("polePositions", () => {
-  const poles = polePositions(ROUTE_V1);
-  const first = ROUTE_V1[0].position;
-  const last = ROUTE_V1[ROUTE_V1.length - 1].position;
-  it("start 10 m past the depot, every 45 m, and stop at the last stop", () => {
-    expect(poles[0]).toBe(first + 10);
-    for (let i = 1; i < poles.length; i++) expect(poles[i] - poles[i - 1]).toBe(45);
-    expect(Math.max(...poles)).toBeLessThanOrEqual(last);
+describe("ShapeGrid", () => {
+  it("finds a neighbour and ignores a far shape, in both directions", () => {
+    const g = new ShapeGrid();
+    g.add(circle(100, 100, 1));
+    expect(g.hits(circle(100.5, 100, 1))).toBe(true);
+    expect(g.hits(circle(100, 130, 1))).toBe(false);
+    expect(g.hits(circle(130, 100, 1))).toBe(false);
   });
 });
 
 describe("keepOutZones", () => {
-  const features = roadFeatures(ROUTE_V1);
-  const zones = keepOutZones(ROUTE_V1, features);
-  const covered = (x: number, z: number) => zones.some((s) => overlaps(s, circle(x, z, 0.1)));
+  const N = NETWORK_V1;
+  const zones = keepOutZones(N, PLACES, roadFeatures(N, PLACES));
+  const covered = (x: number, z: number) => zones.some((s) => overlaps(circle(x, z, 0.1), s));
 
-  it("covers the carriageway, footpath and verge along the route", () => {
-    for (const x of [0, 137, 500, 1111, 1700]) {
-      const cz = roadCenterZ(x);
-      const edge = roadHalfWidthAt(x) + FOOTPATH_WIDTH + 1.5;
-      expect(covered(x, cz)).toBe(true);
-      expect(covered(x, cz - edge)).toBe(true);
-      expect(covered(x, cz + edge)).toBe(true);
-    }
+  it("covers the road, footpath and verge on every road but not the open ground", () => {
+    expect(covered(200, 0)).toBe(true);
+    expect(covered(200, 6 + FOOTPATH_WIDTH + VERGE_WIDTH - 0.2)).toBe(true);
+    expect(covered(200, 6 + FOOTPATH_WIDTH + VERGE_WIDTH + 2.5)).toBe(false);
+    expect(covered(400, 120)).toBe(true); // Station Road
   });
 
-  it("covers the widened turn-around areas past both ends", () => {
-    const last = ROUTE_V1[ROUTE_V1.length - 1].position;
-    for (const x of [-60, last + 60]) {
-      expect(covered(x, roadCenterZ(x) + roadHalfWidthAt(x) - 0.5)).toBe(true);
-      expect(covered(x, roadCenterZ(x) - roadHalfWidthAt(x) + 0.5)).toBe(true);
-    }
-  });
-
-  it("covers every shelter on both kerbs", () => {
+  it("covers every shelter on its place's kerb", () => {
     const edge = BAY_OFFSET + BAY_WIDTH / 2 + 2.2;
-    for (const s of ROUTE_V1) {
-      const cz = roadCenterZ(s.position);
-      expect(covered(s.position, cz - edge)).toBe(true);
-      expect(covered(s.position, cz + edge)).toBe(true);
-      expect(covered(s.position + 3.9, cz - edge + 0.9)).toBe(true); // the sign post beside it
+    for (const p of PLACES.filter((x) => x.shelter)) {
+      const r = builtRoads(N).find((b) => b.road.id === p.road)!;
+      const c = pointAt(r, p.s + 0.3);
+      const h = headingAt(r, p.s);
+      expect(covered(c.x - Math.sin(h) * p.side * edge, c.z + Math.cos(h) * p.side * edge)).toBe(true);
     }
   });
 
-  it("covers every sign pole and electric pole", () => {
-    for (const s of features.signs) {
-      const cz = roadCenterZ(s.x);
-      const lat = roadHalfWidthAt(s.x) + 0.9;
-      expect(covered(s.x, s.side === "left" ? cz - lat : cz + lat)).toBe(true);
-    }
-    for (const x of polePositions(ROUTE_V1)) {
-      expect(covered(x, roadCenterZ(x) + roadHalfWidthAt(x) + FOOTPATH_WIDTH + 0.9)).toBe(true);
-    }
-  });
-
-  it("leaves open ground well back from the road free", () => {
-    expect(covered(500, roadCenterZ(500) + 30)).toBe(false);
-    expect(covered(500, roadCenterZ(500) - 30)).toBe(false);
-  });
-});
-
-describe("keepOutZones with junctions", () => {
-  const features = roadFeatures(ROUTE_V1);
-  const zones = keepOutZones(ROUTE_V1, features, JUNCTIONS);
-  const covered = (x: number, z: number) => zones.some((s) => overlaps(s, circle(x, z, 0.1)));
-  const j = JUNCTIONS.find((r) => r.arms === "both")!;
-  const at = (u: number, v: number) => {
-    const w = localToWorld(j, u, v);
-    return [w.x, w.z] as const;
-  };
-
-  it("covers each arm, its corners and its turn-around, on both sides", () => {
-    for (const side of [-1, 1]) {
-      expect(covered(...at(0, side * 60))).toBe(true);
-      expect(covered(...at(9, side * 60))).toBe(true);
-      expect(covered(...at(10, side * 12))).toBe(true);
-      expect(covered(...at(10, side * (j.armLength + 5)))).toBe(true);
-    }
-  });
-  it("only covers the arms the junction has", () => {
-    const left = JUNCTIONS.find((r) => r.arms === "left")!;
-    const w = localToWorld(left, 0, 60);
-    const wr = localToWorld(left, 0, -60);
-    const zs = keepOutZones(ROUTE_V1, features, [left]);
-    const hit = (p: { x: number; z: number }) => zs.some((s) => overlaps(s, circle(p.x, p.z, 0.1)));
-    expect(hit(wr)).toBe(true);
-    expect(hit(w)).toBe(false);
-  });
-  it("leaves open ground beside an arm free", () => {
-    expect(covered(...at(40, 60))).toBe(false);
-  });
-  it("keeps poles out of junctions", () => {
-    for (const x of polePositions(ROUTE_V1, JUNCTIONS)) {
-      for (const r of JUNCTIONS) expect(Math.abs(x - r.x)).toBeGreaterThan(r.armHalfWidth + 6);
-    }
+  it("covers every sign and pole", () => {
+    const f = roadFeatures(N, PLACES);
+    for (const s of [...f.signs, ...f.poles]) expect(covered(s.x, s.z)).toBe(true);
   });
 });

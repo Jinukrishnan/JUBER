@@ -3,6 +3,7 @@ export type RatingEvents = {
   expiredPickups: number; // accepted customers who gave up waiting
   accidents: number;
   violations: number; // red lights
+  wrongTurns: number; // turns the junction does not allow
 };
 
 const EXPIRED_PICKUP_WEIGHT = 0.25;
@@ -14,6 +15,7 @@ export function computeRating(e: RatingEvents): number {
     5 -
     e.accidents -
     0.5 * e.violations -
+    0.5 * e.wrongTurns -
     Math.min(EXPIRED_PICKUP_MAX, EXPIRED_PICKUP_WEIGHT * e.expiredPickups) -
     0.1 * e.harshEvents;
   const clamped = Math.min(5, Math.max(1, raw));

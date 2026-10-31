@@ -24,10 +24,12 @@ Flow: `/` landing -> `/login` driver ticket and vehicle -> `/play` the game
 
 | | Bike | Auto-rickshaw | Car |
 |---|---|---|---|
-| Model | Yamaha R15 style, red and black | Yellow roof, green body | Swift Dzire style, white |
+| Model | Yamaha R15 style, blue and black | Yellow roof, green body, black nose | Swift Dzire style, orange with a red spoiler and a yellow bolt |
 | Passengers | 1 | up to 2 | up to 3 |
 | Top speed | 22 m/s, nimble | 14 m/s, slow and wide | 18 m/s |
 | Rent / daily goal | Rs. 100 / 500 | Rs. 200 / 700 | Rs. 300 / 900 |
+
+The pictures on the driver ticket are cartoon vector drawings (`src/ui/VehicleArt.tsx`); `docs/design/vehicle-cartoon-concept.html` shows all three from the side, front and back.
 
 Each handles differently (acceleration, turning, grip) and has its own engine sound. A request never
 asks for a group bigger than your vehicle holds. All the numbers live in `src/game/data/vehicles.ts`.
@@ -66,7 +68,7 @@ asks for a group bigger than your vehicle holds. All the numbers live in `src/ga
 7. The day runs 06:00-20:00 on a clock compressed to 8 real minutes.
 
 Fares are a base plus a rate per 100 m of road, by vehicle. Rating starts at 5 stars: 1 off per
-accident, half a star per red light, a quarter per customer who gave up (at most 1) and a little per
+accident, half a star per red light, half a star per turn that is not allowed, a quarter per customer who gave up (at most 1) and a little per
 scrape against the kerb.
 
 ## Sound, lights and accidents
@@ -80,59 +82,71 @@ clear, lands on the road or the footpath, and cries out in a speech bubble and o
 God!"). It costs a Rs. 300 fine, slows you down and takes a star off. Hitting the waiting customer also
 cancels the booking.
 
-## The places
+## The map
 
-There are 14 named places, each with an English and a Malayalam name: the seven old bus-stop shelters on
-the main road, and seven on the side roads (with their own name boards). They are data in
-`src/game/data/places-v1.ts`:
+The town is a **closed loop**: a ring road (about 800 m by 500 m, with rounded corners) and two cross
+roads, Station Road (north to south) and Temple Road (west to east). There is a signal at all five
+junctions: four T-junctions where a cross road meets the ring, and a four-way in the middle.
+
+The whole map is data in `src/game/data/network-v1.ts`:
 
 ```ts
-{ id: "hospital", name: "Govt. Hospital", ml: "ഗവ. ആശുപത്രി",
-  at: { kind: "arm", junctionId: "j1300", side: -1, distance: 130 } },
+{ id: "ring", name: "Ring Road", ml: "റിംഗ് റോഡ്", closed: true, cornerRadius: 40, halfWidth: 6,
+  points: [[0, 0], [800, 0], [800, 500], [0, 500]] },
+{ id: "centre", at: [400, 250], roads: ["ns", "ew"], signal: { offset: 6 },
+  allowed: { "ns:-1": ["left", "straight"], "ns:1": ["straight", "right"] } },
 ```
 
-To add a place on a side road, give it the junction's id, the side (-1 left, 1 right) and how many metres
-along the arm it stands (between 20 m and 20 m short of the arm's end). Main-road places are built from
-the stops in `src/game/data/route-v1.ts`. Places must stay at least 40 m apart.
+- Coordinates are metres, +x east, +z south. Traffic keeps left.
+- A road is a list of corner `points`; corners are rounded with `cornerRadius`. `closed: true` joins the
+  last point to the first (the ring).
+- A junction says where it is (`at`), which roads meet there (`roads`), its light timings (`signal`: `offset`,
+  `mainGreen`, `crossGreen`, `yellow`, `allRed`, in seconds, or `false` for none) and its turn rules.
+- **Turn rules.** An approach is named `"<roadId>:<dir>"`: `dir` is `1` for traffic travelling the way the
+  road's points run and `-1` for traffic travelling against them. `allowed` lists the turns (`left`,
+  `straight`, `right`) an approach may make; an approach that is not listed may make every turn that exists.
+  Leaving a junction by a turn that is not allowed costs Rs. 100, half a star and a "Turn not allowed here"
+  banner, once. The signal heads, the arrows painted on the road before the stop line, the "Next signal"
+  panel and the routes all follow the rules.
+- To move a junction, change its `at` (and the points of the roads that meet there); the road meshes,
+  crossings, signals, scenery clearance, radar and routes follow. A junction must lie on every road it names,
+  be at least 150 m from another junction on the same road, and a corner radius may not exceed half of the
+  shortest side. A bad part is left out and the reason is printed in the browser console.
+
+Red lights: crossing a stop line while that approach's light is red costs Rs. 100 and half a star (yellow is
+allowed; a light that has only just turned red gets a 0.4 s grace). At a T the ring and the cross road never
+show green together.
+
+## The places
+
+There are 14 named places, each with an English and a Malayalam name: seven with bus-stop style shelters and
+bays (`shelter: true`) and seven with name boards. They are data in `src/game/data/places-v1.ts`:
+
+```ts
+{ id: "hospital", name: "Govt. Hospital", ml: "ഗവ. ആശുപത്രി", road: "ns", s: 120, side: -1 },
+```
+
+`road` and `s` (metres along that road) say where, and `side` is the kerb: `-1` the left of the direction the
+road runs, `1` the right. Keep a place at least 30 m from a junction box and 40 m from another place; a bad
+one is left out with a message. You can stop in either lane within 8 m of the kerb spot.
 
 The customer's wording is in `src/game/logic/dialogue.ts` (invented everyday Malayalam; please have a
 native speaker check it).
 
-## The road
+## The scenery
 
-A realistic Kerala road: asphalt with white edge lines, a dashed centre line that turns into a double
-yellow line before each zebra crossing, stop lines, raised footpaths with kerbs on both sides, dirt verges,
-coconut palms, mango, gulmohar, banana and jackfruit trees, flowers, tiled-roof houses, shops with
-Malayalam and English signboards and electric poles. Roadside signs (speed limit, pedestrian crossing,
-bus stop, and Malayalam direction boards) are placed from the road layout in `src/game/logic/roadside.ts`.
-People only cross the road at the zebra crossings.
+Roadside trees, flowers, houses and shops, signs (the 40 km/h speed limit, crossing warnings, bus-stop signs and
+Malayalam direction boards that name the road ahead), electric poles and pedestrians are all placed along
+the network from `src/game/logic/layout.ts` and `roadside.ts`. Nothing is ever placed on a road, footpath,
+junction or crossing: `src/game/logic/plantsInvariant.test.ts` proves it for the whole map and for a moved
+junction. People only cross at the zebra crossings (one on every approach). The world is cut into 200 m cells
+and only the ones near the vehicle are drawn.
 
-## Junctions, signals and the radar
+## The radar
 
-Junctions are data. Open `src/game/data/junctions-v1.ts` and edit the list:
-
-```ts
-{ id: "j400", x: 400, arms: "both", signal: { offset: 0 } },
-```
-
-- `x` is where along the road the junction is. Change it to move the junction left or right.
-- `arms` is `"left"`, `"right"` or `"both"`: which side the side road goes.
-- `armLength` (default 200 m) is how far the side road runs before its turn-around circle.
-- `signal` sets the light timings (`offset`, `mainGreen`, `crossGreen`, `yellow`, `allRed`, in
-  seconds), or `false` for a junction without lights.
-
-The side road, kerbs, zebra crossings, stop lines, signals, scenery clearance, radar and rules all
-follow. A junction must be at least 90 m from a main-road place, 45 m from a zebra crossing and 150 m
-from another junction, and 60 m inside the ends of the road; a bad one is skipped and the reason is
-printed in the browser console. Places on a side road that is removed must be moved or removed too.
-
-You can turn left or right into any side road, drive to its end, turn round in the circle and come
-back. Crossing a stop line while that road's light is red costs Rs. 100, half a star and a red banner
-(yellow is allowed; a light that has only just turned red gets a 0.4 s grace).
-
-The round radar in the top-right corner shows the road turning around your vehicle, the side roads, each
-signal in its current colour, every place, and the route to follow (blue to the pickup, green to the
-drop). Press **Z** (or click the button) to zoom.
+The round radar in the top-right corner shows every road of the loop turning around your vehicle, each signal
+in its current colour, every place, and the route to follow (blue to the pickup, green to the drop). Press
+**Z** (or click the button) to zoom: 150 m, 400 m or 1 km.
 
 ## Tuning
 
@@ -147,9 +161,9 @@ is `APP_NAME` in the constants file.
 
 ```
 src/app/         routes (landing, login, play)
-src/game/        3D scene (Vehicle, models, Road, Junctions, Places, Riders, CameraRig, Weather) + store
-src/game/data/   vehicles, places, junctions, road
-src/game/logic/  pure, unit-tested rules (requests, ride, roadgraph, dialogue, signals, rating, vehicle)
+src/game/        3D scene (Vehicle, models, Road, Scenery, SignalHeads, Places, Riders, CameraRig, Weather) + store
+src/game/data/   vehicles, places, the road network (network-v1.ts)
+src/game/logic/  pure, unit-tested rules (network, turns, lights, requests, ride, roadgraph, layout, dialogue, rating, vehicle)
 src/ui/          HUD, request board, conversation card, radar, pause menu, day summary, login card
 src/lib/         localStorage profile
 ```

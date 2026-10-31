@@ -70,11 +70,10 @@ describe("RideStrip", () => {
 
 import { GRAPH } from "@/game/rideWorld";
 import { route as planRoute } from "@/game/logic/roadgraph";
-import { roadAngle } from "@/game/logic/road";
 
 describe("RideStrip directions", () => {
   it("tells the driver the next turn or the arrival", () => {
-    busPose.heading = roadAngle(busPose.x);
+    busPose.heading = 0;
     const ride = acceptRequest(IDLE_RIDE, req);
     useGame.setState({ ride, route: planRoute(GRAPH, { x: busPose.x, z: busPose.z, heading: busPose.heading }, req.pickup) });
     render(<RideStrip />);

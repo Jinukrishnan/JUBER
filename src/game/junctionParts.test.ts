@@ -1,33 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { armFootpath, junctionParts } from "./junctionParts";
-import { TURN_AROUND_RADIUS, armStopDistance, resolveJunction, stopLineDistance } from "./logic/junction";
+import { NETWORK_V1 } from "./data/network-v1";
+import { ARROW_ITEMS, junctionParts } from "./junctionParts";
+import { allowedTurns, approachesOf } from "./logic/turns";
 
-const both = resolveJunction({ id: "b", x: 400, arms: "both" });
-const right = resolveJunction({ id: "r", x: 400, arms: "right" });
+const N = NETWORK_V1;
+const STRIPES = 11; // across a 12 m road
 
 describe("junctionParts", () => {
-  it("puts stop lines on the main road both ways and on each arm", () => {
-    expect(junctionParts(both).stopLines).toHaveLength(2 + 2);
-    expect(junctionParts(right).stopLines).toHaveLength(2 + 1);
+  it("has one stop line and one zebra crossing per approach, at every junction", () => {
+    for (const j of N.junctions) {
+      const approaches = approachesOf(N, j.id);
+      const p = junctionParts(N, j.id);
+      expect(p.stopLines.length, j.id).toBe(approaches.length);
+      expect(p.zebra.length, j.id).toBe(approaches.length * STRIPES);
+    }
   });
-  it("puts the main stop lines at the stop distance, one each side", () => {
-    const xs = junctionParts(both).stopLines.filter((s) => s.sx === 0.4).map((s) => s.x).sort((a, b) => a - b);
-    expect(xs).toEqual([-stopLineDistance(both), stopLineDistance(both)]);
+
+  it("puts each stop line at its approach and zebra stripes between it and the box", () => {
+    const p = junctionParts(N, "centre");
+    const a = approachesOf(N, "centre").find((x) => x.id === "ew:1")!;
+    const line = p.stopLines.find((s) => Math.abs(s.x - a.stopLineAt.x) < 0.01)!;
+    expect(line).toBeDefined();
+    const stripe = p.zebra.find((s) => Math.abs(s.x - a.zebraAt.x) < 0.01)!;
+    expect(stripe).toBeDefined();
+    expect(stripe.x).toBeGreaterThan(line.x);
   });
-  it("puts arm stop lines at the arm stop distance", () => {
-    const zs = junctionParts(right).stopLines.filter((s) => s.sz === 0.4).map((s) => s.z);
-    expect(zs).toEqual([armStopDistance()]);
+
+  it("paints an arrow for each allowed turn and none for a forbidden one", () => {
+    for (const j of N.junctions) {
+      const expected = approachesOf(N, j.id).reduce(
+        (sum, a) => sum + allowedTurns(N, j.id, a.id).reduce((t, turn) => t + ARROW_ITEMS[turn], 0),
+        0,
+      );
+      expect(junctionParts(N, j.id).turnArrows.length, j.id).toBe(expected);
+    }
+    // from the south at the centre only left and straight are allowed
+    const south = approachesOf(N, "centre").find((a) => a.id === "ns:-1")!;
+    expect(allowedTurns(N, "centre", south.id)).toEqual(expect.arrayContaining(["left", "straight"]));
+    expect(allowedTurns(N, "centre", south.id)).not.toContain("right");
   });
-  it("paints a crossing on every road into the junction", () => {
-    expect(junctionParts(both).zebra.length).toBeGreaterThan(junctionParts(right).zebra.length);
-  });
-  it("keeps the arm paint on the side the arm is on", () => {
-    expect(junctionParts(right).dashes.every((d) => d.z > 0)).toBe(true);
-    expect(junctionParts(right).kerbs.every((k) => k.z > 0)).toBe(true);
-  });
-  it("starts the arm footpath beyond the main footpath", () => {
-    const f = armFootpath(right, 1, 1);
-    expect(f.z - f.len / 2).toBeCloseTo(6 + 3.6);
-    expect(f.z + f.len / 2).toBeCloseTo(right.armLength - TURN_AROUND_RADIUS);
+
+  it("keeps the paint above the asphalt", () => {
+    const p = junctionParts(N, "centre");
+    for (const it of [...p.zebra, ...p.stopLines, ...p.turnArrows]) expect(it.y).toBeGreaterThan(0.03);
   });
 });

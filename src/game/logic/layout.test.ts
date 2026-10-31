@@ -1,235 +1,95 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { ROUTE_V1 } from "../data/route-v1";
+import { NETWORK_V1 } from "../data/network-v1";
+import { PLACES } from "../data/places-v1";
 import { keepOutZones, overlaps } from "./footprint";
-import {
-  footprintOf,
-  layoutScenery,
-  type BuildingPlacement,
-  type FlowerPlacement,
-  type GatePlacement,
-  type Placement,
-  type TreePlacement,
-  type WallPlacement,
-} from "./layout";
-import { FOOTPATH_WIDTH, VERGE_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
+import { footprintOf, layoutScenery, type BuildingPlacement, type Placement, type TreePlacement } from "./layout";
+import { drivable } from "./network";
+import { placeSpot } from "./places";
 import { roadFeatures } from "./roadside";
-import { JUNCTIONS } from "../world";
 
+const N = NETWORK_V1;
 const SEED = 20261030;
-const features = roadFeatures(ROUTE_V1);
-const zones = keepOutZones(ROUTE_V1, features, JUNCTIONS);
+const features = roadFeatures(N, PLACES);
+const zones = keepOutZones(N, PLACES, features);
 let layout: ReturnType<typeof layoutScenery>;
 let placements: Placement[];
 
 beforeAll(() => {
-  layout = layoutScenery(SEED, ROUTE_V1, features, JUNCTIONS);
+  layout = layoutScenery(SEED, N, PLACES, features);
   placements = layout.placements;
 });
 
-const isTree = (p: Placement): p is TreePlacement =>
-  ["coconut", "mango", "gulmohar", "banana", "jackfruit"].includes(p.kind);
-const isFlowers = (p: Placement): p is FlowerPlacement => p.kind === "flowers";
-const verge = (x: number) => roadHalfWidthAt(x) + FOOTPATH_WIDTH + VERGE_WIDTH;
-const lateral = (p: { x: number; z: number }) => Math.abs(p.z - roadCenterZ(p.x));
+const isTree = (p: Placement): p is TreePlacement => ["coconut", "mango", "gulmohar", "banana", "jackfruit"].includes(p.kind);
+const isBuilding = (p: Placement): p is BuildingPlacement => p.kind === "house" || p.kind === "shop";
 
-describe("layoutScenery determinism", () => {
-  it("gives the same layout for the same seed", () => {
-    expect(layoutScenery(SEED, ROUTE_V1, features, JUNCTIONS).placements).toEqual(placements);
+describe("layoutScenery", () => {
+  it("is deterministic for a seed and differs between seeds", () => {
+    expect(layoutScenery(SEED, N, PLACES, features).placements).toEqual(placements);
+    expect(layoutScenery(SEED + 1, N, PLACES, features).placements).not.toEqual(placements);
   });
-  it("gives a different layout for a different seed", () => {
-    expect(layoutScenery(SEED + 1, ROUTE_V1, features, JUNCTIONS).placements).not.toEqual(placements);
+
+  it("fills the whole loop: trees, flowers, houses and shops", () => {
+    expect(placements.filter(isTree).length).toBeGreaterThan(300);
+    expect(placements.filter((p) => p.kind === "flowers").length).toBeGreaterThan(50);
+    expect(placements.filter(isBuilding).length).toBeGreaterThan(40);
+    expect(placements.some((p) => p.kind === "shop")).toBe(true);
+    expect(placements.some((p) => p.kind === "house")).toBe(true);
   });
-});
 
-describe("vegetation", () => {
-  const trees = () => placements.filter(isTree);
-  const flowers = () => placements.filter(isFlowers);
-
-  it("is all finite and on the side it says", () => {
-    for (const p of [...trees(), ...flowers()]) {
-      expect(Number.isFinite(p.x) && Number.isFinite(p.z)).toBe(true);
-      expect(Math.sign(p.z - roadCenterZ(p.x))).toBe(p.side);
+  it("builds whole compounds: each building has two walls and a gate", () => {
+    for (const b of placements.filter(isBuilding)) {
+      const mates = placements.filter((p) => "compound" in p && p.compound === b.compound);
+      expect(mates.map((m) => m.kind).sort()).toEqual([b.kind, "gate", "wall", "wall"].sort());
     }
   });
 
-  it("stands back from the verge by a believable distance", () => {
-    for (const t of trees()) {
-      const d = lateral(t) - verge(t.x);
-      expect(d).toBeGreaterThanOrEqual(1.5 - 1e-6);
-      expect(d).toBeLessThanOrEqual(7.5 + 1e-6);
-    }
-    for (const f of flowers()) {
-      const d = lateral(f) - verge(f.x);
-      expect(d).toBeGreaterThanOrEqual(1.0 - 1e-6);
-      expect(d).toBeLessThanOrEqual(1.8 + 1e-6);
+  it("keeps every placement out of every keep-out zone", () => {
+    for (const p of placements) {
+      const f = footprintOf(p);
+      expect(zones.some((z) => overlaps(f, z)), `${p.kind} at ${p.x.toFixed(0)},${p.z.toFixed(0)}`).toBe(false);
     }
   });
 
-  it("never overlaps another plant or any keep-out zone", () => {
-    const plants = [...trees(), ...flowers()];
-    for (let i = 0; i < plants.length; i++) {
-      const a = footprintOf(plants[i]);
-      for (const z of zones) expect(overlaps(a, z)).toBe(false);
-      for (let j = i + 1; j < plants.length; j++) expect(overlaps(a, footprintOf(plants[j]))).toBe(false);
-    }
-  });
-
-  it("includes every tree species and every flower", () => {
-    expect(new Set(trees().map((t) => t.kind))).toEqual(
-      new Set(["coconut", "mango", "gulmohar", "banana", "jackfruit"]),
-    );
-    expect(new Set(flowers().map((f) => f.species))).toEqual(new Set(["sunflower", "hibiscus", "marigold"]));
-  });
-
-  it("gives flower clusters between 6 and 14 heads", () => {
-    for (const f of flowers()) {
-      expect(f.count).toBeGreaterThanOrEqual(6);
-      expect(f.count).toBeLessThanOrEqual(14);
-    }
-  });
-
-  it("never lines up more than three of the same kind in a row on one side", () => {
-    for (const side of [-1, 1]) {
-      const kinds = placements
-        .filter((p) => (isTree(p) || isFlowers(p)) && p.side === side)
-        .sort((a, b) => a.x - b.x)
-        .map((p) => p.kind);
-      for (let i = 3; i < kinds.length; i++) {
-        expect(new Set(kinds.slice(i - 3, i + 1)).size).toBeGreaterThan(1);
-      }
-    }
-  });
-});
-
-const buildings = () => placements.filter((p): p is BuildingPlacement => p.kind === "house" || p.kind === "shop");
-const walls = () => placements.filter((p): p is WallPlacement => p.kind === "wall");
-const gates = () => placements.filter((p): p is GatePlacement => p.kind === "gate");
-const nearestStop = (x: number) => Math.min(...ROUTE_V1.map((st) => Math.abs(st.position - x)));
-const FIRST = ROUTE_V1[0].position;
-const LAST = ROUTE_V1[ROUTE_V1.length - 1].position;
-
-// shortest distance from a point to the road centreline
-function roadDistance(x: number, z: number) {
-  let best = Infinity;
-  for (let sx = x - 10; sx <= x + 10; sx += 0.25) best = Math.min(best, Math.hypot(x - sx, z - roadCenterZ(sx)));
-  return best;
-}
-
-describe("buildings", () => {
-  it("includes both houses and shops", () => {
-    expect(new Set(buildings().map((b) => b.kind))).toEqual(new Set(["house", "shop"]));
-  });
-
-  it("have sizes in range", () => {
-    for (const b of buildings()) {
-      if (b.kind === "house") {
-        expect(b.floors).toBe(1);
-        expect(b.width).toBeGreaterThanOrEqual(8);
-        expect(b.width).toBeLessThanOrEqual(11);
-        expect(b.depth).toBeGreaterThanOrEqual(6);
-        expect(b.depth).toBeLessThanOrEqual(8);
-      } else {
-        expect(b.floors).toBeGreaterThanOrEqual(2);
-        expect(b.floors).toBeLessThanOrEqual(4);
-        expect(b.width).toBeGreaterThanOrEqual(8);
-        expect(b.width).toBeLessThanOrEqual(10);
-        expect(b.depth).toBeGreaterThanOrEqual(7);
-        expect(b.depth).toBeLessThanOrEqual(9);
+  it("never overlaps one placement with another, apart from a compound's own parts", () => {
+    const shapes = placements.map((p) => ({ p, f: footprintOf(p) }));
+    for (let i = 0; i < shapes.length; i++) {
+      for (let k = i + 1; k < shapes.length; k++) {
+        const a = shapes[i];
+        const b = shapes[k];
+        if ("compound" in a.p && "compound" in b.p && a.p.compound === b.p.compound) continue;
+        if (Math.hypot(a.p.x - b.p.x, a.p.z - b.p.z) > 30) continue;
+        expect(overlaps(a.f, b.f), `${a.p.kind} vs ${b.p.kind} near ${a.p.x.toFixed(0)},${a.p.z.toFixed(0)}`).toBe(false);
       }
     }
   });
 
-  it("follow the road: heading equals the road angle and the front faces the road", () => {
-    for (const b of buildings()) {
-      // the heading is the road angle at the building's station; its centre sits a little off to the side
-      expect(Math.abs(b.heading - roadAngle(b.x))).toBeLessThan(0.005);
-      expect(Math.sign(b.z - roadCenterZ(b.x))).toBe(b.side);
-    }
+  it("stands nothing on tarmac", () => {
+    for (const p of placements) expect(drivable(N, p.x, p.z), `${p.kind} at ${p.x.toFixed(0)},${p.z.toFixed(0)}`).toBe(false);
   });
 
-  it("have their front at least 3 m behind the verge edge", () => {
-    for (const b of buildings()) {
-      const perpX = -Math.sin(b.heading);
-      const perpZ = Math.cos(b.heading);
-      const frontX = b.x - b.side * (b.depth / 2) * perpX;
-      const frontZ = b.z - b.side * (b.depth / 2) * perpZ;
-      const edge = roadHalfWidthAt(frontX) + FOOTPATH_WIDTH + VERGE_WIDTH;
-      expect(roadDistance(frontX, frontZ)).toBeGreaterThanOrEqual(edge + 3 - 0.05);
-    }
+  it("gathers shops near the shelters and lets houses fill in between", () => {
+    const shelters = PLACES.filter((p) => p.shelter).map((p) => placeSpot(N, p));
+    const d = (p: Placement) => Math.min(...shelters.map((s) => Math.hypot(s.x - p.x, s.z - p.z)));
+    const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    const shops = placements.filter((p) => p.kind === "shop").map(d);
+    const houses = placements.filter((p) => p.kind === "house").map(d);
+    expect(avg(shops)).toBeLessThan(avg(houses));
   });
 
-  it("each stand in a compound of two wall pieces and one gate, all in line", () => {
-    for (const b of buildings()) {
-      const w = walls().filter((p) => p.compound === b.compound);
-      const g = gates().filter((p) => p.compound === b.compound);
-      expect(w).toHaveLength(2);
-      expect(g).toHaveLength(1);
-      const perpX = -Math.sin(b.heading);
-      const perpZ = Math.cos(b.heading);
-      const offsets = [...w, ...g].map((p) => (p.x - b.x) * perpX + (p.z - b.z) * perpZ);
-      for (const o of offsets) expect(o).toBeCloseTo(offsets[0], 6);
-      expect(Math.abs(offsets[0])).toBeGreaterThan(b.depth / 2);
-      for (const p of [...w, ...g]) expect(p.heading).toBeCloseTo(b.heading, 9);
-    }
-  });
-
-  it("never overlap each other, their walls, plants or any keep-out zone, even on the steepest bends", () => {
-    const all = placements;
-    for (let i = 0; i < all.length; i++) {
-      const a = footprintOf(all[i]);
-      for (const z of zones) expect(overlaps(a, z)).toBe(false);
-      for (let j = i + 1; j < all.length; j++) expect(overlaps(a, footprintOf(all[j]))).toBe(false);
-    }
-    expect(buildings().some((b) => Math.abs(b.heading) >= 0.09)).toBe(true);
-  });
-
-  it("cluster as shops around the bus stops and as houses away from them", () => {
-    const near = buildings().filter((b) => nearestStop(b.x) <= 60);
-    const far = buildings().filter((b) => nearestStop(b.x) > 120);
-    expect(near.length).toBeGreaterThan(10);
-    expect(far.length).toBeGreaterThan(10);
-    expect(near.filter((b) => b.kind === "shop").length / near.length).toBeGreaterThanOrEqual(0.5);
-    expect(far.filter((b) => b.kind === "shop").length / far.length).toBeLessThanOrEqual(0.2);
-  });
-
-  it("thin out toward both ends of the route", () => {
-    const per100 = (from: number, to: number) => buildings().filter((b) => b.x >= from && b.x < to).length / ((to - from) / 100);
-    const mid = per100(500, 1200);
-    expect(per100(FIRST - 30, FIRST + 120)).toBeLessThan(mid);
-    expect(per100(LAST - 120, LAST + 30)).toBeLessThan(mid);
-  });
-});
-
-describe("the village is balanced", () => {
-  it("has more houses than shops, with shops kept for the stops", () => {
-    const houses = buildings().filter((b) => b.kind === "house").length;
-    expect(houses).toBeGreaterThanOrEqual(buildings().length - houses);
-  });
-
-  it("leaves room for trees and flowers between the compounds", () => {
-    const species = (k: string) => placements.filter((p) => p.kind === k).length;
-    expect(placements.filter(isFlowers).length).toBeGreaterThanOrEqual(40);
-    expect(species("gulmohar")).toBeGreaterThanOrEqual(12);
-    expect(species("mango")).toBeGreaterThanOrEqual(24); // side roads take some roadside
-    expect(placements.filter(isTree).length).toBeGreaterThanOrEqual(buildings().length * 1.4);
+  it("offers grass spots all round the loop", () => {
+    expect(layout.grass.length).toBeGreaterThan(1500);
   });
 });
 
 describe("isGroundFree", () => {
-  it("is false where a plant stands and true on open ground", () => {
+  it("is false where a plant stands, on the road and in the mouth of a side road", () => {
     const t = placements.filter(isTree)[0];
     expect(layout.isGroundFree(t.x, t.z, 0.2)).toBe(false);
-    expect(layout.isGroundFree(500, roadCenterZ(500) + 60, 1)).toBe(true);
+    expect(layout.isGroundFree(200, 0, 1)).toBe(false);
+    expect(layout.isGroundFree(395, 40, 0.6)).toBe(false); // on Station Road, just below the north T
   });
 
-  it("is false at the centre of a house", () => {
-    const b = buildings()[0];
-    expect(layout.isGroundFree(b.x, b.z, 0.5)).toBe(false);
-    expect(layout.isGroundFree(500, roadCenterZ(500) + 60, 1)).toBe(true);
-  });
-
-  it("is false on the road and in the mouth of a side road", () => {
-    expect(layout.isGroundFree(500, roadCenterZ(500), 1)).toBe(false);
-    expect(layout.isGroundFree(395, roadCenterZ(395) - 12, 0.6)).toBe(false);
+  it("is true on open ground well away from any road", () => {
+    expect(layout.isGroundFree(200, 120, 1)).toBe(true);
   });
 });

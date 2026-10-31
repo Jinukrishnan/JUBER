@@ -1,189 +1,196 @@
+import type { Network } from "../data/network-v1";
 import type { Place } from "../data/places-v1";
-import { armSigns, localToWorld, onSideRoad, worldToLocal, type ResolvedJunction } from "./junction";
+import { builtRoads, headingAt, nearestOnRoad, pointAt, type BuiltRoad } from "./network";
 import { placeSpot } from "./places";
-import { roadAngle, roadCenterZ } from "./road";
+import { allowedTurns, approachesOf, exitsOf } from "./turns";
 
-// Routes along the roads. Every side road joins the main road at a junction,
-// so the road network is a spine (the main road) with arms hanging off it, and
-// the way between two points is always: out of the arm you are on, along the
-// spine, into the arm you want. No search is needed.
+// Routes on the loop. The graph's nodes are "arrived at a junction by this road,
+// travelling this way"; its edges are the stretches of road to the next junction,
+// one per turn the junction allows. Dijkstra over those nodes finds the shortest
+// way that never makes a turn the junction forbids. The only U-turn is the one a
+// route may open with, when the vehicle starts out facing away from it.
 
-export type Graph = { junctions: ResolvedJunction[]; places: Place[] };
+export type Graph = {
+  network: Network;
+  places: Place[];
+  roads: Map<string, BuiltRoad>;
+  junctionS: Map<string, number>; // `${junction}|${road}` -> distance along that road
+};
 export type Position = { x: number; z: number; heading?: number };
 
-export type Turn = "left" | "right" | "uturn" | "arrive";
+export type Turn = "left" | "right" | "straight" | "uturn" | "arrive";
 export type Step = {
   turn: Turn;
   at: { x: number; z: number };
   distanceFromStart: number;
   side?: "left" | "right"; // for "arrive": which side of the road the place is on
 };
-export type Route = { points: { x: number; z: number }[]; length: number; steps: Step[] };
+// a junction passed on the way, for checking the turn against the junction rules
+export type Move = { junction: string; approachId: string; turn: "left" | "right" | "straight" };
+export type Route = { points: { x: number; z: number }[]; length: number; steps: Step[]; moves: Move[] };
 
-const STRAIGHT_LIMIT = (25 * Math.PI) / 180;
-const UTURN_LIMIT = (150 * Math.PI) / 180;
-const SAMPLE_M = 15;
+const SAMPLE_M = 12;
+const UTURN_COST = 20; // metres, a U-turn on the spot costs about this much time
+const OPENING_UTURN_M = 12; // the starting U-turn is still due until the vehicle has moved this far
 
-export function buildGraph(junctions: ResolvedJunction[], places: Place[]): Graph {
-  return { junctions, places };
+export function buildGraph(network: Network, places: Place[]): Graph {
+  const roads = new Map(builtRoads(network).map((r) => [r.road.id, r]));
+  const junctionS = new Map<string, number>();
+  for (const j of network.junctions) {
+    for (const id of j.roads) junctionS.set(`${j.id}|${id}`, nearestOnRoad(roads.get(id)!, j.at[0], j.at[1]).s);
+  }
+  return { network, places, roads, junctionS };
 }
 
-// where something is on the road network: on the main road at x, or on an arm
-type Loc =
-  | { kind: "main"; x: number }
-  | { kind: "arm"; j: ResolvedJunction; s: -1 | 1; d: number };
+type Dir = 1 | -1;
 
-type Leg =
-  | { kind: "main"; x0: number; x1: number }
-  | { kind: "arm"; j: ResolvedJunction; s: -1 | 1; d0: number; d1: number };
+// metres to travel from s0 to s1 going `dir` along the road (round the loop if it is closed)
+function along(r: BuiltRoad, s0: number, s1: number, dir: Dir): number {
+  const d = (s1 - s0) * dir;
+  if (r.road.closed) return ((d % r.length) + r.length) % r.length;
+  return d >= -1e-6 ? Math.max(0, d) : Infinity;
+}
 
-function locateAt(g: Graph, x: number, z: number): Loc {
-  if (onSideRoad(g.junctions, x, z)) {
-    let best: Loc | null = null;
-    let bestScore = Infinity;
-    for (const j of g.junctions) {
-      const { u, v } = worldToLocal(j, x, z);
-      for (const s of armSigns(j.arms)) {
-        // distance to this arm's axis, measured along the arm (clamped to its length)
-        const d = Math.max(0, Math.min(j.armLength, s * v));
-        const score = Math.abs(u) + Math.abs(s * v - d);
-        if (score < bestScore) {
-          bestScore = score;
-          best = { kind: "arm", j, s, d };
-        }
+type Leg = { road: BuiltRoad; dir: Dir; s0: number; len: number };
+
+function nextJunction(g: Graph, r: BuiltRoad, s: number, dir: Dir, exclude: string | null): { id: string; s: number; d: number } | null {
+  let best: { id: string; s: number; d: number } | null = null;
+  for (const j of g.network.junctions) {
+    if (j.id === exclude) continue;
+    const sj = g.junctionS.get(`${j.id}|${r.road.id}`);
+    if (sj === undefined) continue;
+    const d = along(r, s, sj, dir);
+    if (d < Infinity && (!best || d < best.d)) best = { id: j.id, s: sj, d };
+  }
+  return best;
+}
+
+type Prev = { from: string; leg: Leg; move?: Move };
+
+function search(
+  g: Graph,
+  start: { road: BuiltRoad; s: number; dir: Dir },
+  target: { road: BuiltRoad; s: number },
+): { cost: number; legs: Leg[]; moves: Move[] } | null {
+  const dist = new Map<string, number>();
+  const prev = new Map<string, Prev>();
+  const done = new Set<string>();
+  const relax = (key: string, cost: number, p: Prev) => {
+    if (cost < (dist.get(key) ?? Infinity)) {
+      dist.set(key, cost);
+      prev.set(key, p);
+    }
+  };
+
+  const leave = (from: string, base: number, road: BuiltRoad, s: number, dir: Dir, exclude: string | null, move?: Move) => {
+    const k = nextJunction(g, road, s, dir, exclude);
+    const dt = target.road === road ? along(road, s, target.s, dir) : Infinity;
+    if (dt < (k ? k.d : Infinity)) relax("target", base + dt, { from, leg: { road, dir, s0: s, len: dt }, move });
+    if (k) relax(`${k.id}|${road.road.id}|${dir}`, base + k.d, { from, leg: { road, dir, s0: s, len: k.d }, move });
+  };
+
+  leave("start", 0, start.road, start.s, start.dir, null);
+
+  for (;;) {
+    let key: string | null = null;
+    let best = Infinity;
+    for (const [k, d] of dist) {
+      if (!done.has(k) && d < best) {
+        best = d;
+        key = k;
       }
     }
-    if (best) return best;
+    if (key === null) return null;
+    if (key === "target") break;
+    done.add(key);
+    const [jid, rid, ds] = key.split("|");
+    const dir = Number(ds) as Dir;
+    const approachId = `${rid}:${dir}`;
+    const from = approachesOf(g.network, jid).find((a) => a.id === approachId);
+    if (!from) continue;
+    const allowed = allowedTurns(g.network, jid, approachId);
+    for (const e of exitsOf(g.network, jid, from)) {
+      if (e.turn === "uturn" || !allowed.includes(e.turn)) continue;
+      const road = g.roads.get(e.road)!;
+      const sj = g.junctionS.get(`${jid}|${e.road}`)!;
+      leave(key, best, road, sj, e.dir, jid, { junction: jid, approachId, turn: e.turn });
+    }
   }
-  return { kind: "main", x };
-}
 
-function locatePlace(g: Graph, p: Place): Loc {
-  const at = p.at;
-  if (at.kind === "main") return { kind: "main", x: at.x };
-  const j = g.junctions.find((r) => r.id === at.junctionId);
-  if (!j) throw new Error(`No junction "${at.junctionId}" for place "${p.id}"`);
-  return { kind: "arm", j, s: at.side, d: at.distance };
-}
-
-// length of the (gently curving) main road between two x positions
-function mainLength(x0: number, x1: number): number {
-  const a = Math.min(x0, x1);
-  const b = Math.max(x0, x1);
-  let len = 0;
-  let px = a;
-  let pz = roadCenterZ(a);
-  for (let x = a + 5; x < b + 5; x += 5) {
-    const cx = Math.min(x, b);
-    const cz = roadCenterZ(cx);
-    len += Math.hypot(cx - px, cz - pz);
-    px = cx;
-    pz = cz;
+  const legs: Leg[] = [];
+  const moves: Move[] = [];
+  let k = "target";
+  while (k !== "start") {
+    const p = prev.get(k)!;
+    legs.unshift(p.leg);
+    if (p.move) moves.unshift(p.move);
+    k = p.from;
   }
-  return len;
+  return { cost: dist.get("target")!, legs, moves };
 }
 
-const legLength = (l: Leg) => (l.kind === "main" ? mainLength(l.x0, l.x1) : Math.abs(l.d1 - l.d0));
-
-// unit direction of travel along a leg, at its start or its end
-function legDir(l: Leg, end: "start" | "end"): { x: number; z: number } {
-  if (l.kind === "main") {
-    const x = end === "start" ? l.x0 : l.x1;
-    const a = roadAngle(x);
-    const sign = l.x1 >= l.x0 ? 1 : -1;
-    return { x: Math.cos(a) * sign, z: Math.sin(a) * sign };
+// where the vehicle is on the network: the road it is driving along, and which
+// way it is facing along it. Where roads cross, the one it is lined up with wins.
+function snap(g: Graph, p: Position): { road: BuiltRoad; s: number; facing: Dir | null } {
+  const cands = [...g.roads.values()].map((r) => ({ r, n: nearestOnRoad(r, p.x, p.z) })).sort((a, b) => a.n.distance - b.n.distance);
+  let pick = cands[0];
+  if (p.heading !== undefined) {
+    const near = cands.filter((c) => c.n.distance <= cands[0].n.distance + 8 && c.n.distance <= c.r.road.halfWidth + 4);
+    const align = (c: (typeof cands)[number]) => Math.abs(Math.cos(p.heading! - headingAt(c.r, c.n.s)));
+    if (near.length > 1) pick = near.reduce((a, b) => (align(b) > align(a) + 1e-9 ? b : a));
   }
-  // the arm's own axis in the world, pointing out from the main road
-  const out = { x: -Math.sin(l.j.angle) * l.s, z: Math.cos(l.j.angle) * l.s };
-  const sign = l.d1 >= l.d0 ? 1 : -1;
-  return { x: out.x * sign, z: out.z * sign };
+  const facing: Dir | null = p.heading === undefined ? null : Math.cos(p.heading - headingAt(pick.r, pick.n.s)) >= 0 ? 1 : -1;
+  return { road: pick.r, s: pick.n.s, facing };
 }
+
+const sideOf = (place: Place, dir: Dir): "left" | "right" => (place.side * dir === -1 ? "left" : "right");
 
 function legPoints(l: Leg): { x: number; z: number }[] {
   const pts: { x: number; z: number }[] = [];
-  const n = Math.max(1, Math.ceil(legLength(l) / SAMPLE_M));
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    if (l.kind === "main") {
-      const x = l.x0 + (l.x1 - l.x0) * t;
-      pts.push({ x, z: roadCenterZ(x) });
-    } else {
-      const d = l.d0 + (l.d1 - l.d0) * t;
-      pts.push(localToWorld(l.j, 0, l.s * d));
-    }
-  }
+  const n = Math.max(1, Math.ceil(l.len / SAMPLE_M));
+  for (let i = 1; i <= n; i++) pts.push(pointAt(l.road, l.s0 + l.dir * l.len * (i / n)));
   return pts;
 }
 
-const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
-
-function legsBetween(a: Loc, b: Loc): Leg[] {
-  const legs: Leg[] = [];
-  if (a.kind === "main" && b.kind === "main") {
-    legs.push({ kind: "main", x0: a.x, x1: b.x });
-  } else if (a.kind === "arm" && b.kind === "arm" && a.j.id === b.j.id && a.s === b.s) {
-    legs.push({ kind: "arm", j: a.j, s: a.s, d0: a.d, d1: b.d });
-  } else {
-    if (a.kind === "arm") legs.push({ kind: "arm", j: a.j, s: a.s, d0: a.d, d1: 0 });
-    const xs = a.kind === "main" ? a.x : a.j.x;
-    const xe = b.kind === "main" ? b.x : b.j.x;
-    if (Math.abs(xe - xs) > 0.01) legs.push({ kind: "main", x0: xs, x1: xe });
-    if (b.kind === "arm") legs.push({ kind: "arm", j: b.j, s: b.s, d0: 0, d1: b.d });
-  }
-  return legs.filter((l) => legLength(l) > 0.01);
-}
-
 // The way from where the vehicle is to a place: the points to draw, the length,
-// and the turns on the way (ending with the arrival).
+// the turns on the way (ending with the arrival) and the junction moves it makes.
 export function route(g: Graph, from: Position, to: Place): Route {
-  const a = locateAt(g, from.x, from.z);
-  const b = locatePlace(g, to);
-  const legs = legsBetween(a, b);
+  const here = snap(g, from);
+  const target = { road: g.roads.get(to.road)!, s: to.s };
+  const options: { dir: Dir; cost: number; found: NonNullable<ReturnType<typeof search>> }[] = [];
+  for (const dir of [1, -1] as Dir[]) {
+    const found = search(g, { road: here.road, s: here.s, dir }, target);
+    if (!found) continue;
+    // the way against the vehicle's heading starts with a U-turn
+    options.push({ dir, found, cost: found.cost + (here.facing !== null && dir !== here.facing ? UTURN_COST : 0) });
+  }
+  if (options.length === 0) throw new Error(`No route to "${to.id}"`);
+  const pick = options.reduce((a, b) => (b.cost < a.cost ? b : a));
+  const { legs, moves } = pick.found;
 
   const points: { x: number; z: number }[] = [{ x: from.x, z: from.z }];
   const steps: Step[] = [];
   let length = 0;
 
-  if (legs.length > 0 && from.heading !== undefined) {
-    const d = legDir(legs[0], "start");
-    // facing more than about 107 degrees away from the first leg
-    if (Math.cos(from.heading) * d.x + Math.sin(from.heading) * d.z < -0.3) {
-      steps.push({ turn: "uturn", at: { x: from.x, z: from.z }, distanceFromStart: 0 });
-    }
+  if (here.facing !== null && pick.dir !== here.facing) {
+    steps.push({ turn: "uturn", at: { x: from.x, z: from.z }, distanceFromStart: 0 });
   }
-
   legs.forEach((leg, i) => {
-    if (i > 0) {
-      const d1 = legDir(legs[i - 1], "end");
-      const d2 = legDir(leg, "start");
-      const turn = wrap(Math.atan2(d2.z, d2.x) - Math.atan2(d1.z, d1.x));
-      const at = points[points.length - 1];
-      if (Math.abs(turn) > UTURN_LIMIT) steps.push({ turn: "uturn", at, distanceFromStart: length });
-      else if (turn > STRAIGHT_LIMIT) steps.push({ turn: "right", at, distanceFromStart: length });
-      else if (turn < -STRAIGHT_LIMIT) steps.push({ turn: "left", at, distanceFromStart: length });
+    for (const p of legPoints(leg)) points.push(p);
+    length += leg.len;
+    const move = moves[i];
+    if (move && i < legs.length - 1) {
+      const j = g.network.junctions.find((x) => x.id === move.junction)!;
+      steps.push({ turn: move.turn, at: { x: j.at[0], z: j.at[1] }, distanceFromStart: length });
     }
-    for (const p of legPoints(leg).slice(1)) points.push(p);
-    length += legLength(leg);
   });
 
-  // end at the kerb spot itself (the last few metres across the lane are not counted in the length)
-  const spot = placeSpot(to, g.junctions);
-  const last = points[points.length - 1];
+  const spot = placeSpot(g.network, to);
   points.push({ x: spot.x, z: spot.z });
+  const last = legs[legs.length - 1];
+  steps.push({ turn: "arrive", at: { x: spot.x, z: spot.z }, distanceFromStart: length, side: sideOf(to, last.dir) });
 
-  // which side of the road the place is on, as seen travelling in
-  let side: "left" | "right" | undefined;
-  if (legs.length > 0) {
-    const d = legDir(legs[legs.length - 1], "end");
-    const cross = d.x * (spot.z - last.z) - d.z * (spot.x - last.x);
-    side = cross > 0 ? "right" : "left";
-  } else if (from.heading !== undefined) {
-    const cross = Math.cos(from.heading) * (spot.z - last.z) - Math.sin(from.heading) * (spot.x - last.x);
-    side = cross > 0 ? "right" : "left";
-  }
-  steps.push({ turn: "arrive", at: { x: spot.x, z: spot.z }, distanceFromStart: length, side });
-
-  return { points, length, steps };
+  return { points, length, steps, moves };
 }
 
 // where the vehicle is along a route: the distance travelled and how far it is off the line
@@ -204,21 +211,19 @@ function project(r: Route, p: { x: number; z: number }): { along: number; off: n
   return best;
 }
 
-const OPENING_UTURN_M = 12; // the starting U-turn is still due until the vehicle has moved this far
-
 // The next turn (or the arrival) still ahead, and how far away it is. With the
 // vehicle's heading, the U-turn that opens a route stays due until it faces the
 // way of the route.
 export function nextStep(r: Route, p: { x: number; z: number }, heading?: number): { step: Step; distance: number } | null {
-  const { along } = project(r, p);
+  const { along: a } = project(r, p);
   const first = r.points.length > 1 ? { x: r.points[1].x - r.points[0].x, z: r.points[1].z - r.points[0].z } : null;
   const facingAway =
     heading !== undefined && first !== null && Math.cos(heading) * first.x + Math.sin(heading) * first.z < -0.3 * Math.hypot(first.x, first.z);
   const step = r.steps.find(
-    (s) => s.turn === "arrive" || s.distanceFromStart > along + 1 || (s.turn === "uturn" && s.distanceFromStart === 0 && facingAway && along < OPENING_UTURN_M),
+    (s) => s.turn === "arrive" || s.distanceFromStart > a + 1 || (s.turn === "uturn" && s.distanceFromStart === 0 && facingAway && a < OPENING_UTURN_M),
   );
   if (!step) return null;
-  return { step, distance: Math.max(0, step.distanceFromStart - along) };
+  return { step, distance: Math.max(0, step.distanceFromStart - a) };
 }
 
 // Has the vehicle left the road the route follows?

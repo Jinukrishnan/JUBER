@@ -5,16 +5,14 @@ import { useMemo, useRef } from "react";
 import type { Group } from "three";
 import { busPose } from "./busPose";
 import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
-import { PLACES } from "./data/places-v1";
-import { ROUTE_V1 } from "./data/route-v1";
-import { BAY_LENGTH, BAY_OFFSET, BAY_WIDTH, type Side } from "./logic/bay";
+import { BAY_LENGTH, BAY_OFFSET, BAY_WIDTH } from "./logic/bay";
+import { headingAt, builtRoads } from "./logic/network";
+import { placeSpot, type Place } from "./logic/places";
 import { targetPlace } from "./logic/ride";
 import { personFor, type PersonSpec } from "./logic/people";
-import { roadAngle, roadCenterZ } from "./logic/road";
-import type { Stop } from "./logic/route";
 import { useGame } from "./state/store";
+import { ACTIVE_PLACES, NETWORK } from "./world";
 
-const SIDES: Side[] = ["forward", "backward"];
 const DRAW_RANGE = 170; // only stops this close to the bus are drawn
 const SHELTER_GAP = 2.2; // shelter set back from the bay's outer edge
 export const FOOTPATH_HEIGHT = 0.15;
@@ -35,7 +33,9 @@ const CREAM = "#efe6cf";
 const GREEN = "#2f7d4a";
 const TILE = "#b5412b";
 
-function boardDrawer(stop: Stop): Draw {
+type Named = { ml: string; name: string };
+
+function boardDrawer(stop: Named): Draw {
   return (g, w, h) => {
     g.fillStyle = "#fffaf0";
     g.fillRect(0, 0, w, h);
@@ -85,7 +85,7 @@ export const drawStopSign: Draw = (g, w, h) => {
 
 // A Kerala-style waiting shed: concrete pillars, clay-tile roof, green-banded
 // back wall, a bench, and a name board in Malayalam with the English below.
-function Shelter({ stop }: { stop: Stop }) {
+function Shelter({ stop }: { stop: Named }) {
   const draw = useMemo(() => boardDrawer(stop), [stop]);
   const board = useCanvasTexture(1024, 192, draw, stop.ml);
   const sign = useCanvasTexture(128, 128, drawStopSign);
@@ -194,12 +194,12 @@ function Shelter({ stop }: { stop: Stop }) {
   );
 }
 
-// The painted bay: bus-length yellow rectangle that turns green once the bus
-// is completely inside it, lined up, and on the right kerb.
-function Bay({ stopPos, side, occupied }: { stopPos: number; side: Side; occupied: boolean }) {
-  const cz = roadCenterZ(stopPos) + (side === "forward" ? -BAY_OFFSET : BAY_OFFSET);
+// The painted bay: a vehicle-length yellow rectangle that turns green where the
+// driver is headed.
+function Bay({ place, occupied }: { place: Place; occupied: boolean }) {
+  const spot = placeSpot(NETWORK, place);
   return (
-    <group position={[stopPos, 0, cz]} rotation={[0, -roadAngle(stopPos), 0]}>
+    <group position={[spot.x, 0, spot.z]} rotation={[0, -spot.heading, 0]}>
       <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[BAY_LENGTH + 0.4, BAY_WIDTH + 0.4]} />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.8} />
@@ -212,8 +212,11 @@ function Bay({ stopPos, side, occupied }: { stopPos: number; side: Side; occupie
   );
 }
 
-// The shelters and painted bays at the main-road places. The bay turns green
-// where the driver is headed.
+const SHELTERS = ACTIVE_PLACES.filter((p) => p.shelter);
+const SHELTER_SPOTS = SHELTERS.map((p) => placeSpot(NETWORK, p));
+
+// The shelters and painted bays at the bus-stop style places, on the kerb the
+// customers wait on. The bay turns green where the driver is headed.
 export function Stops() {
   const ride = useGame((s) => s.ride);
   const groups = useRef<(Group | null)[]>([]);
@@ -221,31 +224,31 @@ export function Stops() {
 
   // draw only the shelters near the vehicle
   useFrame(() => {
-    ROUTE_V1.forEach((stop, i) => {
+    SHELTERS.forEach((_, i) => {
       const g = groups.current[i];
-      if (g) g.visible = Math.abs(stop.position - busPose.x) < DRAW_RANGE;
+      if (!g) return;
+      const spot = SHELTER_SPOTS[i];
+      g.visible = Math.hypot(spot.x - busPose.x, spot.z - busPose.z) < DRAW_RANGE;
     });
   });
 
   return (
     <group>
-      {ROUTE_V1.map((stop, i) => {
-        const place = PLACES.find((p) => p.id === stop.id);
-        // customers wait on one kerb only, so only that kerb gets a bay and a shelter
-        const placeSide: Side | null = place?.at.kind === "main" ? (place.at.side === "left" ? "forward" : "backward") : null;
-        const targetSide: Side | null = target && target.id === stop.id && place?.at.kind === "main" ? (place.at.side === "left" ? "forward" : "backward") : null;
-        const edge = BAY_OFFSET + BAY_WIDTH / 2 + SHELTER_GAP;
-        const cz = roadCenterZ(stop.position);
+      {SHELTERS.map((place, i) => {
+        const road = builtRoads(NETWORK).find((b) => b.road.id === place.road)!;
+        const h = headingAt(road, place.s);
+        const spot = placeSpot(NETWORK, place);
+        // the shelter stands behind the bay, outward from the road, with its front toward it
+        const out = BAY_OFFSET + BAY_WIDTH / 2 + SHELTER_GAP - BAY_OFFSET;
+        const rx = -Math.sin(h) * place.side;
+        const rz = Math.cos(h) * place.side;
+        const face = Math.atan2(-rx, -rz);
         return (
-          <group key={stop.id} ref={(g) => { groups.current[i] = g; }}>
-            {SIDES.filter((side) => !placeSide || side === placeSide).map((side) => (
-              <group key={side}>
-                <Bay stopPos={stop.position} side={side} occupied={targetSide === side} />
-                <group position={[stop.position, FOOTPATH_HEIGHT, side === "forward" ? cz - edge : cz + edge]} rotation={[0, side === "forward" ? 0 : Math.PI, 0]}>
-                  <Shelter stop={stop} />
-                </group>
-              </group>
-            ))}
+          <group key={place.id} ref={(g) => { groups.current[i] = g; }}>
+            <Bay place={place} occupied={target?.id === place.id} />
+            <group position={[spot.x + rx * out, FOOTPATH_HEIGHT, spot.z + rz * out]} rotation={[0, face, 0]}>
+              <Shelter stop={place} />
+            </group>
           </group>
         );
       })}

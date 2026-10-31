@@ -6,8 +6,9 @@ const GREEN = "#1f7a3a";
 const YELLOW = "#f2c200";
 const BLACK = "#1b1d1f";
 
-// The common Indian auto-rickshaw: yellow canvas roof, green lower body, black
-// hood at the back, open sides, one front wheel. Length 2.7 m.
+// The common Indian auto-rickshaw in cartoon colours: yellow canvas roof, green
+// lower body, black hood at the back and a black nose, open sides with a yellow
+// bench, one front wheel. Length 2.7 m.
 export function Auto() {
   return (
     <group>
@@ -18,8 +19,8 @@ export function Auto() {
       <Block p={[-0.4, 0.5, 0]} s={[1.9, 0.12, 1.3]} color={GREEN} />
       <Block p={[-0.4, 0.78, 0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} />
       <Block p={[-0.4, 0.78, -0.62]} s={[1.9, 0.45, 0.08]} color={GREEN} />
-      <Block p={[0.95, 0.72, 0]} s={[0.55, 0.62, 0.5]} color={GREEN} rot={[0, 0, -0.18]} />
-      <Block p={[1.12, 0.46, 0]} s={[0.35, 0.16, 0.34]} color={GREEN} />
+      <Block p={[0.95, 0.72, 0]} s={[0.55, 0.62, 0.5]} color={BLACK} rot={[0, 0, -0.18]} />
+      <Block p={[1.12, 0.46, 0]} s={[0.35, 0.16, 0.34]} color={BLACK} />
       {/* black hood over the back seat */}
       <Block p={[-1.25, 1.35, 0]} s={[0.5, 0.9, 1.3]} color={BLACK} rot={[0, 0, 0.1]} />
       {/* yellow roof and its pillars */}
@@ -36,8 +37,8 @@ export function Auto() {
       {/* seats: driver in front, a bench behind for two */}
       <Block p={[0.3, 0.66, 0]} s={[0.4, 0.12, 0.5]} color={BLACK} />
       <Block p={[0.1, 0.9, 0]} s={[0.08, 0.4, 0.5]} color={BLACK} />
-      <Block p={[-0.7, 0.66, 0]} s={[0.5, 0.12, 1.1]} color="#2a2c2f" />
-      <Block p={[-0.95, 0.95, 0]} s={[0.08, 0.5, 1.1]} color="#2a2c2f" />
+      <Block p={[-0.7, 0.66, 0]} s={[0.5, 0.12, 1.1]} color="#e0b92a" />
+      <Block p={[-0.95, 0.95, 0]} s={[0.08, 0.5, 1.1]} color="#e0b92a" />
       {/* handlebar, mirrors, tail lamps */}
       <Block p={[0.82, 1.05, 0]} s={[0.05, 0.05, 0.6]} color={BLACK} />
       <Block p={[0.7, 1.4, 0.7]} s={[0.04, 0.12, 0.1]} color={BLACK} />

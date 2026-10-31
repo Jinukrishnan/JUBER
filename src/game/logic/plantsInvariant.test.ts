@@ -1,57 +1,62 @@
 import { describe, expect, it } from "vitest";
-import { ROUTE_V1 } from "../data/route-v1";
+import { NETWORK_V1, type Network } from "../data/network-v1";
+import { PLACES } from "../data/places-v1";
 import { grassParts } from "../plants";
-import { buildScenery, JUNCTIONS, scenePoles } from "../world";
-import { armSigns, drivable, TURN_AROUND_RADIUS, worldToLocal } from "./junction";
-import { FOOTPATH_WIDTH, groundY } from "./road";
+import { FEATURES, NETWORK, buildScenery } from "../world";
+import { layoutScenery } from "./layout";
+import { JUNCTION_BOX_HALF, drivable, groundY } from "./network";
+import { roadFeatures } from "./roadside";
 
-const layout = buildScenery();
+// The rule behind the owner's "grass in the middle of the road" report: nothing
+// grows, stands or is built on the road, a footpath, a junction or a crossing.
 const TREES = ["coconut", "mango", "gulmohar", "banana", "jackfruit"];
 
-// On a side road, its footpath or its turn-around, which is no place for a plant.
-function onArm(x: number, z: number): boolean {
-  for (const r of JUNCTIONS) {
-    const { u, v } = worldToLocal(r, x, z);
-    for (const s of armSigns(r.arms)) {
-      const along = s * v;
-      if (Math.abs(u) <= r.armHalfWidth + FOOTPATH_WIDTH && along >= 0 && along <= r.armLength) return true;
-      if (Math.hypot(u, v - s * r.armLength) <= TURN_AROUND_RADIUS + FOOTPATH_WIDTH) return true;
-    }
-  }
-  return false;
+function check(n: Network, layout: ReturnType<typeof layoutScenery>, features: ReturnType<typeof roadFeatures>) {
+  const bad = (x: number, z: number) => drivable(n, x, z) || groundY(n, x, z) !== 0;
+  const offenders: string[] = [];
+  const { tufts, bushes } = grassParts(layout.grass, "full", layout.isGroundFree);
+  for (const it of [...tufts, ...bushes]) if (bad(it.x, it.z)) offenders.push(`grass ${it.x.toFixed(1)},${it.z.toFixed(1)}`);
+  for (const p of layout.placements) if (bad(p.x, p.z)) offenders.push(`${p.kind} ${p.x.toFixed(1)},${p.z.toFixed(1)}`);
+  for (const p of features.poles) if (drivable(n, p.x, p.z)) offenders.push(`pole ${p.x.toFixed(1)},${p.z.toFixed(1)}`);
+  return offenders;
 }
 
-const bad = (x: number, z: number) => drivable(JUNCTIONS, x, z) || groundY(x, z) !== 0 || onArm(x, z);
-
 describe("no plant stands on the road", () => {
-  it("has junctions to test against", () => {
-    expect(JUNCTIONS.length).toBeGreaterThan(0);
+  const layout = buildScenery();
+
+  it("has a grass layer and trees to test", () => {
+    expect(layout.grass.length).toBeGreaterThan(1000);
+    expect(layout.placements.filter((p) => TREES.includes(p.kind)).length).toBeGreaterThan(200);
   });
 
-  it("no grass tuft or bush is on tarmac, a footpath or a side road", () => {
-    const first = Math.floor((ROUTE_V1[0].position - 120) / 100);
-    const last = Math.floor((ROUTE_V1[ROUTE_V1.length - 1].position + 140) / 100);
-    const offenders: string[] = [];
-    for (let slice = first; slice <= last; slice++) {
-      const { tufts, bushes } = grassParts(slice, "full", layout.isGroundFree);
-      for (const it of [...tufts, ...bushes]) {
-        if (bad(it.x, it.z)) offenders.push(`${it.x.toFixed(1)},${it.z.toFixed(1)}`);
+  it("nothing is on tarmac, a footpath or a junction, anywhere on the map", () => {
+    expect(check(NETWORK, layout, FEATURES).slice(0, 10)).toEqual([]);
+  });
+
+  it("the same holds for a moved junction", () => {
+    const moved: Network = {
+      ...NETWORK_V1,
+      roads: NETWORK_V1.roads.map((r) => (r.id === "ns" ? { ...r, points: [[500, 0], [500, 500]] as [number, number][] } : r)),
+      junctions: NETWORK_V1.junctions.map((j) => {
+        if (j.id === "north" || j.id === "south") return { ...j, at: [500, j.at[1]] as [number, number] };
+        if (j.id === "centre") return { ...j, at: [500, 250] as [number, number] };
+        return j;
+      }),
+    };
+    const f = roadFeatures(moved, PLACES);
+    const l = layoutScenery(7, moved, PLACES, f);
+    expect(check(moved, l, f).slice(0, 10)).toEqual([]);
+  });
+
+  it("no pole or sign stands in a junction box or a zebra crossing", () => {
+    for (const s of [...FEATURES.signs, ...FEATURES.poles]) {
+      for (const j of NETWORK.junctions) {
+        expect(Math.max(Math.abs(s.x - j.at[0]), Math.abs(s.z - j.at[1]))).toBeGreaterThan(JUNCTION_BOX_HALF);
       }
     }
-    expect(offenders.slice(0, 10)).toEqual([]);
+    for (const z of FEATURES.zebras) {
+      for (const s of FEATURES.signs) expect(Math.hypot(s.x - z.x, s.z - z.z)).toBeGreaterThan(2.5);
+    }
   });
 
-  it("no tree or flower cluster is on tarmac, a footpath or a side road", () => {
-    const offenders = layout.placements
-      .filter((p) => TREES.includes(p.kind) || p.kind === "flowers")
-      .filter((p) => bad(p.x, p.z))
-      .map((p) => `${p.kind} ${p.x.toFixed(1)},${p.z.toFixed(1)}`);
-    expect(offenders.slice(0, 10)).toEqual([]);
-  });
-
-
-  it("no electric pole stands in the mouth of a side road", () => {
-    const offenders = scenePoles().map((p) => p.x).filter((x) => JUNCTIONS.some((j) => Math.abs(x - j.x) < j.armHalfWidth + 6));
-    expect(offenders).toEqual([]);
-  });
 });

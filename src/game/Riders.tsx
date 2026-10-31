@@ -6,12 +6,12 @@ import type { Group } from "three";
 import { busLocalToWorld, busPose } from "./busPose";
 import { VEHICLES } from "./data/vehicles";
 import { customerSpot } from "./logic/places";
-import { KERB_HEIGHT } from "./logic/road";
+import { KERB_HEIGHT } from "./logic/network";
 import type { Request } from "./logic/requests";
 import { Person } from "./Person";
 import { specFor } from "./Stops";
 import { useGame } from "./state/store";
-import { JUNCTIONS } from "./world";
+import { NETWORK } from "./world";
 
 const STAGGER_S = 0.7; // each person starts this long after the one before
 const WALK_S = 1.6;
@@ -32,7 +32,7 @@ function Rider({ request, k, mode, clock }: { request: Request; k: number; mode:
     if (!g || !seat) return;
     const dt = Math.min(rawDt, 0.05);
     const place = mode === "board" ? request.pickup : request.drop;
-    const c = customerSpot(place, JUNCTIONS, k);
+    const c = customerSpot(NETWORK, place, k);
     const s = busLocalToWorld(seat[0], seat[2]);
     const seatY = seat[1] - SIT_DROP;
     const footY = KERB_HEIGHT + 0.12;

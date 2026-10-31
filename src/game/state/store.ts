@@ -46,6 +46,7 @@ export type GameState = {
   headlights: boolean;
   accidents: number;
   violations: number;
+  wrongTurns: number;
   signalTime: number;
   // a short on-screen message (fines, a customer giving up); a new id restarts its display
   notice: { id: number; text: string } | null;
@@ -86,6 +87,7 @@ type Actions = {
   toggleHeadlights: () => void;
   registerAccident: () => void;
   registerViolation: () => void;
+  registerWrongTurn: () => void;
   injure: (c: NewCasualty) => void;
   hitCustomer: (c: NewCasualty) => void;
   clearCasualty: (id: number) => void;
@@ -115,6 +117,7 @@ function initialState(vehicle: VehicleKind): GameState {
     headlights: false,
     accidents: 0,
     violations: 0,
+    wrongTurns: 0,
     signalTime: 0,
     notice: null,
     noticeSeq: 0,
@@ -184,6 +187,12 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       net: s.net - SIGNAL_FINE,
       violations: s.violations + 1,
       ...notice(s, `Jumped a red signal! Fine Rs. ${SIGNAL_FINE}`),
+    })),
+  registerWrongTurn: () =>
+    set((s) => ({
+      net: s.net - SIGNAL_FINE,
+      wrongTurns: s.wrongTurns + 1,
+      ...notice(s, `Turn not allowed here! Fine Rs. ${SIGNAL_FINE}`),
     })),
   injure: (c) => {
     get().registerAccident();

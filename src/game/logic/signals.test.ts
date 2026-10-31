@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approachLight, resolvePlan, signalAt, redAge } from "./signals";
+import { resolvePlan, signalAt, redAge } from "./signals";
 
 const plan = resolvePlan({}); // 28 / 3 / 2 / 14 / 3 / 2 = 52 s
 
@@ -34,19 +34,6 @@ describe("signalAt", () => {
   });
   it("wraps for negative times without breaking", () => {
     expect(signalAt(plan, -1).main).toBe("red");
-  });
-});
-
-describe("approachLight", () => {
-  const j = { id: "a", x: 0, arms: "both" as const };
-  it("gives the main road both directions the main light and the arms the cross light", () => {
-    expect(approachLight(j, 0, "mainForward")).toBe("green");
-    expect(approachLight(j, 0, "mainBackward")).toBe("green");
-    expect(approachLight(j, 0, "armLeft")).toBe("red");
-    expect(approachLight(j, 33, "armRight")).toBe("green");
-  });
-  it("is always green at a junction without a signal", () => {
-    expect(approachLight({ ...j, signal: false }, 0, "armLeft")).toBe("green");
   });
 });
 

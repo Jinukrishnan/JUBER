@@ -2,20 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { busPose } from "@/game/busPose";
-import { PLACES } from "@/game/data/places-v1";
-import { armSigns, localToWorld } from "@/game/logic/junction";
-import { DEFAULT_RANGE_INDEX, RADAR_RANGES, toRadar, toRadarRaw, type RadarView } from "@/game/logic/radar";
-import { roadCenterZ } from "@/game/logic/road";
+import { axisFacing, lightFor } from "@/game/logic/lights";
+import { roadPolylines } from "@/game/logic/network";
+import { DEFAULT_RANGE_INDEX, RADAR_RANGES, roadsToRadar, toRadar, toRadarRaw, type RadarView } from "@/game/logic/radar";
 import type { Ride } from "@/game/logic/ride";
 import type { Route } from "@/game/logic/roadgraph";
 import { spotOf } from "@/game/rideWorld";
-import { approachLight } from "@/game/logic/signals";
 import { useGame } from "@/game/state/store";
 import { useKeyPress } from "@/game/useKeys";
-import { JUNCTIONS } from "@/game/world";
+import { ACTIVE_PLACES, NETWORK } from "@/game/world";
 
 const SIZE = 176; // px across the round radar
 const R = SIZE / 2;
+const ROADS = roadPolylines(NETWORK);
 const LIGHT = { red: "#ff3b2a", yellow: "#ffc21a", green: "#2fe06a" } as const;
 
 type Drawn = { ride: Ride; route: Route | null; signalTime: number };
@@ -37,24 +36,19 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
   ctx.fillStyle = "#26382c";
   ctx.fillRect(-R, -R, SIZE, SIZE);
 
-  const road = (pts: { x: number; z: number }[], width: number) => {
+  // every road of the loop, rotated round the vehicle
+  for (const r of roadsToRadar(view, ROADS, rangeM, R)) {
     ctx.beginPath();
-    pts.forEach((p, i) => {
-      const q = at(p);
+    r.pts.forEach((q, i) => {
       if (i === 0) ctx.moveTo(q.px, q.py);
       else ctx.lineTo(q.px, q.py);
     });
-    ctx.lineWidth = Math.max(3, width * k);
+    ctx.lineWidth = Math.max(3, 12 * k);
     ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     ctx.strokeStyle = "#9aa0a6";
     ctx.stroke();
-  };
-
-  // the main road
-  const step = rangeM / 16;
-  const main: { x: number; z: number }[] = [];
-  for (let x = busPose.x - rangeM * 1.2; x <= busPose.x + rangeM * 1.2; x += step) main.push({ x, z: roadCenterZ(x) });
-  road(main, 12);
+  }
 
   // the route to follow: blue to the customer, green to the drop
   if (g.route && g.route.points.length > 1) {
@@ -71,19 +65,14 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
     ctx.stroke();
   }
 
-  // side roads and signals
-  for (const j of JUNCTIONS) {
-    if (Math.abs(j.x - busPose.x) > rangeM * 1.5) continue;
-    for (const s of armSigns(j.arms)) road([localToWorld(j, 0, 0), localToWorld(j, 0, s * j.armLength)], 10);
-  }
-  for (const j of JUNCTIONS) {
-    if (!j.plan) continue;
-    const q = at({ x: j.x, z: j.z });
+  // signals, in the colour the driver would face
+  for (const j of NETWORK.junctions) {
+    if (j.signal === false) continue;
+    const q = at({ x: j.at[0], z: j.at[1] });
     if (Math.hypot(q.px, q.py) > R) continue;
-    const light = approachLight({ id: j.id, x: j.x, arms: j.arms, signal: j.plan }, g.signalTime, "mainForward");
     ctx.beginPath();
     ctx.arc(q.px, q.py, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = LIGHT[light];
+    ctx.fillStyle = LIGHT[lightFor(j, g.signalTime, axisFacing(NETWORK, j.id, view.heading))];
     ctx.fill();
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = "#111";
@@ -97,7 +86,7 @@ function draw(ctx: CanvasRenderingContext2D, rangeM: number, g: Drawn) {
   ctx.translate(R, R);
   ctx.font = "600 10px system-ui, sans-serif";
   ctx.textAlign = "center";
-  for (const place of PLACES) {
+  for (const place of ACTIVE_PLACES) {
     const spot = spotOf(place);
     const p = toRadar(view, spot, rangeM, R - 8);
     const target = place.id === targetId;

@@ -15,6 +15,8 @@ export function describeStep(step: Step, distance: number, placeName: string): s
     case "left":
     case "right":
       return near ? `Turn ${step.turn} now` : `Turn ${step.turn} in ${d} m`;
+    case "straight":
+      return near ? "Straight on through the junction" : `Straight on through the junction in ${d} m`;
     case "uturn":
       return near ? "Make a U-turn" : `Make a U-turn in ${d} m`;
     case "arrive": {
@@ -24,7 +26,7 @@ export function describeStep(step: Step, distance: number, placeName: string): s
   }
 }
 
-const ARROWS: Record<Turn, string> = { left: "↰", right: "↱", uturn: "↶", arrive: "⚑" };
+const ARROWS: Record<Turn, string> = { left: "↰", right: "↱", straight: "↑", uturn: "↶", arrive: "⚑" };
 
 export function arrowFor(turn: Turn): string {
   return ARROWS[turn];

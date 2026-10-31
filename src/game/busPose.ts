@@ -1,13 +1,16 @@
-import { bayCenterZ } from "./logic/bay";
-import { roadAngle, roadCenterZ } from "./logic/road";
+import { PLACES } from "./data/places-v1";
+import { placeSpot } from "./logic/places";
+import { NETWORK } from "./world";
 
 // Per-frame bus pose shared between Bus (writer) and CameraRig/Stops/Walkers
 // (readers). Kept outside the store so 60fps updates do not trigger React renders.
 export const busPose = { x: 0, z: 0, heading: 0, speed: 0, bump: false, length: 10, width: 2.6 };
 
-// Where a day starts: parked square in the depot's bay, facing down the road.
+// Where a day starts: parked at the depot's kerb on the ring road, facing along it.
 export function depotPose() {
-  return { x: 0, z: bayCenterZ(roadCenterZ(0), "forward"), heading: roadAngle(0), speed: 0, steerAngle: 0 };
+  const depot = PLACES.find((p) => p.id === "depot")!;
+  const spot = placeSpot(NETWORK, depot);
+  return { x: spot.x, z: spot.z, heading: spot.heading, speed: 0, steerAngle: 0 };
 }
 
 export function resetBusPose() {

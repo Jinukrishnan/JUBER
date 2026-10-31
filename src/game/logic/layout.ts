@@ -1,14 +1,15 @@
-import { keepOutZones, overlaps, type Shape } from "./footprint";
-import type { ResolvedJunction } from "./junction";
-import { FOOTPATH_WIDTH, VERGE_WIDTH, roadAngle, roadCenterZ, roadHalfWidthAt } from "./road";
+import type { Network } from "../data/network-v1";
+import type { Place } from "../data/places-v1";
+import { ShapeGrid, keepOutZones, overlaps, type Shape } from "./footprint";
+import { FOOTPATH_WIDTH, VERGE_WIDTH, builtRoads, headingAt, pointAt } from "./network";
+import { placeSpot } from "./places";
 import type { RoadFeatures } from "./roadside";
-import type { Stop } from "./route";
 
-// Where the roadside scenery goes. Pure and seeded: the same seed always gives
+// Where the roadside scenery goes, along every road of the network. Pure and seeded: the same seed always gives
 // the same village, nothing here knows about three.js, and every placement is
 // checked against the keep-out zones (road, shelters, signs, poles) and
 // against every other placement, so nothing can overlap anything.
-export type Side = -1 | 1; // -1 left (-z), +1 right (+z)
+export type Side = -1 | 1; // -1 left of the direction a road runs, +1 right
 export type TreeKind = "coconut" | "mango" | "gulmohar" | "banana" | "jackfruit";
 export type FlowerKind = "sunflower" | "hibiscus" | "marigold";
 
@@ -29,6 +30,7 @@ export type FlowerPlacement = {
   z: number;
   count: number;
   seed: number;
+  heading?: number; // the road's direction here, so the heads can face it
 };
 // A house or shop. `heading` is the road's direction at its station; `width`
 // runs along the road and `depth` back from it, with the front facing the road.
@@ -109,33 +111,6 @@ export function footprintOf(p: Placement): Shape {
   }
 }
 
-// A coarse grid along the route so a shape is only compared with its neighbours
-// instead of everything: the layout has hundreds of shapes.
-const CELL = 25;
-function reach(s: Shape): number {
-  return s.kind === "circle" ? s.r : Math.hypot(s.w, s.d) / 2;
-}
-class Grid {
-  private cells = new Map<number, Shape[]>();
-  add(s: Shape) {
-    const r = reach(s);
-    for (let c = Math.floor((s.x - r) / CELL); c <= Math.floor((s.x + r) / CELL); c++) {
-      const list = this.cells.get(c);
-      if (list) list.push(s);
-      else this.cells.set(c, [s]);
-    }
-  }
-  // true if any stored shape that could be near `s` overlaps it
-  hits(s: Shape): boolean {
-    const r = reach(s);
-    for (let c = Math.floor((s.x - r) / CELL); c <= Math.floor((s.x + r) / CELL); c++) {
-      const list = this.cells.get(c);
-      if (list && list.some((o) => overlaps(s, o))) return true;
-    }
-    return false;
-  }
-}
-
 function mulberry32(seed: number) {
   let a = seed | 0;
   return () => {
@@ -156,9 +131,9 @@ const WEIGHTS: [Kind, number][] = [
   ["flowers", 0.22],
 ];
 const FLOWERS: FlowerKind[] = ["sunflower", "hibiscus", "marigold"];
-const SLOT = 9; // metres between plant slots along the road
+const SLOT = 9; // metres between plant slots along a road
 const JITTER = 2; // keep well under SLOT/2 so slots stay in order along the road
-const BUILDING_SLOT = 20; // metres between building plots along the road
+const BUILDING_SLOT = 20; // metres between building plots along a road
 const SETBACK = 3.6; // building front behind the verge edge, metres
 const WALL_SETBACK = 1.2; // compound wall behind the verge edge
 
@@ -176,21 +151,42 @@ function pickKind(r: () => number, avoid: Kind | null): Kind {
   return WEIGHTS.find(([k]) => k !== avoid)![0];
 }
 
+export type GrassSpot = { x: number; z: number; seed: number };
+
+// Where grass and bushes grow along every verge: every ~3 m, just beyond its edge.
+function grassSpotsFor(n: Network, seed: number): GrassSpot[] {
+  const r = mulberry32(seed ^ 0x51ed);
+  const out: GrassSpot[] = [];
+  for (const road of builtRoads(n)) {
+    for (const side of [-1, 1] as const) {
+      for (let s = 0; s < road.length; s += 3) {
+        const at = s + r() * 1.8;
+        const lat = road.road.halfWidth + FOOTPATH_WIDTH + VERGE_WIDTH + 0.4 + r() * 0.8;
+        const p = pointAt(road, at);
+        const h = headingAt(road, at);
+        out.push({ x: p.x - Math.sin(h) * side * lat, z: p.z + Math.cos(h) * side * lat, seed: Math.floor(r() * 1e9) });
+      }
+    }
+  }
+  return out;
+}
+
 export function layoutScenery(
   seed: number,
-  stops: Stop[],
+  n: Network,
+  places: Place[],
   features: RoadFeatures,
-  junctions: ResolvedJunction[] = [],
 ): {
   placements: Placement[];
+  grass: GrassSpot[];
   isGroundFree(x: number, z: number, radius: number): boolean;
 } {
   const r = mulberry32(seed);
-  const zones = keepOutZones(stops, features, junctions);
+  const zones = keepOutZones(n, places, features);
   const placements: Placement[] = [];
-  const zoneGrid = new Grid();
+  const zoneGrid = new ShapeGrid();
   zones.forEach((z) => zoneGrid.add(z));
-  const placedGrid = new Grid();
+  const placedGrid = new ShapeGrid();
 
   const accept = (p: Placement): boolean => {
     const s = footprintOf(p);
@@ -200,94 +196,84 @@ export function layoutScenery(
     return true;
   };
 
-  const firstStop = stops[0].position;
-  const lastStop = stops[stops.length - 1].position;
-  const first = firstStop - 30;
-  const last = lastStop + 30;
-  const verge = (x: number) => roadHalfWidthAt(x) + FOOTPATH_WIDTH + VERGE_WIDTH;
-  const nearestStop = (x: number) => Math.min(...stops.map((s) => Math.abs(s.position - x)));
-  const nearestEnd = (x: number) => Math.min(Math.abs(x - firstStop), Math.abs(x - lastStop));
+  const shelterSpots = places.filter((p) => p.shelter).map((p) => placeSpot(n, p));
+  const nearestShelter = (x: number, z: number) => Math.min(...shelterSpots.map((s) => Math.hypot(s.x - x, s.z - z)), 1e9);
 
-  // ---- houses and shops, each in a walled compound with a gate ----
   let compound = 0;
-  for (const side of [-1, 1] as Side[]) {
-    for (let slot = first + (side === 1 ? BUILDING_SLOT / 2 : 0); slot <= last; slot += BUILDING_SLOT) {
-      const x = slot + (r() - 0.5) * 6;
-      // fewer buildings toward the ends of the route
-      const near = nearestStop(x);
-      const buildChance = nearestEnd(x) < 120 ? 0.25 : near <= 60 ? 0.5 : 0.55;
-      if (r() > buildChance) continue;
-      // shops gather around the stops, houses fill in between
-      const d = near;
-      const shopChance = d <= 60 ? 0.85 : d > 120 ? 0.08 : 0.85 - ((d - 60) / 60) * 0.77;
-      const shop = r() < shopChance;
-      const width = shop ? 8 + r() * 2 : 8 + r() * 3;
-      const depth = shop ? 7 + r() * 2 : 6 + r() * 2;
-      const floors = shop ? 2 + Math.floor(r() * 3) : 1;
-      const bseed = Math.floor(r() * 1e9);
-      const jitter = r() * 1.5;
+  for (const road of builtRoads(n)) {
+    const verge = road.road.halfWidth + FOOTPATH_WIDTH + VERGE_WIDTH;
+    const straight = road.segments;
+    // a point `lateral` metres from the road centreline (square to it) and `along` metres on, at distance s
+    const at = (s: number, side: Side, lateral: number, along = 0) => {
+      const p = pointAt(road, s + along);
+      const h = headingAt(road, s);
+      return { x: p.x - Math.sin(h) * side * lateral, z: p.z + Math.cos(h) * side * lateral, h };
+    };
+    const onStraight = (s: number, half: number) => straight.some((g) => s - half >= g.s0 && s + half <= g.s0 + g.len);
 
-      const a = roadAngle(x);
-      const perpX = -Math.sin(a);
-      const perpZ = Math.cos(a);
-      const roadZ = roadCenterZ(x);
-      // a point `lateral` metres from the road centreline, measured square to the road
-      const at = (lateral: number, along = 0) => ({
-        x: x + side * lateral * perpX + along * Math.cos(a),
-        z: roadZ + side * lateral * perpZ + along * Math.sin(a),
-      });
-      const id = compound;
-      const bc = at(verge(x) + SETBACK + jitter + depth / 2);
-      const wallBase = verge(x) + WALL_SETBACK;
-      const wallLen = (width + 4 - GATE_WIDTH) / 2;
-      const offset = GATE_WIDTH / 2 + 0.05 + wallLen / 2; // a 5 cm gap so wall and gate never touch
-      const parts: Placement[] = [
-        { kind: shop ? "shop" : "house", side, x: bc.x, z: bc.z, heading: a, width, depth, floors, seed: bseed, compound: id },
-        { kind: "wall", side, ...at(wallBase, -offset), heading: a, length: wallLen, compound: id },
-        { kind: "wall", side, ...at(wallBase, offset), heading: a, length: wallLen, compound: id },
-        { kind: "gate", side, ...at(wallBase), heading: a, compound: id },
-      ];
-      // the whole compound goes in, or none of it
-      const fits = parts.every((p, i) => {
-        const s = footprintOf(p);
-        return !zoneGrid.hits(s) && !placedGrid.hits(s) && !parts.slice(0, i).some((q) => overlaps(s, footprintOf(q)));
-      });
-      if (!fits) continue;
-      parts.forEach((p) => accept(p));
-      compound += 1;
-    }
-  }
+    // ---- houses and shops, each in a walled compound with a gate (straight stretches only) ----
+    for (const side of [-1, 1] as Side[]) {
+      for (let slot = side === 1 ? BUILDING_SLOT / 2 : 0; slot <= road.length; slot += BUILDING_SLOT) {
+        const s = slot + (r() - 0.5) * 6;
+        const buildChance = 0.55;
+        if (r() > buildChance) continue;
+        const centre = at(s, side, verge + 10);
+        const shopChance = Math.max(0.08, Math.min(0.85, 0.85 - ((nearestShelter(centre.x, centre.z) - 60) / 60) * 0.77));
+        const shop = r() < shopChance;
+        const width = shop ? 8 + r() * 2 : 8 + r() * 3;
+        const depth = shop ? 7 + r() * 2 : 6 + r() * 2;
+        const floors = shop ? 2 + Math.floor(r() * 3) : 1;
+        const bseed = Math.floor(r() * 1e9);
+        const jitter = r() * 1.5;
+        if (!onStraight(s, width / 2 + 3)) continue;
 
-  // ---- trees and flowers fill in around them ----
-  for (const side of [-1, 1] as Side[]) {
-    const recent: Kind[] = [];
-    for (let slot = first; slot <= last; slot += SLOT) {
-      const x = slot + (r() - 0.5) * 2 * JITTER;
-      // never a fourth of the same kind in a row
-      const avoid = recent.length >= 3 && recent.slice(-3).every((k) => k === recent[recent.length - 1]) ? recent[recent.length - 1] : null;
-      const kind = pickKind(r, avoid);
-      const seedN = Math.floor(r() * 1e9);
-      const ahead = r();
-      const at = (lat: number) => ({ side, x, z: roadCenterZ(x) + side * (verge(x) + lat) });
-
-      let ok: boolean;
-      if (kind === "flowers") {
-        ok = accept({
-          kind: "flowers",
-          species: FLOWERS[Math.floor(r() * FLOWERS.length)],
-          count: 6 + Math.floor(r() * 9),
-          seed: seedN,
-          ...at(1.0 + ahead * 0.8),
+        const bc = at(s, side, verge + SETBACK + jitter + depth / 2);
+        const wallBase = verge + WALL_SETBACK;
+        const wallLen = (width + 4 - GATE_WIDTH) / 2;
+        const offset = GATE_WIDTH / 2 + 0.05 + wallLen / 2; // a 5 cm gap so wall and gate never touch
+        const a = bc.h;
+        const parts: Placement[] = [
+          { kind: shop ? "shop" : "house", side, x: bc.x, z: bc.z, heading: a, width, depth, floors, seed: bseed, compound },
+          { kind: "wall", side, ...at(s, side, wallBase, -offset), heading: a, length: wallLen, compound },
+          { kind: "wall", side, ...at(s, side, wallBase, offset), heading: a, length: wallLen, compound },
+          { kind: "gate", side, ...at(s, side, wallBase), heading: a, compound },
+        ];
+        // the whole compound goes in, or none of it
+        const fits = parts.every((p, i) => {
+          const sh = footprintOf(p);
+          return !zoneGrid.hits(sh) && !placedGrid.hits(sh) && !parts.slice(0, i).some((q) => overlaps(sh, footprintOf(q)));
         });
-      } else {
-        ok = accept({ kind, scale: 0.85 + r() * 0.4, lean: (r() - 0.5) * 0.24, seed: seedN, ...at(1.5 + ahead * 6) });
+        if (!fits) continue;
+        parts.forEach((p) => accept(p));
+        compound += 1;
       }
-      if (ok) recent.push(kind);
+    }
+
+    // ---- trees and flowers fill in around them ----
+    for (const side of [-1, 1] as Side[]) {
+      const recent: Kind[] = [];
+      for (let slot = 0; slot <= road.length; slot += SLOT) {
+        const s = slot + (r() - 0.5) * 2 * JITTER;
+        const avoid = recent.length >= 3 && recent.slice(-3).every((k) => k === recent[recent.length - 1]) ? recent[recent.length - 1] : null;
+        const kind = pickKind(r, avoid);
+        const seedN = Math.floor(r() * 1e9);
+        const ahead = r();
+        let ok: boolean;
+        if (kind === "flowers") {
+          const p = at(s, side, verge + 1.0 + ahead * 0.8);
+          ok = accept({ kind: "flowers", species: FLOWERS[Math.floor(r() * FLOWERS.length)], count: 6 + Math.floor(r() * 9), seed: seedN, side, x: p.x, z: p.z, heading: p.h });
+        } else {
+          const p = at(s, side, verge + 1.5 + ahead * 6);
+          ok = accept({ kind, scale: 0.85 + r() * 0.4, lean: (r() - 0.5) * 0.24, seed: seedN, side, x: p.x, z: p.z });
+        }
+        if (ok) recent.push(kind);
+      }
     }
   }
 
   return {
     placements,
+    grass: grassSpotsFor(n, seed),
     isGroundFree: (x, z, radius) => {
       const probe: Shape = { kind: "circle", x, z, r: radius };
       return !placedGrid.hits(probe) && !zoneGrid.hits(probe);

@@ -2,14 +2,10 @@
 
 import { useMemo } from "react";
 import { malayalamFont, useCanvasTexture, type Draw } from "./canvasTex";
-import { ROUTE_V1 } from "./data/route-v1";
-import { roadCenterZ, roadHalfWidthAt } from "./logic/road";
-import { roadFeatures, type Sign, type SignKind } from "./logic/roadside";
+import type { Sign } from "./logic/roadside";
 import { drawStopSign } from "./Stops";
+import { FEATURES } from "./world";
 
-const FEATURES = roadFeatures(ROUTE_V1);
-const LAST = ROUTE_V1[ROUTE_V1.length - 1];
-const FIRST = ROUTE_V1[0];
 const KERB = 0.15;
 const POLE_H = 3.0;
 
@@ -84,23 +80,20 @@ function directionDrawer(ml: string, en: string, km: string): Draw {
 }
 
 function SignBoard({ sign, tex, w, h }: { sign: Sign; tex: ReturnType<typeof useCanvasTexture>; w: number; h: number }) {
-  const lateral = roadHalfWidthAt(sign.x) + 0.9;
-  const z = roadCenterZ(sign.x) + (sign.side === "left" ? -lateral : lateral);
-  // face the traffic that approaches: forward traffic comes from -x, back traffic from +x
-  const rot = sign.side === "left" ? -Math.PI / 2 : Math.PI / 2;
-  const front = sign.side === "left" ? -0.045 : 0.045;
+  // the board faces the traffic it is for: its front looks along `facing`
+  const rot = Math.atan2(Math.cos(sign.facing), Math.sin(sign.facing));
   const y = KERB + POLE_H;
   return (
-    <group position={[sign.x, 0, z]}>
+    <group position={[sign.x, 0, sign.z]} rotation={[0, rot, 0]}>
       <mesh position={[0, KERB + POLE_H / 2, 0]}>
         <boxGeometry args={[0.07, POLE_H, 0.07]} />
         <meshStandardMaterial color="#59595c" />
       </mesh>
       <mesh position={[0, y - h / 2 + 0.2, 0]}>
-        <boxGeometry args={[0.05, h, w]} />
+        <boxGeometry args={[w, h, 0.05]} />
         <meshStandardMaterial color="#8a8a8c" />
       </mesh>
-      <mesh position={[front, y - h / 2 + 0.2, 0]} rotation={[0, rot, 0]}>
+      <mesh position={[0, y - h / 2 + 0.2, 0.045]}>
         <planeGeometry args={[w, h]} />
         <meshBasicMaterial map={tex} transparent alphaTest={0.05} />
       </mesh>
@@ -108,34 +101,25 @@ function SignBoard({ sign, tex, w, h }: { sign: Sign; tex: ReturnType<typeof use
   );
 }
 
+function DirectionBoard({ sign }: { sign: Sign }) {
+  const label = sign.label!;
+  const draw = useMemo(() => directionDrawer(label.ml, label.en, label.km), [label.ml, label.en, label.km]);
+  const tex = useCanvasTexture(512, 256, draw, label.ml);
+  return <SignBoard sign={sign} tex={tex} w={2.2} h={1.1} />;
+}
+
 export function Signs() {
   const speed = useCanvasTexture(128, 128, drawSpeed);
   const crossing = useCanvasTexture(128, 128, drawCrossing);
   const stop = useCanvasTexture(128, 128, drawStopSign);
-  const dirKm = ((LAST.position - 120) / 1000).toFixed(1) + " km";
-  const toLast = useMemo(() => directionDrawer(LAST.ml, LAST.name, dirKm), [dirKm]);
-  const toFirst = useMemo(() => directionDrawer(FIRST.ml, FIRST.name, dirKm), [dirKm]);
-  const dirLeft = useCanvasTexture(512, 256, toLast, LAST.ml);
-  const dirRight = useCanvasTexture(512, 256, toFirst, FIRST.ml);
-
-  const tex = (kind: SignKind, side: Sign["side"]) =>
-    kind === "speed40" ? speed : kind === "crossing" ? crossing : kind === "busStop" ? stop : side === "left" ? dirLeft : dirRight;
 
   return (
     <group>
-      {FEATURES.signs.map((s) => {
-        const wide = s.kind === "direction";
-        return (
-          <SignBoard
-            key={`${s.kind}${s.side}${s.x}`}
-            sign={s}
-            tex={tex(s.kind, s.side)}
-            w={wide ? 2.2 : 0.9}
-            h={wide ? 1.1 : 0.9}
-          />
-        );
+      {FEATURES.signs.map((s, i) => {
+        if (s.kind === "direction") return <DirectionBoard key={i} sign={s} />;
+        const tex = s.kind === "speed40" ? speed : s.kind === "crossing" ? crossing : stop;
+        return <SignBoard key={i} sign={s} tex={tex} w={0.9} h={0.9} />;
       })}
     </group>
   );
 }
-

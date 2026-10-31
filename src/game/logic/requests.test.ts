@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { PLACES, type Place } from "../data/places-v1";
 import { VEHICLES, VEHICLE_KINDS } from "../data/vehicles";
-import { JUNCTIONS } from "../world";
+import { NETWORK } from "../world";
 import { placeSpot } from "./places";
 import { MAX_OPEN, REQUEST_TTL_S, fareFor, nextRequest, speedBonus, spawnDelay, targetTimeS } from "./requests";
 
 const world = {
   places: PLACES,
-  spot: (p: Place) => placeSpot(p, JUNCTIONS),
+  spot: (p: Place) => placeSpot(NETWORK, p),
   distance: (a: Place, b: Place) => {
-    const sa = placeSpot(a, JUNCTIONS);
-    const sb = placeSpot(b, JUNCTIONS);
+    const sa = placeSpot(NETWORK, a);
+    const sb = placeSpot(NETWORK, b);
     return Math.hypot(sa.x - sb.x, sa.z - sb.z);
   },
 };

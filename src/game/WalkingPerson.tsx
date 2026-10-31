@@ -7,7 +7,8 @@ import { busPose } from "./busPose";
 import { reportHit } from "./hit";
 import { busHitsPerson } from "./logic/collision";
 import { pointAlong, type P } from "./logic/path";
-import { groundY } from "./logic/road";
+import { groundY } from "./logic/network";
+import { NETWORK } from "./world";
 import { Person } from "./Person";
 import { useGame } from "./state/store";
 import { specFor } from "./Stops";
@@ -40,7 +41,7 @@ export function WalkingPerson({
     phase.current += dt * 8;
     const p = pointAlong(path, dist.current);
     // step up and down the kerb rather than jumping it
-    y.current += (groundY(p.x, p.z) - y.current) * Math.min(1, dt * 14);
+    y.current += (groundY(NETWORK, p.x, p.z) - y.current) * Math.min(1, dt * 14);
     g.position.set(p.x, y.current, p.z);
     g.rotation.y = p.heading;
 

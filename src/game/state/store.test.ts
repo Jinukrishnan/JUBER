@@ -141,6 +141,33 @@ describe("red-light violations", () => {
   });
 });
 
+describe("wrong turns", () => {
+  it("fine the driver, count it and show a notice", () => {
+    const before = g().net;
+    g().registerWrongTurn();
+    expect(g().net).toBe(before - 100);
+    expect(g().wrongTurns).toBe(1);
+    expect(g().notice?.text).toBe("Turn not allowed here! Fine Rs. 100");
+  });
+  it("start again at zero on a new day", () => {
+    g().registerWrongTurn();
+    g().startDay();
+    expect(g().wrongTurns).toBe(0);
+  });
+});
+
+describe("the depot", () => {
+  it("is on the ring, and every day starts there from any state", () => {
+    const d = depotPose();
+    expect(Math.hypot(d.x - 140, d.z + 3.7)).toBeLessThan(0.5);
+    Object.assign(busPose, { x: 400, z: 250, speed: 9, heading: 1 });
+    g().startDay();
+    expect(busPose.x).toBeCloseTo(d.x, 6);
+    expect(busPose.z).toBeCloseTo(d.z, 6);
+    expect(busPose.speed).toBe(0);
+  });
+});
+
 describe("signal clock", () => {
   it("advances while the day runs and holds while paused", () => {
     g().tick(0.5);

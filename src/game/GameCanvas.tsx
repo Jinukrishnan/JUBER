@@ -5,11 +5,11 @@ import { useEffect } from "react";
 import { Casualties } from "./Casualties";
 import { CameraRig } from "./CameraRig";
 import { Ground } from "./Ground";
-import { Junctions } from "./Junctions";
 import { Pedestrians } from "./Pedestrians";
 import { Places } from "./Places";
 import { Riders } from "./Riders";
 import { Road } from "./Road";
+import { Scenery } from "./Scenery";
 import { SignalHeads } from "./SignalHeads";
 import { Signs } from "./Signs";
 import { Stops } from "./Stops";
@@ -39,7 +39,7 @@ export default function GameCanvas({ vehicle }: { vehicle?: VehicleKind }) {
       <Weather />
       <Ground />
       <Road />
-      <Junctions />
+      <Scenery />
       <SignalHeads />
       <Signs />
       <Stops />

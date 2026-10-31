@@ -21,6 +21,10 @@ describe("describeStep", () => {
   it("says turn now when it is right here", () => {
     expect(describeStep(step("left"), 6, "x")).toBe("Turn left now");
   });
+  it("tells you to go straight through a junction", () => {
+    expect(describeStep(step("straight"), 200, "x")).toBe("Straight on through the junction in 200 m");
+    expect(describeStep(step("straight"), 4, "x")).toBe("Straight on through the junction");
+  });
   it("tells you to make a U-turn", () => {
     expect(describeStep(step("uturn"), 0, "x")).toBe("Make a U-turn");
     expect(describeStep(step("uturn"), 60, "x")).toBe("Make a U-turn in 60 m");
@@ -36,7 +40,7 @@ describe("describeStep", () => {
 
 describe("arrowFor", () => {
   it("has a different arrow for each turn", () => {
-    const arrows = (["left", "right", "uturn", "arrive"] as const).map(arrowFor);
-    expect(new Set(arrows).size).toBe(4);
+    const arrows = (["left", "right", "straight", "uturn", "arrive"] as const).map(arrowFor);
+    expect(new Set(arrows).size).toBe(5);
   });
 });
