@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SPEED_LIMIT_MS, TIP_FIVE, TIP_FOUR, isSpeeding, reviewRide, type RideStats } from "./review";
+import { SPEED_LIMIT_MS, TIP_FIVE, TIP_FOUR, averageStars, isSpeeding, reviewRide, type RideStats } from "./review";
 
 const clean: RideStats = { accidents: 0, redLights: 0, wrongTurns: 0, harsh: 0, speedingS: 0, elapsedS: 60, targetS: 70 };
 const MALAYALAM = /[ഀ-ൿ]/;
@@ -97,5 +97,12 @@ describe("reviewRide", () => {
     const rude = reviewRide({ ...clean, accidents: 2, speedingS: 40 }, 2);
     expect(polite.mood).toBe("happy");
     expect(rude.mood).toBe("furious");
+  });
+});
+
+describe("averageStars", () => {
+  it("averages the customers' stars, and says nothing for an empty day", () => {
+    expect(averageStars([])).toBeNull();
+    expect(averageStars([{ stars: 5 }, { stars: 4 }, { stars: 3 }])).toBe(4);
   });
 });

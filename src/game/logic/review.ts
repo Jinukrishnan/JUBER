@@ -126,3 +126,9 @@ export function reviewRide(s: RideStats, seed: number): Review {
   const line: Line = worst === "good" ? pick(GOOD, seed, 0x11) : stars >= 4 && worst !== "accident" ? pick(MILD[worst], seed, 0x22) : pick(HARSH[worst], seed, 0x33);
   return { stars, tip: stars === 5 ? TIP_FIVE : stars === 4 ? TIP_FOUR : 0, ml: line.ml, en: line.en, chips, worst, mood, pitch: PITCH[mood] };
 }
+
+// The customers' average rating over a day, or null when nobody has been dropped yet.
+export function averageStars(reviews: { stars: number }[]): number | null {
+  if (reviews.length === 0) return null;
+  return reviews.reduce((sum, r) => sum + r.stars, 0) / reviews.length;
+}

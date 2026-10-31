@@ -239,7 +239,7 @@ describe("a ride", () => {
     const before = g().net;
     g().finishAlighting();
     g().finishAlighting();
-    expect(g().net).toBe(before + r.fare);
+    expect(g().net).toBe(before + r.fare + g().lastReview!.review.tip);
     expect(g().ridesDone).toBe(1);
     expect(g().distanceDone).toBe(r.distance);
     expect(g().ride.phase).toBe("online");
@@ -414,7 +414,7 @@ describe("review fixes", () => {
     park(r, "drop");
     const before = g().net;
     g().finishAlighting();
-    expect(g().net - before).toBe(r.fare);
+    expect(g().net - before).toBe(r.fare + g().lastReview!.review.tip);
   });
   it("ignores Enter while paused or after the day has ended", () => {
     const r = first();
@@ -461,5 +461,111 @@ describe("review fixes", () => {
     g().startDay();
     expect(busPose.x).toBeCloseTo(depotPose().x);
     expect(busPose.heading).toBeCloseTo(depotPose().heading);
+  });
+});
+
+describe("the customer's review", () => {
+  const board = () => {
+    const r = first();
+    g().accept(r.id);
+    park(r, "pickup");
+    g().confirmRide();
+    g().finishBoarding();
+    return r;
+  };
+  const finish = (r: Request) => {
+    park(r, "drop");
+    g().finishAlighting();
+  };
+
+  it("is five stars with a tip for a clean ride, and the tip is paid with the fare", () => {
+    const r = board();
+    g().tick(1);
+    park(r, "drop");
+    const before = g().net;
+    g().finishAlighting();
+    const lr = g().lastReview!;
+    expect(lr.review.stars).toBe(5);
+    expect(lr.name).toBe(r.customer);
+    expect(g().reviews).toHaveLength(1);
+    expect(g().net - before).toBeGreaterThanOrEqual(lr.review.tip + 1);
+    expect(lr.review.tip).toBe(20);
+  });
+
+  it("counts an accident during the ride against the stars, and gives no tip", () => {
+    const r = board();
+    g().registerAccident();
+    finish(r);
+    expect(g().lastReview!.review.stars).toBe(3);
+    expect(g().lastReview!.review.tip).toBe(0);
+  });
+
+  it("does not count an accident before the customer is aboard", () => {
+    const r = first();
+    g().accept(r.id);
+    g().registerAccident();
+    park(r, "pickup");
+    g().confirmRide();
+    g().finishBoarding();
+    finish(r);
+    expect(g().lastReview!.review.stars).toBe(5);
+  });
+
+  it("counts red lights, wrong turns and kerb scrapes during the ride", () => {
+    const r = board();
+    g().registerViolation();
+    g().registerWrongTurn();
+    for (let i = 0; i < 3; i++) g().registerHarsh();
+    finish(r);
+    expect(g().lastReview!.review.stars).toBe(2);
+    expect(g().lastReview!.review.chips).toEqual(expect.arrayContaining(["Red light ×1", "Wrong turn ×1"]));
+  });
+
+  it("counts the seconds spent over the limit while riding", () => {
+    const r = board();
+    g().setVehicleState({ x: busPose.x, z: busPose.z, speed: 15 });
+    g().tick(10);
+    g().setVehicleState({ x: busPose.x, z: busPose.z, speed: 5 });
+    g().tick(30);
+    finish(r);
+    expect(g().lastReview!.review.chips.join(" ")).toMatch(/Over the limit 10 s/);
+    expect(g().lastReview!.review.stars).toBe(4);
+  });
+
+  it("does not count speed while going to the customer", () => {
+    const r = first();
+    g().accept(r.id);
+    g().setVehicleState({ x: busPose.x, z: busPose.z, speed: 18 });
+    g().tick(30);
+    park(r, "pickup");
+    g().confirmRide();
+    g().finishBoarding();
+    finish(r);
+    expect(g().lastReview!.review.chips).toEqual([]);
+  });
+
+  it("starts the next ride with a clean sheet", () => {
+    const r = board();
+    g().registerAccident();
+    finish(r);
+    g().dismissReview();
+    expect(g().lastReview).toBeNull();
+    const r2 = g().openRequests[0];
+    g().accept(r2.id);
+    park(r2, "pickup");
+    g().confirmRide();
+    g().finishBoarding();
+    park(r2, "drop");
+    g().finishAlighting();
+    expect(g().reviews).toHaveLength(2);
+    expect(g().lastReview!.review.stars).toBe(5);
+  });
+
+  it("clears with a new day", () => {
+    const r = board();
+    finish(r);
+    g().startDay();
+    expect(g().reviews).toEqual([]);
+    expect(g().lastReview).toBeNull();
   });
 });
