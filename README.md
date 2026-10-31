@@ -27,7 +27,7 @@ Flow: `/` landing -> `/login` driver ticket and vehicle -> `/play` the game
 | Model | Yamaha R15 style, blue and black | Yellow roof, green body, black nose | Swift Dzire style, orange with a red spoiler and a yellow bolt |
 | Passengers | 1 | up to 2 | up to 3 |
 | Top speed | 22 m/s, nimble | 14 m/s, slow and wide | 18 m/s |
-| Rent / daily goal | Rs. 100 / 500 | Rs. 200 / 700 | Rs. 300 / 1000 |
+| Rent / daily goal | Rs. 100 / 600 | Rs. 200 / 850 | Rs. 300 / 1300 |
 
 The pictures on the driver ticket are cartoon vector drawings (`src/ui/VehicleArt.tsx`); `docs/design/vehicle-cartoon-concept.html` shows all three from the side, front and back.
 
