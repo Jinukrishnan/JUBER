@@ -67,7 +67,8 @@ export function Traffic() {
   }, [dayId]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   // which vehicles are close enough to have a model, refreshed a few times a second
-  const [nearIds, setNearIds] = useState<number[]>([]);
+  const [near, setNear] = useState<{ of: Agent[]; ids: number[] }>({ of: agents, ids: [] });
+  const nearIds = near.of === agents ? near.ids : [];
   const lastNear = useRef(0);
 
   // the radar shows the same vehicles
@@ -93,7 +94,7 @@ export function Traffic() {
     if (now - lastNear.current > NEAR_EVERY_MS) {
       lastNear.current = now;
       const ids = agents.filter((a) => inRange(NETWORK, a, busPose.x, busPose.z, DRAW_RANGE)).map((a) => a.id);
-      setNearIds((cur) => (cur.length === ids.length && cur.every((v, i) => v === ids[i]) ? cur : ids));
+      setNear((cur) => (cur.of === agents && cur.ids.length === ids.length && cur.ids.every((v, i) => v === ids[i]) ? cur : { of: agents, ids }));
     }
     if (game.phase !== "running") return;
     const dt = Math.min(rawDt, 0.05);

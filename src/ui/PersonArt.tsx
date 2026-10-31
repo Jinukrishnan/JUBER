@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 
 // Flat cartoon people, in the same bold style as the vehicles: thick dark outlines, flat
 // colours, a little highlight. Each outfit the game dresses a person in has a drawing,
-// seen from the front or the back. docs/design/people-cartoon-concept.html shows them all.
+// seen from the front or the back (the formal suit is drawn as the formal man). docs/design/people-cartoon-concept.html shows them all.
 export type PersonOutfit =
   | "sari"
   | "churidhar"

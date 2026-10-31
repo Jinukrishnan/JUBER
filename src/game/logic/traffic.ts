@@ -53,7 +53,7 @@ export type Agent = {
 };
 
 // A turn through a junction box: a quadratic curve from the approach lane to the exit lane.
-export type TurnArc = { x0: number; z0: number; cx: number; cz: number; x1: number; z1: number; us: number[] }; // us: the curve parameter at equal steps of distance
+export type TurnArc = { x0: number; z0: number; cx: number; cz: number; x1: number; z1: number; us: number[]; len: number }; // us: the curve parameter at equal steps of distance; len: its length
 
 function mulberry32(seed: number) {
   let a = seed | 0;
@@ -155,7 +155,7 @@ export function createTraffic(n: Network, seed: number, avoid: { x: number; z: n
 }
 
 // Evenly spaced steps of distance along the curve, so a vehicle moves along it at its own speed.
-function arcWithTable(a: Omit<TurnArc, "us">): TurnArc {
+function arcWithTable(a: Omit<TurnArc, "us" | "len">): TurnArc {
   const N = 48;
   const pts: { x: number; z: number }[] = [];
   for (let i = 0; i <= N; i++) {
@@ -174,7 +174,7 @@ function arcWithTable(a: Omit<TurnArc, "us">): TurnArc {
     const span = cum[k + 1] - cum[k] || 1;
     us.push((k + (target - cum[k]) / span) / N);
   }
-  return { ...a, us };
+  return { ...a, us, len: cum[N] };
 }
 
 // ---- driving ----
@@ -402,10 +402,17 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
           blocked = exitRoom(ctx, agents, a, nj, player) < JUNCTION_BOX_HALF + 2 * half + 1;
           for (const b of agents) {
             if (b === a || !b.next || b.next.junction !== nj.id || b.next.exitRoad !== a.next.exitRoad || b.next.exitDir !== a.next.exitDir) continue;
-            // already in the junction heading for the same exit, or nearer to it (the lower id goes first when level)
+            // already in the junction heading for the same exit, or nearer to it (the lower id goes first when level).
+            // One waiting at a red light is not going anywhere yet, so it does not hold up one that has green.
+            if (b.box) {
+              blocked = true;
+              continue;
+            }
+            if (b.waiting) continue;
             const bj = toJunction.get(b);
-            const nearer = bj && bj.id === nj.id && bj.d < 70 && (bj.d < nj.d - 0.01 || (Math.abs(bj.d - nj.d) <= 0.01 && b.id < a.id));
-            if (b.box || nearer) blocked = true;
+            const bFront = bj ? bj.d - KINDS[b.kind].length / 2 : Infinity;
+            const aFront = nj.d - half;
+            if (bj && bj.id === nj.id && bj.d < 70 && (bFront < aFront - 0.01 || (Math.abs(bFront - aFront) <= 0.01 && b.id < a.id))) blocked = true;
           }
         }
         if (blocked) {
@@ -437,8 +444,17 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
     a.waiting = atRed && a.speed < 0.3 && stopFree < 3;
 
     // drive on, through the junction if the move crosses its centre
-    const move = a.speed * dt;
-    a.travelled += move;
+    // on a turning arc the 16 m of road coordinate stand for the arc's real length, so the vehicle
+    // moves along it at its own speed: advance the road coordinate by that much more or less
+    const driven = a.speed * dt;
+    let move = driven;
+    if (a.arc && a.boxD !== null) {
+      const k = (2 * JUNCTION_BOX_HALF) / a.arc.len;
+      move = driven * k;
+      // the part of this step beyond the end of the arc is ordinary road again
+      if (a.boxD + move > 2 * JUNCTION_BOX_HALF) move = 2 * JUNCTION_BOX_HALF - a.boxD + (a.boxD + move - 2 * JUNCTION_BOX_HALF) / k;
+    }
+    a.travelled += driven;
     if (a.boxD !== null) {
       a.boxD += move;
     } else if (nj && a.next && a.next.junction === nj.id && a.next.turn !== "straight" && nj.d - move <= JUNCTION_BOX_HALF) {
@@ -448,8 +464,9 @@ export function stepTraffic(n: Network, agents: Agent[], dt: number, t: number, 
       const d0 = { x: Math.cos(p0.heading), z: Math.sin(p0.heading) };
       const d1 = { x: Math.cos(p1.heading), z: Math.sin(p1.heading) };
       const det = d0.x * d1.z - d0.z * d1.x;
-      if (Math.abs(det) > 1e-6) {
-        const r = ((p1.x - p0.x) * d1.z - (p1.z - p0.z) * d1.x) / det;
+      const r = Math.abs(det) > 1e-6 ? ((p1.x - p0.x) * d1.z - (p1.z - p0.z) * d1.x) / det : NaN;
+      // a corner has its control point ahead of the entry and within the box; anything else is not a turn
+      if (r >= 0 && r <= 2 * JUNCTION_BOX_HALF) {
         a.arc = arcWithTable({ x0: p0.x, z0: p0.z, cx: p0.x + r * d0.x, cz: p0.z + r * d0.z, x1: p1.x, z1: p1.z });
         a.boxD = Math.max(0, JUNCTION_BOX_HALF - (nj.d - move));
       }
