@@ -12,6 +12,7 @@ import { Minimap } from "./Minimap";
 import { NextSignal } from "./NextSignal";
 import { RequestBoard } from "./RequestBoard";
 import { RideStrip } from "./RideStrip";
+import { ReviewCard } from "./ReviewCard";
 
 const NOTICE_MS = 4000;
 
@@ -110,6 +111,7 @@ export function Hud() {
       <RequestBoard />
       <RideStrip />
       <ConversationCard />
+      <ReviewCard />
     </div>
   );
 }

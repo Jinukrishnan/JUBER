@@ -3,7 +3,8 @@ import { ACCIDENT_FINE, PICKUP_PATIENCE_S, SIGNAL_FINE } from "../constants";
 import { busPose } from "../busPose";
 import { VEHICLES, type VehicleKind } from "../data/vehicles";
 import { advanceClock } from "../logic/clock";
-import { MAX_OPEN, nextRequest, spawnDelay, type Request } from "../logic/requests";
+import { MAX_OPEN, nextRequest, spawnDelay, targetTimeS, type Request } from "../logic/requests";
+import { isSpeeding, reviewRide, type Review } from "../logic/review";
 import {
   IDLE_RIDE,
   acceptRequest,
@@ -36,6 +37,14 @@ type NewCasualty = Omit<Casualty, "id" | "at">;
 const CASUALTY_LIMIT = 8;
 const START_REQUESTS = 2;
 
+// What happened during the ride in progress, for the customer's review.
+export type RideCounts = { accidents: number; redLights: number; wrongTurns: number; harsh: number; speedingS: number };
+const NO_COUNTS: RideCounts = { accidents: 0, redLights: 0, wrongTurns: 0, harsh: 0, speedingS: 0 };
+export type LastReview = { id: number; name: string; group: number; review: Review };
+
+// the vehicle's speed, kept out of the state so it does not wake every subscriber each frame
+let vehicleSpeed = 0;
+
 type Phase = "idle" | "running" | "paused" | "ended";
 
 export type GameState = {
@@ -63,6 +72,10 @@ export type GameState = {
   distanceDone: number;
   expiredPickups: number;
   harshEvents: number;
+  rideStats: RideCounts;
+  reviews: Review[];
+  lastReview: LastReview | null;
+  reviewSeq: number;
   pickupLeft: number; // seconds the accepted customer will still wait
   rideElapsed: number; // seconds the customer has been in the vehicle (kept out of `ride` so that object does not change every frame)
   route: Route | null; // the way to the pickup, then to the drop
@@ -93,9 +106,16 @@ type Actions = {
   clearCasualty: (id: number) => void;
   registerHarsh: () => void;
   endDay: () => void;
+  dismissReview: () => void;
 };
 
 const SEED = 20261030;
+
+// events only count against the review while the customer is aboard
+const aboard = (s: GameState) => s.ride.phase === "boarding" || s.ride.phase === "riding" || s.ride.phase === "alighting";
+const bump = (s: GameState, key: Exclude<keyof RideCounts, "speedingS">): Partial<GameState> =>
+  aboard(s) ? { rideStats: { ...s.rideStats, [key]: s.rideStats[key] + 1 } } : {};
+const seedOf = (id: string) => [...id].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7);
 
 function initialState(vehicle: VehicleKind): GameState {
   const spec = VEHICLES[vehicle];
@@ -132,6 +152,10 @@ function initialState(vehicle: VehicleKind): GameState {
     distanceDone: 0,
     expiredPickups: 0,
     harshEvents: 0,
+    rideStats: NO_COUNTS,
+    reviews: [],
+    lastReview: null,
+    reviewSeq: 0,
     pickupLeft: 0,
     rideElapsed: 0,
     route: null,
@@ -168,6 +192,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
     set((s) => {
       // a new day starts at the depot, so requests are chosen from there
       resetBusPose();
+      vehicleSpeed = 0;
       return { ...initialState(vehicle ?? s.vehicle), phase: "running", dayId: s.dayId + 1, muted: s.muted, headlights: s.headlights };
     }),
   pause: () => set((s) => (s.phase === "running" ? { phase: "paused" } : {})),
@@ -180,18 +205,21 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
     set((s) => ({
       net: s.net - ACCIDENT_FINE,
       accidents: s.accidents + 1,
+      ...bump(s, "accidents"),
       ...notice(s, `Accident! Fine Rs. ${ACCIDENT_FINE}`),
     })),
   registerViolation: () =>
     set((s) => ({
       net: s.net - SIGNAL_FINE,
       violations: s.violations + 1,
+      ...bump(s, "redLights"),
       ...notice(s, `Jumped a red signal! Fine Rs. ${SIGNAL_FINE}`),
     })),
   registerWrongTurn: () =>
     set((s) => ({
       net: s.net - SIGNAL_FINE,
       wrongTurns: s.wrongTurns + 1,
+      ...bump(s, "wrongTurns"),
       ...notice(s, `Turn not allowed here! Fine Rs. ${SIGNAL_FINE}`),
     })),
   injure: (c) => {
@@ -211,11 +239,13 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
     });
   },
   clearCasualty: (id) => set((s) => ({ casualties: s.casualties.filter((c) => c.id !== id) })),
-  registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1 })),
+  registerHarsh: () => set((s) => ({ harshEvents: s.harshEvents + 1, ...bump(s, "harsh") })),
+  dismissReview: () => set({ lastReview: null }),
 
   // Called every frame with where the vehicle is: arriving and stopping at the
   // pickup or the drop moves the ride on.
-  setVehicleState: (pose) =>
+  setVehicleState: (pose) => {
+    vehicleSpeed = pose.speed;
     set((s) => {
       if (s.phase !== "running" || !s.ride.request) return {};
       if (s.ride.phase === "toPickup" && inZone(pose, spotOf(s.ride.request.pickup))) {
@@ -231,7 +261,8 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
         return { route: planRoute(GRAPH, { x: pose.x, z: pose.z, heading }, to) };
       }
       return {};
-    }),
+    });
+  },
 
   accept: (id) =>
     set((s) => {
@@ -245,7 +276,7 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
       };
     }),
   skip: (id) => set((s) => (s.phase === "running" && s.ride.phase === "online" ? { openRequests: s.openRequests.filter((r) => r.id !== id) } : {})),
-  confirmRide: () => set((s) => (s.phase === "running" ? { ride: acceptRide(s.ride) } : {})),
+  confirmRide: () => set((s) => (s.phase === "running" ? { ride: acceptRide(s.ride), rideStats: NO_COUNTS } : {})),
   finishBoarding: () =>
     set((s) => {
       const ride = boarded(s.ride);
@@ -256,11 +287,17 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
     set((s) => {
       const done = payRide(s.ride);
       if (done.paid === 0 || !s.ride.request) return {};
+      // the customer says what they thought of the ride, and tips for a good one
+      const review = reviewRide({ ...s.rideStats, elapsedS: s.rideElapsed, targetS: targetTimeS(s.ride.request.distance) }, seedOf(s.ride.request.id));
       return {
         ride: done.ride,
         route: null,
         ...freshRequests(s),
-        net: s.net + done.paid,
+        net: s.net + done.paid + review.tip,
+        reviews: [...s.reviews, review],
+        lastReview: { id: s.reviewSeq + 1, name: s.ride.request.customer, group: s.ride.request.group, review },
+        reviewSeq: s.reviewSeq + 1,
+        rideStats: NO_COUNTS,
         ridesDone: s.ridesDone + 1,
         distanceDone: s.distanceDone + s.ride.request.distance,
       };
@@ -279,7 +316,10 @@ export const useGame = create<GameState & Actions>()((set, get) => ({
 
     let ride = s.ride;
     // ride time is counted apart from `ride` so that object only changes when the ride moves on
-    if (ride.phase === "riding") patch.rideElapsed = s.rideElapsed + dt;
+    if (ride.phase === "riding") {
+      patch.rideElapsed = s.rideElapsed + dt;
+      if (isSpeeding(vehicleSpeed)) patch.rideStats = { ...s.rideStats, speedingS: s.rideStats.speedingS + dt };
+    }
 
     if (ride.phase === "online") {
       // requests age, and a new one turns up every so often

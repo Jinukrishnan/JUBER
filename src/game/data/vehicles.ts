@@ -15,6 +15,7 @@ export type Vehicle = {
   maxLateralAccel: number; // m/s^2 of sideways pull before it slides: bikes lean, autos tip
   riderSeats: [number, number, number][]; // where each passenger sits: forward, seat height, right
   eye: [number, number, number]; // driver's eye: forward, up, right of the vehicle's centre
+  headRoom: number; // how high a seated head may reach: just under the roof (no limit on a bike)
   baseFare: number; // Rs
   farePer100m: number; // Rs per 100 m of route
   rent: number; // Rs taken at the start of the day
@@ -35,6 +36,7 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     maxLateralAccel: 6,
     riderSeats: [[-0.6, 1.03, 0]],
     eye: [0.2, 1.45, 0],
+    headRoom: 9,
     baseFare: 33,
     farePer100m: 12,
     rent: 100,
@@ -56,6 +58,7 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
       [-0.7, 0.78, -0.28],
     ],
     eye: [0.5, 1.4, 0.3],
+    headRoom: 1.72,
     baseFare: 72,
     farePer100m: 34,
     rent: 200,
@@ -78,10 +81,11 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
       [-0.75, 0.97, -0.45],
     ],
     eye: [0.35, 1.25, 0.4],
+    headRoom: 1.42,
     baseFare: 74,
     farePer100m: 37,
     rent: 300,
-    goal: 900,
+    goal: 1000,
   },
 };
 

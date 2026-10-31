@@ -27,6 +27,6 @@ describe("VehiclePicker", () => {
   it("shows the daily goal for each vehicle", () => {
     render(<VehiclePicker value="auto" onChange={vi.fn()} />);
     expect(screen.getByText(/goal Rs\. 500/i)).toBeInTheDocument();
-    expect(screen.getByText(/goal Rs\. 900/i)).toBeInTheDocument();
+    expect(screen.getByText(/goal Rs. 1000/i)).toBeInTheDocument();
   });
 });

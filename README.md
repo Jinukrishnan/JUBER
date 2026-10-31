@@ -27,7 +27,7 @@ Flow: `/` landing -> `/login` driver ticket and vehicle -> `/play` the game
 | Model | Yamaha R15 style, blue and black | Yellow roof, green body, black nose | Swift Dzire style, orange with a red spoiler and a yellow bolt |
 | Passengers | 1 | up to 2 | up to 3 |
 | Top speed | 22 m/s, nimble | 14 m/s, slow and wide | 18 m/s |
-| Rent / daily goal | Rs. 100 / 500 | Rs. 200 / 700 | Rs. 300 / 900 |
+| Rent / daily goal | Rs. 100 / 500 | Rs. 200 / 700 | Rs. 300 / 1000 |
 
 The pictures on the driver ticket are cartoon vector drawings (`src/ui/VehicleArt.tsx`); `docs/design/vehicle-cartoon-concept.html` shows all three from the side, front and back.
 
@@ -70,6 +70,12 @@ asks for a group bigger than your vehicle holds. All the numbers live in `src/ga
 Fares are a base plus a rate per 100 m of road, by vehicle. Rating starts at 5 stars: 1 off per
 accident, half a star per red light, half a star per turn that is not allowed, a quarter per customer who gave up (at most 1) and a little per
 scrape against the kerb.
+
+## Customer reviews
+
+When a customer gets out they review the ride: 1 to 5 stars, a line in Malayalam (with the English, spoken aloud when your device has a Malayalam voice) and chips for what went wrong. A polite ride by the rules is 5 stars with warm thanks and a tip. An accident costs 2 stars, each red light or wrong turn 1, speeding over 40 km/h (the limit on the signs) up to 2 depending on how long, three or more kerb scrapes 1, and a ride much slower than it should be 1. The worse the ride, the angrier the customer, with a different rant for the worst problem. Five stars add a Rs. 20 tip and four stars Rs. 10. Speeding only changes the stars; it is never fined. The day summary shows your average customer rating.
+
+The rules are in `src/game/logic/review.ts` (pure, tested), the card in `src/ui/ReviewCard.tsx`. The Malayalam wording is invented everyday speech; please have a native speaker check it.
 
 ## Sound, lights and accidents
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { VEHICLES } from "@/game/data/vehicles";
 import { computeRating } from "@/game/logic/rating";
+import { averageStars } from "@/game/logic/review";
 import { useGame } from "@/game/state/store";
 import { loadProfile, recordDay, saveProfile } from "@/lib/profile";
 
@@ -19,6 +20,7 @@ export function DaySummary() {
   const accidents = useGame((s) => s.accidents);
   const violations = useGame((s) => s.violations);
   const wrongTurns = useGame((s) => s.wrongTurns);
+  const reviews = useGame((s) => s.reviews);
   const saved = useRef<number | null>(null);
 
   const rating = computeRating({ expiredPickups, harshEvents, accidents, violations, wrongTurns });
@@ -37,6 +39,7 @@ export function DaySummary() {
   const best = Math.max(loadProfile()?.bestNet ?? 0, net);
 
   const hit = net >= goal;
+  const customers = averageStars(reviews);
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 p-4">
       <div className="w-[min(480px,100%)] rounded-2xl border border-line bg-cream p-6 shadow-xl">
@@ -52,6 +55,8 @@ export function DaySummary() {
           <dd className="text-right tabular-nums">{distanceDone} m</dd>
           <dt className="opacity-70">Rating</dt>
           <dd className="text-right tabular-nums">{rating.toFixed(1)} / 5</dd>
+          <dt className="opacity-70">Customers&apos; rating</dt>
+          <dd className="text-right tabular-nums">{customers === null ? "no rides yet" : `${customers.toFixed(1)} ★ (${reviews.length})`}</dd>
           <dt className="opacity-70">Best day</dt>
           <dd className="text-right tabular-nums">Rs. {best}</dd>
         </dl>

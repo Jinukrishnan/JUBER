@@ -6,6 +6,7 @@ import type { Group } from "three";
 import { busLocalToWorld, busPose } from "./busPose";
 import { VEHICLES } from "./data/vehicles";
 import { customerSpot } from "./logic/places";
+import { squashFor } from "./logic/seating";
 import { KERB_HEIGHT } from "./logic/network";
 import type { Request } from "./logic/requests";
 import { Person } from "./Person";
@@ -26,6 +27,7 @@ function Rider({ request, k, mode, clock }: { request: Request; k: number; mode:
   const phase = useRef(0);
   const kind = useGame((s) => s.vehicle);
   const seat = VEHICLES[kind].riderSeats[k];
+  const spec = specFor(`${request.id}-${k}`);
 
   useFrame((_, rawDt) => {
     const g = group.current;
@@ -49,6 +51,8 @@ function Rider({ request, k, mode, clock }: { request: Request; k: number; mode:
     // step up into the vehicle over the last part of the walk
     const lift = Math.min(1, Math.max(0, (u - 0.6) / 0.4));
     g.position.y = footY + (seatY - footY) * lift;
+    // seated, they are shorter: heads stay under the roof
+    g.scale.y = 1 + (squashFor(seatY, spec.scale, VEHICLES[kind].headRoom) - 1) * lift;
     if (u >= 1) g.rotation.y = Math.PI / 2 - busPose.heading;
     else {
       const dx = s.x - c.x;
@@ -60,7 +64,7 @@ function Rider({ request, k, mode, clock }: { request: Request; k: number; mode:
 
   return (
     <group ref={group}>
-      <Person spec={specFor(`${request.id}-${k}`)} phase={phase} />
+      <Person spec={spec} phase={phase} />
     </group>
   );
 }
