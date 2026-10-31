@@ -24,6 +24,11 @@ function check(n: Network, layout: ReturnType<typeof layoutScenery>, features: R
 describe("no plant stands on the road", () => {
   const layout = buildScenery();
 
+  it("has every kind of placement to test: village, city and landmarks", () => {
+    const kinds = new Set(layout.placements.map((p) => p.kind));
+    for (const k of ["house", "shop", "wall", "gate", "city", "landmark", "flowers", "coconut"]) expect(kinds.has(k as never), k).toBe(true);
+  });
+
   it("has a grass layer and trees to test", () => {
     expect(layout.grass.length).toBeGreaterThan(1000);
     expect(layout.placements.filter((p) => TREES.includes(p.kind)).length).toBeGreaterThan(200);
@@ -74,7 +79,7 @@ describe("no plant stands on the road", () => {
           pts.push([f.x + u * Math.cos(f.heading) - v * Math.sin(f.heading), f.z + u * Math.sin(f.heading) + v * Math.cos(f.heading)]);
         }
       }
-      for (const [x, z] of pts) if (drivable(NETWORK, x, z)) offenders.push(`${p.kind} at ${x.toFixed(1)},${z.toFixed(1)}`);
+      for (const [x, z] of pts) if (drivable(NETWORK, x, z) || groundY(NETWORK, x, z) !== 0) offenders.push(`${p.kind} at ${x.toFixed(1)},${z.toFixed(1)}`);
     }
     expect(offenders.slice(0, 10)).toEqual([]);
   });

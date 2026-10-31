@@ -1,6 +1,11 @@
 import type { Network } from "../data/network-v1";
 import type { Place } from "../data/places-v1";
+import type { BuildingTypeId } from "../data/buildings-v1";
+import type { Zone, ZoneKind } from "../data/zones-v1";
+import { pickCityBuilding } from "./catalogue";
 import { ShapeGrid, keepOutZones, overlaps, type Shape } from "./footprint";
+import { landmarkPlacements, type Landmark, type LandmarkPlacement } from "./landmarks";
+import { zoneAt } from "./zones";
 import { FOOTPATH_WIDTH, VERGE_WIDTH, builtRoads, headingAt, pointAt } from "./network";
 import { placeSpot } from "./places";
 import type { RoadFeatures } from "./roadside";
@@ -64,7 +69,22 @@ export type GatePlacement = {
   heading: number;
   compound: number;
 };
-export type Placement = TreePlacement | FlowerPlacement | BuildingPlacement | WallPlacement | GatePlacement;
+// A tech-city building from the catalogue: no compound, a plain width x depth box facing the road.
+export type CityPlacement = {
+  kind: "city";
+  type: BuildingTypeId;
+  side: Side;
+  x: number;
+  z: number;
+  heading: number;
+  width: number;
+  depth: number;
+  floors: number;
+  color: string;
+  seed: number;
+};
+export type { LandmarkPlacement } from "./landmarks";
+export type Placement = TreePlacement | FlowerPlacement | BuildingPlacement | WallPlacement | GatePlacement | CityPlacement | LandmarkPlacement;
 
 // crown radius at scale 1, metres
 export const TREE_RADIUS: Record<TreeKind, number> = {
@@ -102,6 +122,9 @@ export function footprintOf(p: Placement): Shape {
         heading: p.heading,
       };
     }
+    case "city":
+    case "landmark":
+      return { kind: "rect", x: p.x, z: p.z, w: p.width, d: p.depth, heading: p.heading };
     case "wall":
       return { kind: "rect", x: p.x, z: p.z, w: p.length, d: WALL_THICKNESS, heading: p.heading };
     case "gate":
@@ -136,6 +159,11 @@ const JITTER = 2; // keep well under SLOT/2 so slots stay in order along the roa
 const BUILDING_SLOT = 20; // metres between building plots along a road
 const SETBACK = 3.6; // building front behind the verge edge, metres
 const WALL_SETBACK = 1.2; // compound wall behind the verge edge
+const CITY_SLOT = 30; // metres between city building plots along a road
+const CITY_SETBACK = 4; // city building front behind the verge edge
+const CITY_CHANCE = 0.8;
+const CITY_SECOND_ROW_CHANCE = 0.5;
+const SECOND_ROW_GAP = 8;
 
 function pickKind(r: () => number, avoid: Kind | null): Kind {
   for (let tries = 0; tries < 8; tries++) {
@@ -154,7 +182,7 @@ function pickKind(r: () => number, avoid: Kind | null): Kind {
 export type GrassSpot = { x: number; z: number; seed: number };
 
 // Where grass and bushes grow along every verge: every ~3 m, just beyond its edge.
-function grassSpotsFor(n: Network, seed: number): GrassSpot[] {
+function grassSpotsFor(n: Network, seed: number, keep: (x: number, z: number) => boolean): GrassSpot[] {
   const r = mulberry32(seed ^ 0x51ed);
   const out: GrassSpot[] = [];
   for (const road of builtRoads(n)) {
@@ -164,7 +192,9 @@ function grassSpotsFor(n: Network, seed: number): GrassSpot[] {
         const lat = road.road.halfWidth + FOOTPATH_WIDTH + VERGE_WIDTH + 0.4 + r() * 0.8;
         const p = pointAt(road, at);
         const h = headingAt(road, at);
-        out.push({ x: p.x - Math.sin(h) * side * lat, z: p.z + Math.cos(h) * side * lat, seed: Math.floor(r() * 1e9) });
+        const gx = p.x - Math.sin(h) * side * lat;
+        const gz = p.z + Math.cos(h) * side * lat;
+        if (keep(gx, gz)) out.push({ x: gx, z: gz, seed: Math.floor(r() * 1e9) });
       }
     }
   }
@@ -176,6 +206,7 @@ export function layoutScenery(
   n: Network,
   places: Place[],
   features: RoadFeatures,
+  options?: { zones?: Zone[]; landmarks?: Landmark[] },
 ): {
   placements: Placement[];
   grass: GrassSpot[];
@@ -188,13 +219,23 @@ export function layoutScenery(
   zones.forEach((z) => zoneGrid.add(z));
   const placedGrid = new ShapeGrid();
 
+  // without zones everything is village, as before; with them nothing goes in the lake or the countryside
+  const zoneOf = (x: number, z: number): ZoneKind => (options?.zones ? zoneAt(options.zones, x, z).kind : "village");
+  const zoneOk = (p: Placement) => {
+    const k = zoneOf(p.x, p.z);
+    return k !== "lake" && k !== "hills";
+  };
   const accept = (p: Placement): boolean => {
     const s = footprintOf(p);
-    if (zoneGrid.hits(s) || placedGrid.hits(s)) return false;
+    if (!zoneOk(p) || zoneGrid.hits(s) || placedGrid.hits(s)) return false;
     placements.push(p);
     placedGrid.add(s);
     return true;
   };
+
+  if (options?.landmarks) {
+    for (const lm of landmarkPlacements(n, places, zones, options.landmarks).placements) accept(lm);
+  }
 
   const shelterSpots = places.filter((p) => p.shelter).map((p) => placeSpot(n, p));
   const nearestShelter = (x: number, z: number) => Math.min(...shelterSpots.map((s) => Math.hypot(s.x - x, s.z - z)), 1e9);
@@ -218,6 +259,7 @@ export function layoutScenery(
         const buildChance = 0.55;
         if (r() > buildChance) continue;
         const centre = at(s, side, verge + 10);
+        if (zoneOf(centre.x, centre.z) !== "village") continue;
         const shopChance = Math.max(0.08, Math.min(0.85, 0.85 - ((nearestShelter(centre.x, centre.z) - 60) / 60) * 0.77));
         const shop = r() < shopChance;
         const width = shop ? 8 + r() * 2 : 8 + r() * 3;
@@ -241,11 +283,34 @@ export function layoutScenery(
         // the whole compound goes in, or none of it
         const fits = parts.every((p, i) => {
           const sh = footprintOf(p);
-          return !zoneGrid.hits(sh) && !placedGrid.hits(sh) && !parts.slice(0, i).some((q) => overlaps(sh, footprintOf(q)));
+          return zoneOk(p) && !zoneGrid.hits(sh) && !placedGrid.hits(sh) && !parts.slice(0, i).some((q) => overlaps(sh, footprintOf(q)));
         });
         if (!fits) continue;
         parts.forEach((p) => accept(p));
         compound += 1;
+      }
+    }
+
+    // ---- the tech city: catalogue buildings in one or two rows, no compounds ----
+    if (options?.zones) {
+      for (const side of [-1, 1] as Side[]) {
+        for (let slot = side === 1 ? CITY_SLOT / 2 : 0; slot <= road.length; slot += CITY_SLOT) {
+          const s = slot + (r() - 0.5) * 6;
+          if (r() > CITY_CHANCE) continue;
+          const probe = at(s, side, verge + 20);
+          if (zoneOf(probe.x, probe.z) !== "city") continue;
+          const pick = pickCityBuilding(r, probe.x, probe.z);
+          if (!onStraight(s, pick.width / 2 + 3)) continue;
+          const row = (lateral: number, b: typeof pick) => {
+            const c = at(s, side, lateral);
+            return accept({ kind: "city", type: b.type, side, x: c.x, z: c.z, heading: c.h, width: b.width, depth: b.depth, floors: b.floors, color: b.color, seed: Math.floor(r() * 1e9) });
+          };
+          const first = row(verge + CITY_SETBACK + pick.depth / 2, pick);
+          if (first && r() < CITY_SECOND_ROW_CHANCE) {
+            const back = pickCityBuilding(r, probe.x, probe.z);
+            row(verge + CITY_SETBACK + pick.depth + SECOND_ROW_GAP + back.depth / 2, back);
+          }
+        }
       }
     }
 
@@ -255,7 +320,14 @@ export function layoutScenery(
       for (let slot = 0; slot <= road.length; slot += SLOT) {
         const s = slot + (r() - 0.5) * 2 * JITTER;
         const avoid = recent.length >= 3 && recent.slice(-3).every((k) => k === recent[recent.length - 1]) ? recent[recent.length - 1] : null;
-        const kind = pickKind(r, avoid);
+        let kind = pickKind(r, avoid);
+        const spot = at(s, side, verge + 3);
+        const here = zoneOf(spot.x, spot.z);
+        if (here === "city") {
+          // street trees only, every second slot
+          if (Math.round(slot / SLOT) % 2 !== 0) continue;
+          kind = r() < 0.6 ? "coconut" : "gulmohar";
+        }
         const seedN = Math.floor(r() * 1e9);
         const ahead = r();
         let ok: boolean;
@@ -273,7 +345,10 @@ export function layoutScenery(
 
   return {
     placements,
-    grass: grassSpotsFor(n, seed),
+    grass: grassSpotsFor(n, seed, (x, z) => {
+      const k = zoneOf(x, z);
+      return k === "village" || k === "park" || k === "dam";
+    }),
     isGroundFree: (x, z, radius) => {
       const probe: Shape = { kind: "circle", x, z, r: radius };
       return !placedGrid.hits(probe) && !zoneGrid.hits(probe);

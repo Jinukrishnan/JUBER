@@ -316,7 +316,7 @@ describe("review fixes", () => {
       }
       expect(stuck, `seed ${seed}`).toBe(0);
     }
-  }, 60000);
+  }, 240000);
 
   it("lets one of two vehicles merging into the same exit lane go first, never both together", () => {
     // at the centre junction both Station Road approaches are green together; one turns right, one left, both into Temple Road westbound

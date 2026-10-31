@@ -4,6 +4,8 @@ import { validateNetwork } from "./logic/network";
 import { usablePlaces } from "./logic/places";
 import { layoutScenery } from "./logic/layout";
 import { roadFeatures } from "./logic/roadside";
+import { LANDMARKS } from "./data/landmarks-v1";
+import { ZONES } from "./data/zones-v1";
 
 
 
@@ -28,5 +30,5 @@ export const SCENERY_SEED = 20261030;
 
 // The roadside layout the scene draws, built against the validated network.
 export function buildScenery() {
-  return layoutScenery(SCENERY_SEED, NETWORK, ACTIVE_PLACES, FEATURES);
+  return layoutScenery(SCENERY_SEED, NETWORK, ACTIVE_PLACES, FEATURES, { zones: ZONES, landmarks: LANDMARKS });
 }

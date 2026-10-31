@@ -6,6 +6,10 @@ import { footprintOf, layoutScenery, type BuildingPlacement, type Placement, typ
 import { drivable } from "./network";
 import { placeSpot } from "./places";
 import { roadFeatures } from "./roadside";
+import { LANDMARKS } from "../data/landmarks-v1";
+import { ZONES } from "../data/zones-v1";
+import { FEATURES, NETWORK, ACTIVE_PLACES } from "../world";
+import { zoneKindAt } from "./zones";
 
 const N = NETWORK_V1;
 const SEED = 20261030;
@@ -91,5 +95,37 @@ describe("isGroundFree", () => {
 
   it("is true on open ground well away from any road", () => {
     expect(layout.isGroundFree(200, 120, 1)).toBe(true);
+  });
+});
+
+describe("layoutScenery by zone (the big world)", () => {
+  const big = layoutScenery(SEED, NETWORK, ACTIVE_PLACES, FEATURES, { zones: ZONES, landmarks: LANDMARKS });
+
+  it("builds the city: catalogue buildings, none in the village", () => {
+    const city = big.placements.filter((p) => p.kind === "city");
+    expect(city.length).toBeGreaterThan(100);
+    for (const p of city) expect(p.x, `city building at ${p.x},${p.z}`).toBeGreaterThan(1000);
+  });
+
+  it("keeps houses and shops (with walls and gates) to the village", () => {
+    for (const p of big.placements) {
+      if (p.kind === "house" || p.kind === "shop" || p.kind === "wall" || p.kind === "gate") expect(p.x, p.kind).toBeLessThan(1000);
+    }
+  });
+
+  it("puts nothing in the lake or the countryside", () => {
+    for (const p of big.placements) expect(["lake", "hills"], `${p.kind} at ${p.x},${p.z}`).not.toContain(zoneKindAt(p.x, p.z));
+  });
+
+  it("puts nothing on the lake side of Dam Road", () => {
+    for (const p of big.placements) if (p.z < -150 && p.x > 100 && p.x < 1300) throw new Error(`${p.kind} at ${p.x},${p.z}`);
+  });
+
+  it("includes every landmark", () => {
+    for (const l of LANDMARKS) expect(big.placements.some((p) => p.kind === "landmark" && p.place === l.place), l.place).toBe(true);
+  });
+
+  it("is deterministic", () => {
+    expect(layoutScenery(SEED, NETWORK, ACTIVE_PLACES, FEATURES, { zones: ZONES, landmarks: LANDMARKS }).placements).toEqual(big.placements);
   });
 });
