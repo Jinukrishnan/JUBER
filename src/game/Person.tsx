@@ -195,7 +195,8 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
               </>
             )}
           </>
-        )}        {outfit === "churidhar" && (
+        )}
+        {outfit === "churidhar" && (
           <mesh position={[0, 0.85, 0]}>
             <cylinderGeometry args={[0.2, 0.26, 0.62, 12]} />
             <Cloth color={top} />
@@ -205,7 +206,7 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
         {/* torso: a short blouse over a bare midriff for a sari, else a full top */}
         {outfit === "sari" ? (
           <>
-            <mesh position={[0, 1.04, 0]}>
+            <mesh position={[0, 1.03, 0]}>
               <cylinderGeometry args={[0.17, 0.18, 0.12, 12]} />
               <meshStandardMaterial color={skin} />
             </mesh>
@@ -213,7 +214,7 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
               <cylinderGeometry args={[0.2, 0.18, 0.4, 12]} />
               <Cloth color={top} />
             </mesh>
-            <mesh position={[0, 1.07, 0.18]}>
+            <mesh position={[0, 1.02, 0.172]}>
               <boxGeometry args={[0.05, 0.05, 0.01]} />
               <meshStandardMaterial color="#8a5a3c" />
             </mesh>
@@ -232,7 +233,7 @@ export const Person = memo(function Person({ spec, phase }: { spec: PersonSpec; 
           </mesh>
         )}
         {(outfit === "school-boy" || outfit === "school-girl") && (
-          <mesh position={[0, 1.2, 0.2]}>
+          <mesh position={[0, 1.2, outfit === "school-girl" ? 0.225 : 0.2]}>
             <boxGeometry args={[0.05, 0.28, 0.02]} />
             <meshStandardMaterial color="#8c1d2c" />
           </mesh>

@@ -416,3 +416,17 @@ describe("a player beside a road is not on it", () => {
     expect(a.road).toBe("ew");
   });
 });
+
+describe("a long vehicle on green is not held up by a short one waiting at red", () => {
+  it("a bus at its stop line turns onto the exit a car on the red cross road is also waiting for", () => {
+    const sC = sOn("ns", "centre");
+    const sEw = sOn("ew", "centre");
+    const bus = mk({ kind: "bus", road: "ns", dir: -1, s: sC + 15 + 5.5 + 1.5, speed: 0, cruise: 7, next: { junction: "centre", exitRoad: "ew", exitDir: -1, turn: "left" } });
+    // a car at the red stop line of Temple Road westbound, going straight on onto the same exit
+    const car = mk({ road: "ew", dir: -1, s: sEw + 15 + 2.2 + 1.5, speed: 0, next: { junction: "centre", exitRoad: "ew", exitDir: -1, turn: "straight" } });
+    const tGreen = timeOf("centre", "cross", "green");
+    run([bus, car], 12, FAR, tGreen);
+    expect(car.waiting).toBe(true);
+    expect(bus.turns).toBe(1);
+  });
+});

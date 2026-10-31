@@ -70,7 +70,6 @@ function lap(seed: number) {
     const player: Player = { x: s.x, z: s.z, heading: s.heading, speed: s.speed, length: spec.length, width: spec.width };
     hits += stepTraffic(N, traffic, dt, t, player).hits.length;
   }
-  if (wi < way.length) console.log("STUCK at", s.x.toFixed(0), s.z.toFixed(0), "speed", s.speed.toFixed(1), "wi", wi, traffic.filter((a)=>Math.hypot(agentPose(N,a).x-s.x,agentPose(N,a).z-s.z)<30).map((a)=>[a.kind,a.road,a.dir,Math.round(a.s),a.speed.toFixed(1),a.waiting,a.hold].join(":")).join(" | "));
   return { finished: wi >= way.length, hits, edge: worstEdge, t, traffic };
 }
 
