@@ -7,6 +7,7 @@ import { loadProfile } from "@/lib/profile";
 import { DaySummary } from "@/ui/DaySummary";
 import { Hud } from "@/ui/Hud";
 import { PauseMenu } from "@/ui/PauseMenu";
+import { RotatePrompt } from "@/ui/RotatePrompt";
 import GameCanvas from "@/game/GameCanvas";
 
 function hasWebGL(): boolean {
@@ -34,16 +35,12 @@ export default function PlayGate() {
   const router = useRouter();
   const [profile] = useState(() => loadProfile());
   const [webgl] = useState(hasWebGL);
-  const [touchOnly] = useState(() => window.matchMedia("(pointer: coarse)").matches);
 
   useEffect(() => {
     if (!profile) router.replace("/login");
   }, [profile, router]);
 
   if (!profile) return null;
-  if (touchOnly) {
-    return <Message title="Best on desktop" body="Aanawadi needs a keyboard to drive. Open it on a computer to play." />;
-  }
   if (!webgl) {
     return <Message title="3D isn't available" body="Your browser or device doesn't support WebGL, which the game needs. Try another browser." />;
   }
@@ -54,6 +51,7 @@ export default function PlayGate() {
       <Hud />
       <PauseMenu />
       <DaySummary />
+      <RotatePrompt />
     </div>
   );
 }

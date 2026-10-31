@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Malayalam } from "next/font/google";
 import { APP_NAME } from "@/game/constants";
 import "./globals.css";
@@ -22,6 +22,16 @@ const malayalam = Noto_Sans_Malayalam({
 export const metadata: Metadata = {
   title: `${APP_NAME} — drive the ride`,
   description: "A 3D Kerala ride-hailing game. Drive a bike, auto or car, pick up customers and reach the daily goal.",
+};
+
+// the whole display, notch included (the touch pad keeps clear of it), and no pinch or double-tap zoom while driving
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#09090b",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

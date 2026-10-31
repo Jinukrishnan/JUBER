@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useGame } from "@/game/state/store";
 import { releaseTouch, touchInput } from "@/game/touchInput";
 import { TouchControls } from "./TouchControls";
@@ -51,6 +51,18 @@ describe("TouchControls", () => {
     fireEvent.click(screen.getByLabelText("Pause"));
     expect(useGame.getState().phase).toBe("paused");
     expect(touchInput.horn).toBe(false);
+  });
+
+  it("has a full screen button only where the browser can do full screen", () => {
+    const { unmount } = render(<TouchControls />);
+    expect(screen.queryByLabelText("Full screen")).toBeNull();
+    unmount();
+    document.documentElement.requestFullscreen = vi.fn(async () => {});
+    Object.defineProperty(document, "fullscreenEnabled", { configurable: true, value: true });
+    render(<TouchControls />);
+    fireEvent.click(screen.getByLabelText("Full screen"));
+    expect(document.documentElement.requestFullscreen).toHaveBeenCalled();
+    delete (document.documentElement as unknown as Record<string, unknown>).requestFullscreen;
   });
 
   it("is hidden from 1024 px up", () => {
