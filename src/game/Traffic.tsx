@@ -4,7 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Group } from "three";
 import { busPose } from "./busPose";
-import { PLACES } from "./data/places-v1";
+import { PLACES_V2 } from "./data/places-v2";
 import { agentPose, createTraffic, inRange, liveTraffic, stepTraffic, shout, type Agent } from "./logic/traffic";
 import { placeSpot } from "./logic/places";
 import { Auto } from "./models/Auto";
@@ -62,7 +62,7 @@ export function Traffic() {
   const dayId = useGame((s) => s.dayId);
   const phase = useGame((s) => s.phase);
   const agents = useMemo(() => {
-    const depot = placeSpot(NETWORK, PLACES.find((p) => p.id === "depot")!);
+    const depot = placeSpot(NETWORK, PLACES_V2.find((p) => p.id === "depot")!);
     return createTraffic(NETWORK, SEED + dayId, depot);
   }, [dayId]);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);

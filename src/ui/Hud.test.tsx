@@ -22,7 +22,7 @@ describe("Hud", () => {
   it("shows the goal of the chosen vehicle", () => {
     useGame.getState().startDay("bike");
     render(<Hud />);
-    expect(screen.getByText(/Goal Rs. 500/)).toBeInTheDocument();
+    expect(screen.getByText(/Goal Rs. 600/)).toBeInTheDocument();
     expect(screen.getByText("0 / 1")).toBeInTheDocument();
   });
 

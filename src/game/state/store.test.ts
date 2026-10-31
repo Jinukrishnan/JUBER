@@ -374,12 +374,18 @@ describe("navigation route", () => {
     const r = first();
     g().accept(r.id);
     const before = g().route!;
-    const p = before.points[Math.floor(before.points.length / 2)];
-    g().setVehicleState({ x: p.x, z: p.z + 6, speed: 5 }); // still near the line
+    const i = Math.floor(before.points.length / 2);
+    const p = before.points[i];
+    const q = before.points[i + 1];
+    const len = Math.hypot(q.x - p.x, q.z - p.z);
+    const nx = -(q.z - p.z) / len; // sideways from the line, whichever way the road runs here
+    const nz = (q.x - p.x) / len;
+    g().setVehicleState({ x: p.x + nx * 6, z: p.z + nz * 6, speed: 5 }); // still near the line
     expect(g().route).toBe(before);
-    g().setVehicleState({ x: p.x, z: p.z + 40, speed: 5 }); // well off it
+    g().setVehicleState({ x: p.x + nx * 40, z: p.z + nz * 40, speed: 5 }); // well off it
     expect(g().route).not.toBe(before);
-    expect(g().route!.points[0].z).toBeCloseTo(p.z + 40);
+    expect(g().route!.points[0].x).toBeCloseTo(p.x + nx * 40);
+    expect(g().route!.points[0].z).toBeCloseTo(p.z + nz * 40);
   });
 });
 

@@ -40,7 +40,7 @@ export const VEHICLES: Record<VehicleKind, Vehicle> = {
     baseFare: 33,
     farePer100m: 12,
     rent: 100,
-    goal: 500,
+    goal: 600,
   },
   auto: {
     kind: "auto",

@@ -92,7 +92,7 @@ describe("inRange", () => {
 
 describe("the load of a full road", () => {
   it("steps all the vehicles of a busy town in a small fraction of a frame", () => {
-    const agents = createTraffic(N, 4, depot);
+    const agents = createTraffic(N, 4, depot, 45);
     const far = { x: 5000, z: 5000, heading: 0, speed: 0, length: 4.4, width: 1.8 };
     const t0 = performance.now();
     const frames = 600;

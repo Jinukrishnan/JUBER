@@ -6,9 +6,9 @@ import { Instances, type Item } from "./Instances";
 import { nearest } from "./logic/network";
 import { NETWORK } from "./world";
 
-// the middle of the map: the ring runs (0,0)-(800,500)
-const CX = 400;
-const CZ = 250;
+// the middle of the world: x 0..2400, z -760..900 (the village ring runs (0,0)-(800,500))
+const CX = 1200;
+const CZ = 70;
 
 const GRASS = {
   size: 256,
@@ -40,9 +40,9 @@ function build() {
   const bunds: Item[] = [];
   const hills: Item[] = [];
 
-  for (let i = 0; i < 140; i++) {
-    const x = CX - 700 + r() * 1400;
-    const z = CZ - 550 + r() * 1100;
+  for (let i = 0; i < 520; i++) {
+    const x = CX - 1500 + r() * 3000;
+    const z = CZ - 1000 + r() * 2000;
     // each patch a hair higher than the last so overlapping ones never flicker
     patches.push({
       x, y: -0.06 + i * 0.0004, z,
@@ -53,9 +53,10 @@ function build() {
 
   // rice paddies set well back from every road and outside the ring (the blocks inside
   // are kept clear for the town); some flooded
-  for (let i = 0, made = 0; i < 400 && made < 18; i++) {
-    const x = CX - 650 + r() * 1300;
-    const z = CZ - 520 + r() * 1040;
+  for (let i = 0, made = 0; i < 600 && made < 24; i++) {
+    // the village side only: west of the city, south of the lake
+    const x = -650 + r() * 1650;
+    const z = -140 + r() * 880;
     const w = 50 + r() * 70;
     const d = 30 + r() * 40;
     const insideRing = x > -60 - w / 2 && x < 860 + w / 2 && z > -60 - d / 2 && z < 560 + d / 2;
@@ -72,13 +73,13 @@ function build() {
   }
 
   // a haze of low hills on the horizon, further ones paler
-  for (let i = 0; i < 44; i++) {
-    const far = 650 + r() * 250;
-    const a = (i / 44) * Math.PI * 2 + (r() - 0.5) * 0.1;
-    const x = CX + Math.cos(a) * (far + 200);
+  for (let i = 0; i < 90; i++) {
+    const far = 1500 + r() * 300;
+    const a = (i / 90) * Math.PI * 2 + (r() - 0.5) * 0.05;
+    const x = CX + Math.cos(a) * (far + 500);
     const z = CZ + Math.sin(a) * far;
     const h = 40 + r() * 70;
-    const t = (far - 650) / 250;
+    const t = (far - 1500) / 300;
     hills.push({
       x, y: 0, z,
       sx: 150 + r() * 160, sy: h, sz: 120 + r() * 100,
@@ -95,7 +96,7 @@ export function Ground() {
     <group>
       {/* base ground, large enough that its edge is lost in the haze */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[CX, -0.07, CZ]} receiveShadow>
-        <planeGeometry args={[6000, 5000]} />
+        <planeGeometry args={[9000, 8000]} />
         <meshStandardMaterial map={grass} />
       </mesh>
       <Instances items={g.patches}>

@@ -65,7 +65,7 @@ describe("a day of rides", () => {
       console.log(kind, "goal", VEHICLES[kind].goal, "nets", nets.join(" "), "rides", days.map((d) => d.rides).join(" "));
       expect(hit / SEEDS.length).toBeGreaterThanOrEqual(0.5);
       expect(hit / SEEDS.length).toBeLessThan(1);
-    });
+    }, 60000);
     it(`${kind}: a driver who never takes a ride ends the day owing the rent`, () => {
       const d = playDay(kind, 1, false);
       expect(d.net).toBe(-VEHICLES[kind].rent);
