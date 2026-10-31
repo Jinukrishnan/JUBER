@@ -148,6 +148,10 @@ The round radar in the top-right corner shows every road of the loop turning aro
 in its current colour, every place, and the route to follow (blue to the pickup, green to the drop). Press
 **Z** (or click the button) to zoom: 150 m, 400 m or 1 km.
 
+## The people
+
+Customers, pedestrians and drivers are dressed from `src/game/logic/people.ts`: women in saris (a contrasting blouse and a gold border, hair in a bun), churidhars or suits; men in shirts, formal wear, or a shirt and a bordered mundu; elders in white; boys and girls in school uniform (white shirt, navy trousers or pinafore, tie, plaits) or everyday clothes. `docs/design/people-cartoon-concept.html` shows every outfit from the front and the back (drawn by `src/ui/PersonArt.tsx`).
+
 ## Traffic
 
 You share the loop with 45 other vehicles (about 19 cars, 9 autos, 9 bikes and 7 buses; `TRAFFIC_COUNT` in `traffic.ts`), driving both ways on every road. They keep to the left lane,
