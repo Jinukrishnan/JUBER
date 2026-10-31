@@ -323,6 +323,7 @@ export function layoutScenery(
         let kind = pickKind(r, avoid);
         const spot = at(s, side, verge + 3);
         const here = zoneOf(spot.x, spot.z);
+        if (here === "park") continue; // the park lays out its own trees
         if (here === "city") {
           // street trees only, every second slot
           if (Math.round(slot / SLOT) % 2 !== 0) continue;
